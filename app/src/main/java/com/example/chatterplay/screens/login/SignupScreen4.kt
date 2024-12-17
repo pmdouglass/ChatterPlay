@@ -149,7 +149,7 @@ fun SignupScreen4(
                 IconButton(onClick = {
                                      pickImageLauncher.launch("image/*")
                     if (selectedUriImage == null){
-                        Log.d("examp", "Image selection was canceled")
+                        Log.d("Test Message", "Image selection was canceled")
                     }
                 },
                     modifier = Modifier
@@ -207,7 +207,7 @@ fun SignupScreen4(
                                 }
 
                             }else {
-                                Log.d("examp", "Error creating account: ${task.exception?.localizedMessage}")
+                                Log.d("Test Message", "Error creating account: ${task.exception?.localizedMessage}")
                             }
                         }
 

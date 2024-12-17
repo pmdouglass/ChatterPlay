@@ -111,6 +111,12 @@ import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 
 
+enum class RowState (val string: String){
+    none("nothing"),
+    follow("follow"),
+    check("check")
+}
+
 @Composable
 fun rememberProfileState(viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
     val personalState by viewModel.userProfile.collectAsState()
@@ -1901,18 +1907,6 @@ fun AnimatedDots(
             .width(70.dp)
     )
 }
-
-
-
-
-
-enum class RowState (val string: String){
-    none("nothing"),
-    follow("follow"),
-    check("check")
-}
-
-
 
 
 @Composable

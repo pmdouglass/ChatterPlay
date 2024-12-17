@@ -3,13 +3,11 @@ package com.example.chatterplay.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
@@ -28,8 +26,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.chatterplay.seperate_composables.BottomInputBar
-import com.example.chatterplay.seperate_composables.ChatBubbleMock
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
@@ -48,26 +44,27 @@ fun ChattingScreen(
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
-    val chatRoom by viewModel.chatRooms.collectAsState()
+    val chatRoom by viewModel.roomInfo.collectAsState()
     val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
     val membersCount by viewModel.chatRoomMembersCount.collectAsState()
 
-    LaunchedEffect(roomId) {
+    LaunchedEffect(CRRoomId, roomId) {
         viewModel.fetchChatMessages(roomId)
         viewModel.fetchChatRoomMembers(roomId)
-        viewModel.fetchChatRoomMemberCount(roomId)
+        viewModel.fetchSingleChatRoomMemberCount(roomId)
+        viewModel.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
     }
 
 
 
-    val currentRoom = chatRoom.find { it.roomId == roomId }
+    //val currentRoom = chatRoom.find { it.roomId == roomId }
     /*currentRoom?.let { room ->
     }*/
     Scaffold (
         topBar = {
             if (game){
                 MainTopAppBar(
-                    title = /*room.roomName*/ "Private Room Name",
+                    title = "Private Room Name",
                     action = true,
                     actionIcon = Icons.Default.Menu,
                     onAction = { /*TODO*/ },
@@ -76,15 +73,26 @@ fun ChattingScreen(
             } else {
                 CenterAlignedTopAppBar(
                     title = {
-                        Text(
-                            text = "Private Chat",
-                            style = CRAppTheme.typography.headingLarge,
-                        )
+                        if (membersCount == 2){
+                            chatRoomMembers?.firstOrNull()?.let {  member ->
+                                Text(
+                                    member.fname,
+                                    style = CRAppTheme.typography.headingLarge
+                                )
+                            }
+                        } else {
+                            chatRoom?.let { room ->
+                                Text(
+                                    room.roomName,
+                                    style = CRAppTheme.typography.headingLarge
+                                )
+                            }
+                        }
                             },
                     navigationIcon = {
                         IconButton(onClick = {navController.popBackStack()}) {
                             Icon(
-                                Icons.Default.ArrowBack,
+                                Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = null,
                                 Modifier
                                     .size(35.dp)

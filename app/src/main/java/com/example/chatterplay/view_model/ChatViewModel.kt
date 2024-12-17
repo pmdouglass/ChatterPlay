@@ -33,8 +33,10 @@ class ChatViewModel: ViewModel() {
     val chatRoomMembers: StateFlow<List<UserProfile>> get() = _chatRoomMembers
     private val _chatRoomMembersCount = MutableStateFlow<Int>(0)
     val chatRoomMembersCount: StateFlow<Int> get() = _chatRoomMembersCount
-    private val _chatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
-    val chatRooms: StateFlow<List<ChatRoom>>  = _chatRooms
+    private val _allChatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
+    val allChatRooms: StateFlow<List<ChatRoom>>  = _allChatRooms
+    private val _roomInfo = MutableStateFlow<ChatRoom?>(null)
+    val roomInfo: StateFlow<ChatRoom?> get() = _roomInfo
     private var isUnreadMessageCountFetched = false
     private val _unreadMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
     val unreadMessageCount: StateFlow<Map<String, Int>> = _unreadMessageCount
@@ -48,7 +50,7 @@ class ChatViewModel: ViewModel() {
             getUserProfile()
             getAllUsers()
             //getChatRoomsWithUnreadCount()
-            //getChatrooms()
+            //fetchAllChatRooms() // needs Improvements
         }
     }
 
@@ -138,24 +140,31 @@ class ChatViewModel: ViewModel() {
             _chatRoomMembers.value = members
         }
     }
-    fun fetchChatRoomMemberCount(roomId: String) {
+    fun fetchSingleChatRoomMemberCount(roomId: String) {
+        Log.d("Test Message", "Attempting - Fetchedsinglechatroommembercount")
         viewModelScope.launch {
-            val chatRoom = chatRepository.getChatRoom(roomId)
+            val chatRoom = chatRepository.getSingleChatRoom(roomId)
             _chatRoomMembersCount.value = chatRoom?.members?.size ?: 0
+            Log.d("Test Message", "Success - Fetchedsinglechatroommembercount")
         }
     }
     fun fetchUnreadMessageCount(){
-        Log.d("Time", "Inside Model unread count")
+        Log.d("Test Message", "Attempting - fetchunreadmessagecount")
+
         val currentUser = FirebaseAuth.getInstance().currentUser ?: return
         viewModelScope.launch {
-            val counts = chatRooms.value.associate { room ->
+            val counts = allChatRooms.value.associate { room ->
                 val count = chatRepository.getUnreadMessageCount(room.roomId, currentUser.uid)
                 room.roomId to count
             }
             _unreadMessageCount.value = counts
+            Log.d("Test Message", "Success - fetchunreadmessagecount")
+
         }
     }
-    private fun fetchChatRooms() {
+    private fun fetchAllChatRooms() {
+        Log.d("Test Message", "Attempting - fetchallchatrooms")
+
         val currentUser = FirebaseAuth.getInstance().currentUser
         currentUser?.let { user ->
             chatRepository.getChatRooms()
@@ -167,18 +176,29 @@ class ChatViewModel: ViewModel() {
                     }
 
                     if (snapshot != null) {
+                        Log.d("Test Message", "snapshot is not null")
                         val rooms = snapshot.documents.map { document ->
                             document.toObject(ChatRoom::class.java)!!
                         }.filter { room ->
                             !room.hiddenFor.contains(user.uid)
                         }.sortedBy { it.lastMessageTimestamp }  // Sort in descending order
-                        _chatRooms.value = rooms
+                        _allChatRooms.value = rooms
+                        Log.d("Test Message", "Success - fetchallchatrooms")
+
                         if (!isUnreadMessageCountFetched) {
                             fetchUnreadMessageCount()
                             isUnreadMessageCountFetched = true
+                            Log.d("Test Message", "Success - !isunreadmessagecountfetched")
+
                         }
                     }
                 }
+        }
+    }
+    fun getRoomInfo(CRRoomId: String, roomId: String){
+        viewModelScope.launch {
+            val roomInfo = chatRepository.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
+            _roomInfo.value = roomInfo
         }
     }
     fun sendMessage(roomId: String, message: String, game: Boolean){
@@ -197,6 +217,7 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
+
 
 
 

@@ -171,7 +171,6 @@ class ChatRepository {
 
     }
     suspend fun getChatRoomMembers(roomId: String): List<UserProfile> {
-        val currentUser = FirebaseAuth.getInstance().currentUser
         val chatRoomSnapshot = chatRoomsCollection.document(roomId).get().await()
         val chatRoom = chatRoomSnapshot.toObject(ChatRoom::class.java)
 
@@ -185,7 +184,7 @@ class ChatRepository {
             emptyList()
         }
     }
-    suspend fun getChatRoom(roomId: String): ChatRoom? {
+    suspend fun getSingleChatRoom(roomId: String): ChatRoom? {
         return try {
             val documentSnapshot = chatRoomsCollection.document(roomId).get().await()
             documentSnapshot.toObject(ChatRoom::class.java)
@@ -194,8 +193,34 @@ class ChatRepository {
             null
         }
     }
+
+    suspend fun getRoomInfo(CRRoomId: String, roomId: String): ChatRoom? {
+        if (CRRoomId == "0"){
+            return try {
+                val snapshot = chatRoomsCollection.document(roomId)
+                    .get()
+                    .await()
+                return snapshot.toObject(ChatRoom::class.java)
+            } catch (e: Exception){
+                null
+            }
+        } else {
+            return try {
+                val snapshot = CRGameRoomsCollection.document(CRRoomId)
+                    .collection("Private Chats")
+                    .document(roomId)
+                    .get()
+                    .await()
+                return snapshot.toObject(ChatRoom::class.java)
+            } catch (e: Exception){
+                null
+            }
+        }
+
+    }
+
     fun getChatRooms() = chatRoomsCollection
-    suspend fun getUnreadMessageCount(roomId: String, userId: String): Int {
+    suspend fun getUnreadMessageCount(roomId: String, userId: String): Int{
         Log.d("Time", "Inside repository unread Messages")
         val roomRef = chatRoomsCollection.document(roomId)
         val roomSnapshot = roomRef.get().await()
@@ -203,8 +228,8 @@ class ChatRepository {
         val lastSeenTimestamp = chatRoom?.lastSeenTimestamps?.get(userId) ?: Timestamp(0,0)
 
         val messagesSnapshot = roomRef.collection("messages")
-            .whereGreaterThan("timestamp", lastSeenTimestamp)
-            .whereNotEqualTo("senderId", userId)
+            //.whereGreaterThan("timestamp", lastSeenTimestamp)
+            //.whereNotEqualTo("senderId", userId)
             .get()
             .await()
 
