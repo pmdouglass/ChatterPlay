@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.seperate_composables.BottomInputBar
-import com.example.chatterplay.seperate_composables.ChatBubble
+import com.example.chatterplay.seperate_composables.ChatBubbleMock
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.PersonRow
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
@@ -88,9 +88,9 @@ fun MainScreen(navController: NavController) {
                             modifier = Modifier
                                 .fillMaxSize()
                         ) {
-                            ChatBubble(true, false)
+                            ChatBubbleMock(true, false)
                             Spacer(modifier = Modifier.height(25.dp))
-                            ChatBubble(true, true)
+                            ChatBubbleMock(true, true)
                             Spacer(modifier = Modifier.height(25.dp))
                         }
                     }

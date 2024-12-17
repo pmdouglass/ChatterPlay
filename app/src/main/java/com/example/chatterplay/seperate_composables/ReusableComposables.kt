@@ -21,8 +21,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -61,6 +69,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -76,6 +85,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -95,9 +105,17 @@ import com.example.chatterplay.view_model.ChatViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.chatterplay.data_class.DateOfBirth
+import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.formattedDayTimestamp
+import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 
+
+enum class RowState (val string: String){
+    none("nothing"),
+    follow("follow"),
+    check("check")
+}
 
 @Composable
 fun rememberProfileState(viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
@@ -1280,7 +1298,39 @@ fun PersonIcon(
 }
 
 @Composable
-fun ChatBubble(game: Boolean, isFromMe: Boolean = false) {
+fun UserProfileIcon(
+    chatMember: UserProfile,
+    imgSize: Int = 30,
+    txtSize: Int = 10,
+    game: Boolean,
+    self: Boolean,
+    navController: NavController
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .padding(10.dp)
+            .clickable { navController.navigate("profileScreen/${game}/${self}") }
+    ){
+        Image(
+            painter = painterResource(id = R.drawable.cool_neon),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(imgSize.dp)
+                .clip(CircleShape)
+        )
+        Text(
+            chatMember.fname,
+            fontSize = txtSize.sp
+        )
+
+    }
+}
+
+@Composable
+fun ChatBubbleMock(game: Boolean, isFromMe: Boolean = false) {
     Row (
         verticalAlignment = Alignment.Top,
         horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
@@ -2008,18 +2058,6 @@ fun AnimatedDots(
 }
 
 
-
-
-
-enum class RowState (val string: String){
-    none("nothing"),
-    follow("follow"),
-    check("check")
-}
-
-
-
-
 @Composable
 fun FriendInfoRow(
     user: UserProfile,
@@ -2102,6 +2140,214 @@ fun FriendInfoRow(
     }
 }
 
+@Composable
+fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
+    LazyRow (
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(10.dp)
+    ) {
+        items(chatRoomMembers) { member ->
+            UserProfileIcon(
+                chatMember = member,
+                game = game,
+                self = self,
+                imgSize = 50,
+                txtSize = 20,
+                navController = navController
+            )
+        }
+
+    }
+}
+@Composable
+fun ChatLazyColumn(
+    viewModel: ChatViewModel
+) {
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val messages by viewModel.messages.collectAsState()
+    val listState = rememberLazyListState()
+
+    val ScrollToBottom = remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size -1
+        }
+    }
+    if (ScrollToBottom.value){
+        LaunchedEffect(messages.size) {
+            if (messages.isNotEmpty()){
+                listState.animateScrollToItem(messages.size -1)
+            }
+
+        }
+    }
+
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.Bottom,
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        itemsIndexed(messages) { index, message ->
+            val previousMessage = if(index >0) messages[index - 1] else null
+            ChatBubble(
+                message = message,
+                isFromMe = message.senderId == currentUser?.uid,
+                previousMessage = previousMessage
+            )
+        }
+        item {
+            Row (
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ){
+                Text(
+                    "Sending as",
+                    modifier = Modifier.padding(end = 10.dp)
+                )
+                Image(
+                    painter = rememberAsyncImagePainter(model = R.drawable.anonymous),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(15.dp)
+                        .clip(CircleShape)
+                )
+                Text(
+                    personalProfile.fname,
+                    modifier = Modifier.padding(start = 10.dp)
+                )
+            }
+        }
+    }
+
+}
+@Composable
+fun ChatBubble(message: ChatMessage, isFromMe: Boolean, previousMessage: ChatMessage?) {
+    val borderRad = 30.dp
+    val showProfileImage = previousMessage?.senderId != message.senderId
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
+    ) {
+        // ---------------- if left than members picture
+        if (!isFromMe && showProfileImage) {
+            Image(
+                painter = rememberAsyncImagePainter(model = R.drawable.anonymous),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        } else{
+            Image(
+                painter = rememberAsyncImagePainter(model = ""),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Column (
+            horizontalAlignment = if(isFromMe)Alignment.End else Alignment.Start
+        ){
+            //----------------- name and time
+            Row(
+                horizontalArrangement = if (!isFromMe) Arrangement.Start else Arrangement.End,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ) {
+                if (!isFromMe && showProfileImage) {
+                    Text(
+                        text = message.senderName,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
+                if (showProfileImage){
+                    Text(formattedDayTimestamp(message.timestamp), fontWeight = FontWeight.Light)
+                }
+
+            }
+            //--------------------------- Text Message
+            Row(
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier
+                    .widthIn(max = 260.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = if (!isFromMe) 0.dp else borderRad,
+                            topEnd = if (!isFromMe) borderRad else 0.dp,
+                            bottomStart = borderRad,
+                            bottomEnd = borderRad
+                        )
+                    )
+                    .background(if (!isFromMe) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.onBackground)
+                    .padding(10.dp),
+
+                ) {
+
+                Text(
+                    text = message.message,
+                    color = Color.Black,
+                    lineHeight = 23.sp,
+                    letterSpacing = 1.sp
+                )
+
+            }
+        }
+    }
+
+}
+@Composable
+fun ChatInput(viewModel: ChatViewModel, roomId: String) {
+    var input by remember { mutableStateOf("") }
+
+    fun send(){
+        if (input.isNotBlank()) {
+            viewModel.sendMessage(roomId = roomId, message = input, game = false)
+            input = ""
+        }
+    }
+
+    Row(modifier = Modifier
+        .fillMaxWidth()
+        .background(Color.White)
+        .clip(CircleShape)) {
+
+        TextField(
+            value = input,
+            onValueChange = { input = it },
+            modifier = Modifier
+                .weight(1f)
+                .background(Color.White),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                send()
+            }),
+        )
+        IconButton(onClick = {
+            send()
+        }) {
+            Icon(Icons.Default.Send, contentDescription = "")
+        }
+
+    }
+
+}
 
 @Preview(name = "Light Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO)
 @RequiresApi(Build.VERSION_CODES.O)

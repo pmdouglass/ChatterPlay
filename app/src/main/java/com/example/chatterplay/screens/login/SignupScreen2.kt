@@ -276,7 +276,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
 
                 if (!game) {
                     if (year.isBlank() || month.isBlank() || day.isBlank()){
-                        Log.d("examp", "year, month, day is blank")
+                        Log.d("Test Message", "year, month, day is blank")
                         showPopUp = true
                         return@Button
                     }
@@ -293,7 +293,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
                     ageInt?.let {
                         val calYear = CalculateAgeToDate(ageInt)
                         if (calYear.isNullOrBlank()){
-                            Log.d("examp", "calYear is null or blank")
+                            Log.d("Test Message", "calYear is null or blank")
                             showPopUp = true
                             return@Button
                         }

@@ -1,19 +1,13 @@
 package com.example.chatterplay.screens
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
@@ -24,19 +18,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.chatterplay.R
-import com.example.chatterplay.seperate_composables.BottomInputBar
-import com.example.chatterplay.seperate_composables.ChatBubble
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.seperate_composables.AllMembersRow
+import com.example.chatterplay.seperate_composables.ChatInput
+import com.example.chatterplay.seperate_composables.ChatLazyColumn
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
@@ -46,16 +39,32 @@ import com.example.chatterplay.view_model.ChatViewModel
 @Composable
 fun ChattingScreen(
     game: Boolean,
+    CRRoomId: String,
     roomId: String,
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
+    val chatRoom by viewModel.roomInfo.collectAsState()
+    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
+    val membersCount by viewModel.chatRoomMembersCount.collectAsState()
 
+    LaunchedEffect(CRRoomId, roomId) {
+        viewModel.fetchChatMessages(roomId)
+        viewModel.fetchChatRoomMembers(roomId)
+        viewModel.fetchSingleChatRoomMemberCount(roomId)
+        viewModel.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
+    }
+
+
+
+    //val currentRoom = chatRoom.find { it.roomId == roomId }
+    /*currentRoom?.let { room ->
+    }*/
     Scaffold (
         topBar = {
             if (game){
                 MainTopAppBar(
-                    title = "Private Chat",
+                    title = "Private Room Name",
                     action = true,
                     actionIcon = Icons.Default.Menu,
                     onAction = { /*TODO*/ },
@@ -64,14 +73,26 @@ fun ChattingScreen(
             } else {
                 CenterAlignedTopAppBar(
                     title = {
-                        Text(
-                            text = "Private Chat",
-                            style = CRAppTheme.typography.headingLarge,
-                            ) },
+                        if (membersCount == 2){
+                            chatRoomMembers?.firstOrNull()?.let {  member ->
+                                Text(
+                                    member.fname,
+                                    style = CRAppTheme.typography.headingLarge
+                                )
+                            }
+                        } else {
+                            chatRoom?.let { room ->
+                                Text(
+                                    room.roomName,
+                                    style = CRAppTheme.typography.headingLarge
+                                )
+                            }
+                        }
+                            },
                     navigationIcon = {
                         IconButton(onClick = {navController.popBackStack()}) {
                             Icon(
-                                Icons.Default.ArrowBack,
+                                Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = null,
                                 Modifier
                                     .size(35.dp)
@@ -86,7 +107,7 @@ fun ChattingScreen(
             }
         },
         bottomBar = {
-            BottomInputBar()
+            ChatInput(viewModel = viewModel, roomId = roomId )
         }
     ){paddingValues ->
         Column (
@@ -97,38 +118,23 @@ fun ChattingScreen(
                 )
                 .padding(paddingValues)
         ){
-            Row(
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                modifier = Modifier.fillMaxWidth()
-            ){
-                Column (
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.cool_neon),
-                        contentDescription = "",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                    )
-                    Text (
-                        "Anthony",
-                        style = CRAppTheme.typography.titleSmall
-                    )
-                }
-            }
+            AllMembersRow(
+                chatRoomMembers = chatRoomMembers,
+                game = game,
+                self = false,
+                navController = navController
+            )
             Divider()
+
+
+
+
             Column (
                 verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatBubble(game, false)
-                Spacer(modifier = Modifier.height(25.dp))
-                ChatBubble(game, true)
-                Spacer(modifier = Modifier.height(25.dp))
+                ChatLazyColumn(viewModel = viewModel)
 
             }
 
@@ -141,6 +147,6 @@ fun ChattingScreen(
 @Composable
 fun TestChattingScreen() {
     CRAppTheme {
-        ChattingScreen(game = true , roomId = "", navController = rememberNavController())
+        ChattingScreen(game = true , CRRoomId = "0", roomId = "", navController = rememberNavController())
     }
 }

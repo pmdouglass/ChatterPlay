@@ -1,10 +1,15 @@
 package com.example.chatterplay.repository
 
 import android.net.Uri
+import android.util.Log
+import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
+import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 
@@ -147,6 +152,102 @@ class ChatRepository {
                 .document(roomId)
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         }
+    }
+    suspend fun getChatMessages(roomId: String, userId: String): List<ChatMessage> {
+        val roomSnapshot = chatRoomsCollection.document(roomId).get().await()
+        val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
+        val hiddenTimestamp = chatRoom.hiddenTimestamp[userId] ?: Timestamp(0,0)
+
+        val querySnapshot = chatRoomsCollection
+            .document(roomId)
+            .collection("messages")
+            .whereGreaterThan("timestamp", hiddenTimestamp)
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .get()
+            .await()
+        return querySnapshot.documents.map { document ->
+            document.toObject(ChatMessage::class.java)!!
+        }
+
+    }
+    suspend fun getChatRoomMembers(roomId: String): List<UserProfile> {
+        val chatRoomSnapshot = chatRoomsCollection.document(roomId).get().await()
+        val chatRoom = chatRoomSnapshot.toObject(ChatRoom::class.java)
+
+        return if (chatRoom != null) {
+            val userProfiles = chatRoom.members.map { memberId ->
+                val userSnapshot = usersCollection.document(memberId).get().await()
+                userSnapshot.toObject(UserProfile::class.java)
+            }
+            userProfiles.filterNotNull()
+        } else {
+            emptyList()
+        }
+    }
+    suspend fun getSingleChatRoom(roomId: String): ChatRoom? {
+        return try {
+            val documentSnapshot = chatRoomsCollection.document(roomId).get().await()
+            documentSnapshot.toObject(ChatRoom::class.java)
+        } catch (e: Exception){
+            e.printStackTrace()
+            null
+        }
+    }
+
+    suspend fun getRoomInfo(CRRoomId: String, roomId: String): ChatRoom? {
+        if (CRRoomId == "0"){
+            return try {
+                val snapshot = chatRoomsCollection.document(roomId)
+                    .get()
+                    .await()
+                return snapshot.toObject(ChatRoom::class.java)
+            } catch (e: Exception){
+                null
+            }
+        } else {
+            return try {
+                val snapshot = CRGameRoomsCollection.document(CRRoomId)
+                    .collection("Private Chats")
+                    .document(roomId)
+                    .get()
+                    .await()
+                return snapshot.toObject(ChatRoom::class.java)
+            } catch (e: Exception){
+                null
+            }
+        }
+
+    }
+
+    fun getChatRooms() = chatRoomsCollection
+    suspend fun getUnreadMessageCount(roomId: String, userId: String): Int{
+        Log.d("Time", "Inside repository unread Messages")
+        val roomRef = chatRoomsCollection.document(roomId)
+        val roomSnapshot = roomRef.get().await()
+        val chatRoom = roomSnapshot.toObject(ChatRoom::class.java)
+        val lastSeenTimestamp = chatRoom?.lastSeenTimestamps?.get(userId) ?: Timestamp(0,0)
+
+        val messagesSnapshot = roomRef.collection("messages")
+            //.whereGreaterThan("timestamp", lastSeenTimestamp)
+            //.whereNotEqualTo("senderId", userId)
+            .get()
+            .await()
+
+        return messagesSnapshot.size()
+    }
+    suspend fun sendMessage(roomId: String, chatMessage: ChatMessage) {
+        val roomRef = chatRoomsCollection.document(roomId)
+        val messageWithTimestamp = chatMessage.copy(timestamp = Timestamp.now())
+        firestore.runTransaction { transaction ->
+            transaction.set(roomRef.collection("messages").document(), messageWithTimestamp)
+            transaction.update(roomRef, mapOf(
+                "lastMessage" to chatMessage.message,
+                "lastMessageTimestamp" to messageWithTimestamp.timestamp,  // Ensure this field is updated
+                "lastProfile" to chatMessage.image,
+                "hiddenFor" to emptyList<String>(),
+                "hiddenTimestamp" to emptyMap<String, Timestamp>()
+            ))
+        }.await()
     }
 }
 
