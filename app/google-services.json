@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "165973571606",
+    "project_id": "chatterplay-dd0c3",
+    "storage_bucket": "chatterplay-dd0c3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165973571606:android:f66e39205ce56c5a9e1d37",
+        "android_client_info": {
+          "package_name": "com.example.chatrise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd3r_GEoa9_r2SoMvjdKrawyqnggveHOE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165973571606:android:9c1e2a15ad8c57859e1d37",
+        "android_client_info": {
+          "package_name": "com.example.chatterplay"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd3r_GEoa9_r2SoMvjdKrawyqnggveHOE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
