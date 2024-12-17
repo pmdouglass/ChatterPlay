@@ -1,0 +1,17 @@
+# Ignore Android Studio/IDE files
+*.iml
+.idea/
+.gradle/
+/local.properties
+
+# Ignore build output
+/build/
+/app/build/
+
+# Ignore dependency caches
+/captures/
+.externalNativeBuild/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
