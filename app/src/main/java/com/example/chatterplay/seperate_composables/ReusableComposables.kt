@@ -739,6 +739,155 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
 }
 
 @Composable
+fun RoomSelectionView(
+    membersCount: Int,
+
+
+
+    members: Int,
+    title: String,
+    who: String,
+    message: String,
+    time: String,
+    unread: Int,
+    game: Boolean,
+    navController: NavController
+) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 5.dp, bottom = 5.dp)
+            .clickable {
+                if (game) {
+                    navController.navigate("chatScreen/true")
+                } else {
+                    navController.navigate("chatScreen/false")
+                }
+            }
+    ){
+        Row (
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier
+                .fillMaxWidth()
+        ){
+            PrivateGroupPicThumbnail(game, memberCount = membersCount)
+            Spacer(modifier = Modifier.width(3.dp))
+            Column (
+                verticalArrangement = Arrangement.Top,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ){
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                ){
+                    if (membersCount <= 2){
+                        Text(
+                            who,
+                            style = CRAppTheme.typography.titleMedium,
+                            color = if (game) Color.White else Color.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                        )
+                    } else {
+                        Text(
+                            title,
+                            style = CRAppTheme.typography.titleMedium,
+                            color = if (game) Color.White else Color.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                        )
+                    }
+                    if (!game){
+                        Text(
+                            "10/12",
+                            style = CRAppTheme.typography.infoMedium,
+                            color = if (game) Color.White else Color.Black,
+                        )
+                        if (members >= 2){
+                            Text(
+                                time,
+                                style = CRAppTheme.typography.infoMedium,
+                                color = if (game) Color.White else Color.Black,
+                                modifier = Modifier
+                                    .padding(start = 10.dp, end = 5.dp)
+                            )
+                        }
+                    }
+                }
+                if (members >= 2){
+
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 5.dp)
+                    ){
+                        Image(
+                            painter = painterResource(id = R.drawable.cool_neon),
+                            contentDescription =null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(25.dp)
+                                .clip(CircleShape)
+                        )
+
+                        Text(
+                            who,
+                            style = CRAppTheme.typography.bodyLarge,
+                            color = if (game) Color.White else Color.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(start = 5.dp)
+                        )
+                        if (!game){
+                            Text(
+                                "$time",
+                                style = CRAppTheme.typography.infoMedium,
+                                color = if (game) Color.White else Color.Black,
+                                modifier = Modifier
+                                    .padding(end = 5.dp)
+                            )
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 5.dp)
+                ){
+                    Text(
+                        "$message",
+                        style = CRAppTheme.typography.bodySmall,
+                        color = if (game) Color.White else Color.Black,
+                        maxLines = 3,
+                        modifier = Modifier
+                            .weight(1f)
+                    )
+                    DynamicCircleBox(number = unread)
+                }
+            }
+        }
+        Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
+    }
+}
+
+@Composable
 fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAction: () -> Unit, navController: NavController) {
 
     val pad = 15
