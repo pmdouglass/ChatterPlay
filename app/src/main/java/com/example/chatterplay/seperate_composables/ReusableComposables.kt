@@ -2011,6 +2011,8 @@ fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boole
                 chatMember = member,
                 game = game,
                 self = self,
+                imgSize = 50,
+                txtSize = 20,
                 navController = navController
             )
         }
@@ -2061,18 +2063,20 @@ fun ChatLazyColumn(
                     .fillMaxWidth()
             ){
                 Text(
-                    "Sending as"
+                    "Sending as",
+                    modifier = Modifier.padding(end = 10.dp)
                 )
                 Image(
                     painter = rememberAsyncImagePainter(model = R.drawable.anonymous),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(15.dp)
                         .clip(CircleShape)
                 )
                 Text(
-                    personalProfile.fname
+                    personalProfile.fname,
+                    modifier = Modifier.padding(start = 10.dp)
                 )
             }
         }
@@ -2155,7 +2159,7 @@ fun ChatBubble(message: ChatMessage, isFromMe: Boolean, previousMessage: ChatMes
 
                 Text(
                     text = message.message,
-                    color = Color.White,
+                    color = Color.Black,
                     lineHeight = 23.sp,
                     letterSpacing = 1.sp
                 )

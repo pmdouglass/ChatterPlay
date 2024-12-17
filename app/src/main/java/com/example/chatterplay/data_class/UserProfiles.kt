@@ -20,9 +20,6 @@ data class UserProfile(
 data class DateOfBirth(
     val month: String = "",
     val day: String = "",
-    val year: String = "",
-){
-    val birthday: String
-        get() = "$month $day $year"
-}
+    val year: String = ""
+)
 

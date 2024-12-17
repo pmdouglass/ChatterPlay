@@ -43,6 +43,7 @@ import com.example.chatterplay.view_model.ChatViewModel
 @Composable
 fun ChattingScreen(
     game: Boolean,
+    CRRoomId: String,
     roomId: String,
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
@@ -60,74 +61,75 @@ fun ChattingScreen(
 
 
     val currentRoom = chatRoom.find { it.roomId == roomId }
-    currentRoom?.let { room ->
-        Scaffold (
-            topBar = {
-                if (game){
-                    MainTopAppBar(
-                        title = room.roomName,
-                        action = true,
-                        actionIcon = Icons.Default.Menu,
-                        onAction = { /*TODO*/ },
-                        navController = navController
-                    )
-                } else {
-                    CenterAlignedTopAppBar(
-                        title = {
-                            Text(
-                                text = "Private Chat",
-                                style = CRAppTheme.typography.headingLarge,
-                            ) },
-                        navigationIcon = {
-                            IconButton(onClick = {navController.popBackStack()}) {
-                                Icon(
-                                    Icons.Default.ArrowBack,
-                                    contentDescription = null,
-                                    Modifier
-                                        .size(35.dp)
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = CRAppTheme.colorScheme.onBackground
-                        )
-
-                    )
-                }
-            },
-            bottomBar = {
-                ChatInput(viewModel = viewModel, roomId = roomId )
-            }
-        ){paddingValues ->
-            Column (
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        if (game) CRAppTheme.colorScheme.gameBackground else CRAppTheme.colorScheme.background
-                    )
-                    .padding(paddingValues)
-            ){
-                AllMembersRow(
-                    chatRoomMembers = chatRoomMembers,
-                    game = game,
-                    self = false,
+    /*currentRoom?.let { room ->
+    }*/
+    Scaffold (
+        topBar = {
+            if (game){
+                MainTopAppBar(
+                    title = /*room.roomName*/ "Private Room Name",
+                    action = true,
+                    actionIcon = Icons.Default.Menu,
+                    onAction = { /*TODO*/ },
                     navController = navController
                 )
-                Divider()
+            } else {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(
+                            text = "Private Chat",
+                            style = CRAppTheme.typography.headingLarge,
+                        )
+                            },
+                    navigationIcon = {
+                        IconButton(onClick = {navController.popBackStack()}) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = null,
+                                Modifier
+                                    .size(35.dp)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = CRAppTheme.colorScheme.onBackground
+                    )
+
+                )
+            }
+        },
+        bottomBar = {
+            ChatInput(viewModel = viewModel, roomId = roomId )
+        }
+    ){paddingValues ->
+        Column (
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    if (game) CRAppTheme.colorScheme.gameBackground else CRAppTheme.colorScheme.background
+                )
+                .padding(paddingValues)
+        ){
+            AllMembersRow(
+                chatRoomMembers = chatRoomMembers,
+                game = game,
+                self = false,
+                navController = navController
+            )
+            Divider()
 
 
 
 
-                Column (
-                    verticalArrangement = Arrangement.Bottom,
-                    modifier = Modifier
-                        .fillMaxSize()
-                ) {
-                    ChatLazyColumn(viewModel = viewModel)
-
-                }
+            Column (
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                ChatLazyColumn(viewModel = viewModel)
 
             }
+
         }
     }
 }
@@ -137,6 +139,6 @@ fun ChattingScreen(
 @Composable
 fun TestChattingScreen() {
     CRAppTheme {
-        ChattingScreen(game = true , roomId = "", navController = rememberNavController())
+        ChattingScreen(game = true , CRRoomId = "0", roomId = "", navController = rememberNavController())
     }
 }

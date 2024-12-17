@@ -144,9 +144,9 @@ import com.google.firebase.auth.FirebaseAuth
                                             memberIds = selectedUsers.map { it.userId },
                                             roomName = theRoomName
                                         ){ roomId ->
-                                            navController.navigate("chatScreen/$roomId/true"){
+                                            navController.navigate("chatScreen/$CRRoomId/$roomId/true")/*{
                                                 popUpTo("inviteScreen/$CRRoomId/true") {inclusive = true}
-                                            }
+                                            }*/
                                         }
                                     } else{
                                         viewModel.createAndInviteToChatRoom(
@@ -154,9 +154,9 @@ import com.google.firebase.auth.FirebaseAuth
                                             memberIds = selectedUsers.map { it.userId },
                                             roomName = theRoomName
                                         ){ roomId ->
-                                            navController.navigate("chatScreen/$roomId/false"){
+                                            navController.navigate("chatScreen/$CRRoomId/$roomId/false")/*{
                                                 popUpTo("inviteScreen/$CRRoomId/false") {inclusive = true}
-                                            }
+                                            }*/
                                         }
                                     }
                                 }
