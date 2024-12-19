@@ -96,6 +96,11 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore:25.0.0")
     implementation("com.google.firebase:firebase-bom:33.1.0")
 
+    // Supabase libraries
+
+
+
+
     // Accompanist libraries
     implementation ("com.google.accompanist:accompanist-permissions:0.28.0")
     implementation ("com.google.accompanist:accompanist-pager:0.28.0")
