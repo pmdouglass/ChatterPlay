@@ -1418,6 +1418,7 @@ fun EditInfoDialog(
     edit: String,
     userData: String,
     userProfile: UserProfile,
+    game: Boolean,
     onDismiss: () -> Unit,
     viewModel: ChatViewModel = viewModel()
 ) {
@@ -1426,30 +1427,42 @@ fun EditInfoDialog(
     var editFname by remember { mutableStateOf(userProfile.fname)}
     var editLname by remember { mutableStateOf(userProfile.lname)}
     var editAbout by remember{ mutableStateOf(userProfile.about)}
+    var editGender by remember{ mutableStateOf("")}
+    var editInfo by remember { mutableStateOf(userData)}
 
     var currentPassword by remember{ mutableStateOf("")}
     var newPassword by remember { mutableStateOf("")}
-    var editInfo by remember { mutableStateOf(userData)}
+
     var passwordVisible by remember { mutableStateOf(false)}
 
     var manSelect by remember { mutableStateOf(false)}
     var womanSelect by remember { mutableStateOf(false)}
     var otherSelect by remember { mutableStateOf(false)}
-    when (personalProfile.gender) {
+    when (userProfile.gender) {
         "Man" -> {
             manSelect = true
             womanSelect = false
             otherSelect = false
+            editGender = "Man"
         }
         "Woman" -> {
             manSelect = false
             womanSelect = true
             otherSelect = false
+            editGender = "Woman"
         }
         else -> {
             manSelect = false
             womanSelect = false
             otherSelect = true
+            editGender = editInfo
+        }
+    }
+    if (edit == "Gender"){
+        if (userProfile.gender != "Man" && userProfile.gender != "Woman"){
+            editInfo = userProfile.gender
+        }else{
+            editInfo = ""
         }
     }
 
@@ -1492,6 +1505,7 @@ fun EditInfoDialog(
                                   manSelect = true
                                   womanSelect = false
                                   otherSelect = false
+                                  editGender = "Man"
                               }
                       )
 
@@ -1509,6 +1523,7 @@ fun EditInfoDialog(
                                   manSelect = false
                                   womanSelect = true
                                   otherSelect = false
+                                  editGender = "Woman"
                               }
                       )
 
@@ -1528,6 +1543,7 @@ fun EditInfoDialog(
                               manSelect = false
                               womanSelect = false
                               otherSelect = true
+                              editGender = editInfo
                           }
                   )
               }
@@ -1642,33 +1658,52 @@ fun EditInfoDialog(
                               .border(
                                   2.dp,
                                   Color.LightGray,
-                                  RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                                  if (game){
+                                      RoundedCornerShape(8.dp)
+                                  }else {
+                                      RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                                  }
                               )
-                              .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                      )
-                      TextField(
-                          value = editLname,
-                          onValueChange = {editLname = it},
-                          placeholder = {Text("Last Name")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
-                              focusedIndicatorColor = Color.Transparent,
-                              unfocusedIndicatorColor = Color.Transparent
-                          ),
-                          modifier = Modifier
-                              .fillMaxWidth()
-                              .border(
-                                  2.dp,
-                                  Color.LightGray,
-                                  RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
+                              .clip(
+                                  if (game){
+                                      RoundedCornerShape(8.dp)
+                                  }else {
+                                      RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                                  }
                               )
-                              .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
                       )
+                      if (!game){
+                          TextField(
+                              value = editLname,
+                              onValueChange = {editLname = it},
+                              placeholder = {Text("Last Name")},
+                              colors = TextFieldDefaults.textFieldColors(
+                                  containerColor = Color.White,
+                                  focusedIndicatorColor = Color.Transparent,
+                                  unfocusedIndicatorColor = Color.Transparent
+                              ),
+                              modifier = Modifier
+                                  .fillMaxWidth()
+                                  .border(
+                                      2.dp,
+                                      Color.LightGray,
+                                      RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
+                                  )
+                                  .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                          )
+                      }
                   }
                   "Email", "Gender", "Play" -> {
                       TextField(
                           value = editInfo,
-                          onValueChange = {editInfo = it},
+                          onValueChange = {
+                              editInfo = it
+                              if (edit == "Gender"){
+                                  manSelect = false
+                                  womanSelect = false
+                                  otherSelect = true
+                              }
+                                          },
                           placeholder = {
                               Text(
                                   when (edit) {
@@ -1702,6 +1737,7 @@ fun EditInfoDialog(
                                   manSelect = false
                                   womanSelect = false
                                   otherSelect = true
+                                  editGender = editInfo
                               }
                       )
                   }
@@ -1770,9 +1806,21 @@ fun EditInfoDialog(
                               "About" -> {
                                   userProfile.copy(about = editAbout)
                               }
+                              "Gender" -> {
+                                  if (otherSelect == true){
+                                      if (editInfo == ""){
+                                          editInfo = "Non Binary"
+                                          userProfile.copy(gender = editInfo)
+                                      }else{
+                                          userProfile.copy(gender = editInfo)
+                                      }
+                                  } else {
+                                      userProfile.copy(gender = editGender)
+                                  }
+                              }
                               else -> { userProfile }
                           }
-                          viewModel.saveUserProfile(userId, saveChangedProfile, false)
+                          viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
                           onDismiss()
 
                       },

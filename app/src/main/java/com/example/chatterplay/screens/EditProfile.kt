@@ -71,6 +71,7 @@ fun EditProfileScreen(
     var selectedTabIndex by remember { mutableStateOf(0)}
     val scrollState = rememberScrollState()
     var showEditInfo by remember { mutableStateOf(false)}
+    var showGameEditInfo by remember { mutableStateOf(false)}
     var showEdit by remember { mutableStateOf(false)}
 
     var titleEdit by remember{ mutableStateOf("")}
@@ -191,13 +192,13 @@ fun EditProfileScreen(
 
                             }
                         } else {
-                            SettingsInfoRow(game = true, title = "Profile Picture", body = "", Image = true, imagePic = R.drawable.cool_neon, onClick = { showEditInfo = true; titleEdit = "Picture" })
-                            SettingsInfoRow(game = true, Edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showEditInfo = true; titleEdit = "Name" })
-                            SettingsInfoRow(game = true, Bio = true, title = "About", body = alternateProfile.about, onClick = { showEditInfo = true; titleEdit = "About" })
-                            SettingsInfoRow(game = true, Edit = true, title = "Gender", body = alternateProfile.gender, onClick = { showEditInfo = true; titleEdit = "Gender" })
-                            SettingsInfoRow(game = true, Edit = true, editClick = false, title = "Date of Birth", body = "${alternateProfile.dob.month}-${alternateProfile.dob.day}-${alternateProfile.dob.year}", onClick = { showEditInfo = true; titleEdit = "Date of Birth" })
-                            SettingsInfoRow(game = true, Edit = true, title = "Age", body = alternateProfile.age , onClick = { showEditInfo = true; titleEdit = "Age" })
-                            SettingsInfoRow(game = true, Edit = true, title = "Location", body = alternateProfile.location , onClick = { showEditInfo = true; titleEdit = "Location" })
+                            SettingsInfoRow(game = true, title = "Profile Picture", body = "", Image = true, imagePic = R.drawable.cool_neon, onClick = { showGameEditInfo = true; titleEdit = "Picture" })
+                            SettingsInfoRow(game = true, Edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showGameEditInfo = true; titleEdit = "Name" })
+                            SettingsInfoRow(game = true, Bio = true, title = "About", body = alternateProfile.about, onClick = { showGameEditInfo = true; titleEdit = "About" })
+                            SettingsInfoRow(game = true, Edit = true, title = "Gender", body = alternateProfile.gender, onClick = { showGameEditInfo = true; titleEdit = "Gender" })
+                            SettingsInfoRow(game = true, Edit = true, editClick = false, title = "Date of Birth", body = "${alternateProfile.dob.month}-${alternateProfile.dob.day}-${alternateProfile.dob.year}", onClick = { showGameEditInfo = true; titleEdit = "Date of Birth" })
+                            SettingsInfoRow(game = true, Edit = true, title = "Age", body = alternateProfile.age , onClick = { showGameEditInfo = true; titleEdit = "Age" })
+                            SettingsInfoRow(game = true, Edit = true, title = "Location", body = alternateProfile.location , onClick = { showGameEditInfo = true; titleEdit = "Location" })
                         }
                     }
                     else -> {
@@ -212,13 +213,17 @@ fun EditProfileScreen(
                     edit = titleEdit,
                     userProfile = personalProfile,
                     userData = "",
+                    game = false,
                     onDismiss = { showEditInfo = false }
                 )
             }
-            if (showEdit){
-                EditFirstNameDialog(
-                    userProfile = personalProfile,
-                    onDismiss = {showEdit = false}
+            if (showGameEditInfo){
+                EditInfoDialog(
+                    edit = titleEdit,
+                    userProfile = alternateProfile,
+                    userData = "",
+                    game = true,
+                    onDismiss = {showGameEditInfo = false}
                 )
             }
         }
@@ -292,6 +297,7 @@ fun EditPersonalInfo(
                     edit = titleEdit,
                     userProfile = personalProfile,
                     userData = "",
+                    game = false,
                     onDismiss = { showEditInfo = false },
                 )
             }
