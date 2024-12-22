@@ -43,6 +43,22 @@ import com.example.chatterplay.ui.theme.CRAppTheme
 import java.time.LocalDate
 
 
+
+@RequiresApi(Build.VERSION_CODES.O)
+fun CalculateAgeToDate(AgeInt: Int): String{
+    val today = LocalDate.now()
+    val year = today.minusYears(AgeInt.toLong()).year
+
+    return year.toString()
+}
+@RequiresApi(Build.VERSION_CODES.O)
+fun CalculateBDtoAge(yearDate: String): Int{
+    val today = LocalDate.now()
+    var age = today.year - yearDate.toInt()
+    return age
+
+}
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun SignupScreen2(email: String, password: String, navController: NavController, game: Boolean) {
@@ -68,27 +84,17 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
 
 
 
-    fun CalculateBDtoAge(yearDate: String): Int{
-        val today = LocalDate.now()
-        var age = today.year - yearDate.toInt()
-        return age
 
-    }
 
+    val rdmLName = listOf("Wynterbane", "Thornshade", "Brackenthorn", "Frostwynd", "Shadowglen", "Ironvale", "Nightwhisper", "Stormhollow", "Emberforge", "Silverhaze", "Ashenbrook", "Glimmerstone", "Ravenshire", "Flintmoor", "Duskridge", "Hollowstride", "Blazewood", "Quicksilver", "Fogreach", "Briarstone")
     val rndMonth = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
     val rndDay = (1..29).map { it.toString() }
-    val rdmLName = listOf("Wynterbane", "Thornshade", "Brackenthorn", "Frostwynd", "Shadowglen", "Ironvale", "Nightwhisper", "Stormhollow", "Emberforge", "Silverhaze", "Ashenbrook", "Glimmerstone", "Ravenshire", "Flintmoor", "Duskridge", "Hollowstride", "Blazewood", "Quicksilver", "Fogreach", "Briarstone")
     val randomMonth = rndMonth.random()
     val randomDay = rndDay.random()
     val randomLName = rdmLName.random()
 
 
-    fun CalculateAgeToDate(AgeInt: Int): String{
-        val today = LocalDate.now()
-        val year = today.minusYears(AgeInt.toLong()).year
 
-        return year.toString()
-    }
 
     Column (
         verticalArrangement = Arrangement.Top,

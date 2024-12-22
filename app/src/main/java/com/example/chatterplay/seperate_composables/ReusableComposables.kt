@@ -108,7 +108,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
+import com.example.chatterplay.screens.login.CalculateBDtoAge
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 
@@ -1428,6 +1430,14 @@ fun EditInfoDialog(
     var editLname by remember { mutableStateOf(userProfile.lname)}
     var editAbout by remember{ mutableStateOf(userProfile.about)}
     var editGender by remember{ mutableStateOf("")}
+    var editMonth by remember { mutableStateOf(userProfile.dob.month)}
+    var editDay by remember { mutableStateOf(userProfile.dob.day)}
+    var editYear by remember { mutableStateOf(userProfile.dob.year)}
+    val rndMonth = listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+    val rndDay = (1..29).map { it.toString() }
+    val randomMonth = rndMonth.random()
+    val randomDay = rndDay.random()
+    val editAge by remember { mutableStateOf(userProfile.age)}
     var editInfo by remember { mutableStateOf(userData)}
 
     var currentPassword by remember{ mutableStateOf("")}
@@ -1760,6 +1770,11 @@ fun EditInfoDialog(
                               .clip(RoundedCornerShape(8.dp))
                       )
                   }
+                  "Date of Birth" -> {
+                      DateDropDown(month = true, game = game) { selectedOption -> editMonth = selectedOption}
+                      DateDropDown(day = true, game = game) { selectedOption -> editDay = selectedOption}
+                      DateDropDown(year = true, game = game) { selectedOption -> editYear = selectedOption}
+                  }
               }
 
 
@@ -1817,6 +1832,17 @@ fun EditInfoDialog(
                                   } else {
                                       userProfile.copy(gender = editGender)
                                   }
+                              }
+                              "Date of Birth" -> {
+                                  val age = CalculateBDtoAge(editYear).toString()
+                                  userProfile.copy(
+                                      age = age,
+                                      dob = DateOfBirth(
+                                          month = editMonth,
+                                          day = editDay,
+                                          year = editYear
+                                      )
+                                  )
                               }
                               else -> { userProfile }
                           }
@@ -2081,7 +2107,17 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = false, age: Boolean = false, game: Boolean, onOptionSelected: (String) -> Unit) {
+fun DateDropDown(
+    month: Boolean = false,
+    day: Boolean = false,
+    year: Boolean = false,
+    age: Boolean = false,
+    game: Boolean,
+    viewModel: ChatViewModel = viewModel(),
+    onOptionSelected: (String) -> Unit
+) {
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+
     // State for the dropdown menu
     val title = when {
         month -> "Month"
@@ -2090,12 +2126,23 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
         age -> "Age"
         else -> "Select"
     }
-    val defaultTitle = if (age) "18" else ""
+    val default =
+        if (personalProfile.fname.isNullOrBlank()){
+            ""
+        } else {
+            when {
+                month -> personalProfile.dob.month
+                day -> personalProfile.dob.day
+                year -> personalProfile.dob.year
+                else -> "Unspecified"
+            }
+        }
+    val defaultTitle = if (age) "18" else default
     val options = when {
         month -> listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
         day -> (1..31).map { it.toString() }
         year -> {
-            val currentYear = LocalDate.now().year
+            val currentYear = LocalDate.now().year - 18
             (currentYear downTo 1950).map { it.toString() }
         }
         age -> (18..60).map { it.toString() }
@@ -2117,7 +2164,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .width(120.dp)
+                .width(130.dp)
                 .height(50.dp)
                 .padding(6.dp)
                 .clip(RoundedCornerShape(20.dp))
