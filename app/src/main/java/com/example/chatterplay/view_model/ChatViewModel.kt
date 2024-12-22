@@ -2,6 +2,8 @@ package com.example.chatterplay.view_model
 
 import android.net.Uri
 import android.util.Log
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.data_class.ChatMessage
@@ -24,6 +26,10 @@ class ChatViewModel: ViewModel() {
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
     private val _crUserProfile = MutableStateFlow<UserProfile?>(null)
     val crUserProfile: StateFlow<UserProfile?> get() = _crUserProfile
+    private val _imageUrl = mutableStateOf<String?>(null)
+    val imageUrl: State<String?> = _imageUrl
+    private val _isUploading = mutableStateOf(false)
+    val isUploading: State<Boolean> = _isUploading
     private val _allUsers = MutableStateFlow<List<UserProfile>>(emptyList())
     val allUsers: StateFlow<List<UserProfile>> get() = _allUsers
     private val _alternateProfileCompletion = MutableStateFlow(false)
@@ -217,6 +223,7 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
+
 
 
 

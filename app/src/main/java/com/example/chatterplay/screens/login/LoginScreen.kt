@@ -1,6 +1,5 @@
 package com.example.chatterplay.screens.login
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +28,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,6 +110,7 @@ fun LoginScreen(navController: NavController) {
             modifier = Modifier
                 .weight(1f)
         )
+
 
         Row (
             modifier = Modifier

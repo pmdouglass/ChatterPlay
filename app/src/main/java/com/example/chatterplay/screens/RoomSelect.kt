@@ -162,11 +162,15 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                     actions = {
                         IconButton(onClick = {
                             FirebaseAuth.getInstance().signOut()
-                            navController.navigate("loginScreen") {
+                            navController.navigate("imagepicker") {
                                 popUpTo(0)
                             }
                         }) {
-                            Icon(Icons.Default.Menu, contentDescription = null, modifier = Modifier.size(40.dp) )
+                            Icon(
+                                Icons.Default.Menu,
+                                contentDescription = null,
+                                modifier = Modifier.size(40.dp)
+                            )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         IconButton(onClick = {
