@@ -195,8 +195,6 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         .padding(PaddingValues)
                 ){
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(userId)
-                    Spacer(modifier = Modifier.height(10.dp))
                     ChatRiseThumbnail(navController = navController)
                     Divider()
                     Text(

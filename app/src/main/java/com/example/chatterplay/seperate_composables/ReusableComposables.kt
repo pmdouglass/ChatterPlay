@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -63,6 +64,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -1412,17 +1414,46 @@ fun BottomInputBar() {
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun EditInfoDialog(edit: String, userData: String, okClick: () -> Unit = {}, onDismiss: () -> Unit, onSave: () -> Unit) {
+fun EditInfoDialog(
+    edit: String,
+    userData: String,
+    userProfile: UserProfile,
+    onDismiss: () -> Unit,
+    viewModel: ChatViewModel = viewModel()
+) {
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val userId = userProfile.userId
+    var editFname by remember { mutableStateOf(userProfile.fname)}
+    var editLname by remember { mutableStateOf(userProfile.lname)}
+    var editAbout by remember{ mutableStateOf(userProfile.about)}
+
     var currentPassword by remember{ mutableStateOf("")}
     var newPassword by remember { mutableStateOf("")}
     var editInfo by remember { mutableStateOf(userData)}
     var passwordVisible by remember { mutableStateOf(false)}
-    var fname by remember { mutableStateOf("")}
-    var lname by remember { mutableStateOf("")}
-    var popupResults by remember { mutableStateOf("")}
+
     var manSelect by remember { mutableStateOf(false)}
     var womanSelect by remember { mutableStateOf(false)}
     var otherSelect by remember { mutableStateOf(false)}
+    when (personalProfile.gender) {
+        "Man" -> {
+            manSelect = true
+            womanSelect = false
+            otherSelect = false
+        }
+        "Woman" -> {
+            manSelect = false
+            womanSelect = true
+            otherSelect = false
+        }
+        else -> {
+            manSelect = false
+            womanSelect = false
+            otherSelect = true
+        }
+    }
+
+
 
     Dialog(onDismissRequest = {onDismiss()}) {
         Surface (
@@ -1598,8 +1629,8 @@ fun EditInfoDialog(edit: String, userData: String, okClick: () -> Unit = {}, onD
                   }
                   "Name" -> {
                       TextField(
-                          value = fname,
-                          onValueChange = {fname = it},
+                          value = editFname,
+                          onValueChange = {editFname = it},
                           placeholder = {Text("First Name")},
                           colors = TextFieldDefaults.textFieldColors(
                               containerColor = Color.White,
@@ -1616,8 +1647,8 @@ fun EditInfoDialog(edit: String, userData: String, okClick: () -> Unit = {}, onD
                               .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
                       )
                       TextField(
-                          value = lname,
-                          onValueChange = {lname = it},
+                          value = editLname,
+                          onValueChange = {editLname = it},
                           placeholder = {Text("Last Name")},
                           colors = TextFieldDefaults.textFieldColors(
                               containerColor = Color.White,
@@ -1674,6 +1705,25 @@ fun EditInfoDialog(edit: String, userData: String, okClick: () -> Unit = {}, onD
                               }
                       )
                   }
+                  "About" -> {
+                      TextField(
+                          value = editAbout,
+                          onValueChange = {editAbout = it},
+                          colors = TextFieldDefaults.textFieldColors(
+                              containerColor = Color.White,
+                              focusedIndicatorColor = Color.Transparent,
+                              unfocusedIndicatorColor = Color.Transparent
+                          ),
+                          modifier = Modifier
+                              .fillMaxWidth()
+                              .border(
+                                  2.dp,
+                                  Color.LightGray,
+                                  RoundedCornerShape(8.dp)
+                              )
+                              .clip(RoundedCornerShape(8.dp))
+                      )
+                  }
               }
 
 
@@ -1713,7 +1763,18 @@ fun EditInfoDialog(edit: String, userData: String, okClick: () -> Unit = {}, onD
                                   else -> "Non Binary"
                               }
                           } else editInfo = "Not Specified"
-                          onSave()
+                          val saveChangedProfile = when (edit) {
+                              "Name" -> {
+                                  userProfile.copy(fname = editFname, lname = editLname)
+                              }
+                              "About" -> {
+                                  userProfile.copy(about = editAbout)
+                              }
+                              else -> { userProfile }
+                          }
+                          viewModel.saveUserProfile(userId, saveChangedProfile, false)
+                          onDismiss()
+
                       },
                       modifier = Modifier
                           .width(100.dp)
@@ -1725,6 +1786,49 @@ fun EditInfoDialog(edit: String, userData: String, okClick: () -> Unit = {}, onD
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditFirstNameDialog(
+    userProfile: UserProfile,
+    onDismiss: () -> Unit,
+    viewModel: ChatViewModel = viewModel()
+) {
+    val userId = userProfile.userId
+    var editfName by remember { mutableStateOf(userProfile.fname) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val updatedProfile = userProfile.copy(fname = editfName)
+                    viewModel.saveUserProfile(userId, updatedProfile, false)
+                    onDismiss()
+                }
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+        title = { Text("Edit First Name") },
+        text = {
+            Column {
+                Text("Enter your new first name:")
+                Spacer(modifier = Modifier.height(8.dp))
+                TextField(
+                    value = editfName,
+                    onValueChange = { editfName = it },
+                    placeholder = { Text("First Name") }
+                )
+            }
+        }
+    )
+}
+
 
 @Composable
 fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, imagePic: Int? = null, extraChoice: Boolean = false, onClick: () -> Unit, Select: Boolean = false, Bio: Boolean = false, Edit: Boolean = false, editClick: Boolean = true, Image: Boolean = false) {

@@ -50,6 +50,7 @@ import com.example.chatterplay.seperate_composables.EditInfoDialog
 import com.example.chatterplay.seperate_composables.SettingsInfoRow
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.seperate_composables.EditFirstNameDialog
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
 
@@ -68,9 +69,10 @@ fun EditProfileScreen(
 
     val tabs = listOf("Personal", "Alternate")
     var selectedTabIndex by remember { mutableStateOf(0)}
-    var examp by remember { mutableStateOf("")}
     val scrollState = rememberScrollState()
     var showEditInfo by remember { mutableStateOf(false)}
+    var showEdit by remember { mutableStateOf(false)}
+
     var titleEdit by remember{ mutableStateOf("")}
     val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
 
@@ -208,9 +210,15 @@ fun EditProfileScreen(
             if (showEditInfo){
                 EditInfoDialog(
                     edit = titleEdit,
+                    userProfile = personalProfile,
                     userData = "",
-                    onDismiss = { showEditInfo = false },
-                    onSave = { showEditInfo = false}
+                    onDismiss = { showEditInfo = false }
+                )
+            }
+            if (showEdit){
+                EditFirstNameDialog(
+                    userProfile = personalProfile,
+                    onDismiss = {showEdit = false}
                 )
             }
         }
@@ -222,7 +230,7 @@ fun EditProfileScreen(
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditPersonalInfo(
-    //viewModel: ChatViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
 
@@ -238,6 +246,8 @@ fun EditPersonalInfo(
     var password by remember { mutableStateOf("")}
     var confirmPassword by remember { mutableStateOf("")}
     var titleEdit by remember{ mutableStateOf("")}
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+
 
 
 
@@ -280,9 +290,9 @@ fun EditPersonalInfo(
             if (showEditInfo){
                 EditInfoDialog(
                     edit = titleEdit,
+                    userProfile = personalProfile,
                     userData = "",
                     onDismiss = { showEditInfo = false },
-                    onSave = { showEditInfo = false}
                 )
             }
         }
