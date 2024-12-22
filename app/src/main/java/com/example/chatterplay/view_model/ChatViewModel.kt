@@ -6,14 +6,33 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chatterplay.BuildConfig
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.data_class.UserState
 import com.example.chatterplay.repository.ChatRepository
+import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.gotrue.GoTrue
+import io.github.jan.supabase.storage.Storage
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+
+object SupabaseClient {
+    val client = createSupabaseClient(
+        supabaseUrl = BuildConfig.SUPABASE_URL,
+        supabaseKey = BuildConfig.SUPABASE_KEY
+    ) {
+        install(GoTrue)
+        install(Storage)
+    }
+}
+
 
 class ChatViewModel: ViewModel() {
 
@@ -21,6 +40,9 @@ class ChatViewModel: ViewModel() {
 
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    private val _userState = mutableStateOf<UserState>(UserState.Loading)
+    val userState: State<UserState> = _userState
 
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
@@ -220,6 +242,68 @@ class ChatViewModel: ViewModel() {
                 )
                 chatRepository.sendMessage(roomId, chatMessage)
                 fetchChatMessages(roomId)
+            }
+        }
+    }
+
+    fun createBucket(name: String){
+        viewModelScope.launch {
+            _userState.value = UserState.Loading
+            try {
+                client.storage.createBucket(id = name){
+                    public = true
+                    fileSizeLimit = 10.megabytes
+                }
+                _userState.value = UserState.Success("Created bucket successfully!")
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error: ${e.message}")
+            }
+        }
+    }
+    fun uploadImage(bucketName: String, fileName: String, byteArray: ByteArray){
+        viewModelScope.launch {
+            _userState.value = UserState.Loading
+            try {
+                val bucket = client.storage[bucketName]
+                bucket.upload("$fileName.jpg", byteArray, true)
+                _userState.value = UserState.Success("Uploade Image Successful!")
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error: ${e.message}")
+            }
+        }
+    }
+    fun readPublicFile(bucketName: String, fileName: String, onImageUrlRetrieved:(url: String) -> Unit){
+        viewModelScope.launch {
+            try {
+                _userState.value = UserState.Loading
+                val bucket = client.storage[bucketName]
+                val url = bucket.publicUrl("$fileName.jpg")
+                onImageUrlRetrieved(url)
+                _userState.value = UserState.Success("File read successfully!")
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error: ${e.message}")
+            }
+        }
+    }
+    fun getPublicUrl(fileName: String, bucketName: String): String {
+        val bucket = client.storage.from(bucketName)
+        return bucket.publicUrl(fileName)
+    }
+    fun selectUploadAndGet(fileName: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit){
+        viewModelScope.launch {
+            _userState.value = UserState.Loading
+            try {
+                val bucket = client.storage["photo"]
+
+                bucket.upload("$fileName.jpg", byteArray, true)
+
+                val publicUrl = bucket.publicUrl("$fileName.jpg")
+
+                _userState.value = UserState.Success("Image uploaded and URL retrieved")
+                onResult(publicUrl, null)
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error: ${e.message}")
+                onResult(null, e.message)
             }
         }
     }

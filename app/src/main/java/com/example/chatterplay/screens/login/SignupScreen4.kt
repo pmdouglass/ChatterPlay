@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,6 +49,7 @@ import com.example.chatterplay.view_model.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.DateOfBirth
+import com.example.chatterplay.data_class.uriToByteArray
 import com.google.firebase.auth.FirebaseAuth
 
 
@@ -73,17 +75,24 @@ fun SignupScreen4(
     val space = 15
 
 
+    val context = LocalContext.current
     var showPopUp by remember { mutableStateOf(false)}
-    var selectedUriImage by remember { mutableStateOf<Uri?>(null) }
+    var ImageUri by remember { mutableStateOf<Uri?>(null) }
+    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            selectedUriImage = uri
+            ImageUri = uri
 
         }
 
     }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        ImageUri = uri
+        byteArray = uri?.uriToByteArray(context)
+    }
+    var selectedImage by remember { mutableStateOf<String?>("")}
 
 
     Column (
@@ -121,9 +130,9 @@ fun SignupScreen4(
                     .clip(CircleShape)
                     .border(2.dp, Color.Black, CircleShape)
             ){
-                if (selectedUriImage != null){
+                if (ImageUri != null){
                     Image(
-                        painter = rememberAsyncImagePainter(model = selectedUriImage),
+                        painter = rememberAsyncImagePainter(model = ImageUri),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -147,8 +156,8 @@ fun SignupScreen4(
 
 
                 IconButton(onClick = {
-                                     pickImageLauncher.launch("image/*")
-                    if (selectedUriImage == null){
+                                     launcher.launch("image/*")
+                    if (ImageUri == null){
                         Log.d("Test Message", "Image selection was canceled")
                     }
                 },
@@ -179,7 +188,7 @@ fun SignupScreen4(
                 day = day,
                 year = year
             )
-            if (selectedUriImage != null && fName.isNotBlank() && lName.isNotBlank() && age.isNotBlank() && gender.isNotBlank()){
+            if (ImageUri != null && fName.isNotBlank() && lName.isNotBlank() && age.isNotBlank() && gender.isNotBlank()){
                 val auth = FirebaseAuth.getInstance()
                 val currentUser = auth.currentUser?.uid
 
@@ -188,22 +197,26 @@ fun SignupScreen4(
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
                                 val newUserId = task.result?.user?.uid ?: return@addOnCompleteListener
-
-                                val newUserProfile = UserProfile(
-                                    userId = newUserId,
-                                    fname = fName,
-                                    lname = lName,
-                                    gender = gender,
-                                    dob = dob,
-                                    age = age,
-                                    location = location,
-                                    imageUrl = selectedUriImage.toString(),
-                                    about = about,
-                                )
-                                viewModel.saveUserProfile(userId = newUserId, userProfile = newUserProfile, game = false)
-
-                                navController.navigate("loginScreen") {
-                                    popUpTo("signupScreen1") { inclusive = true }
+                                if (byteArray != null){
+                                    viewModel.selectUploadAndGet("personal$newUserId", byteArray!!) {url, error ->
+                                        if (url != null) {
+                                            val newUserProfile = UserProfile(
+                                                userId = newUserId,
+                                                fname = fName,
+                                                lname = lName,
+                                                gender = gender,
+                                                dob = dob,
+                                                age = age,
+                                                location = location,
+                                                imageUrl = url,
+                                                about = about,
+                                            )
+                                            viewModel.saveUserProfile(userId = newUserId, userProfile = newUserProfile, game = false)
+                                            navController.navigate("loginScreen") {
+                                                popUpTo("signupScreen1") { inclusive = true }
+                                            }
+                                        }
+                                    }
                                 }
 
                             }else {
@@ -213,24 +226,28 @@ fun SignupScreen4(
 
                 } else {
                     val existingUserId = currentUser
-                    val exsistingUserProfile = UserProfile(
-                        userId = existingUserId,
-                        fname = fName,
-                        lname = lName,
-                        gender = gender,
-                        dob = dob,
-                        age = age,
-                        location = location,
-                        imageUrl = selectedUriImage.toString(),
-                        about = about,
-                    )
-                    viewModel.saveUserProfile(userId = existingUserId, userProfile = exsistingUserProfile, game = true)
-                    /*navController.navigate("roomSelect") {
-                        popUpTo("signupScreen2") {inclusive = true}
-                    }*/
-                    repeat(3) {
-                        navController.popBackStack()
+                    if (byteArray != null){
+                        viewModel.selectUploadAndGet("alternate$existingUserId", byteArray!!){ url, error ->
+                            if (url != null){
+                                val exsistingUserProfile = UserProfile(
+                                    userId = existingUserId,
+                                    fname = fName,
+                                    lname = lName,
+                                    gender = gender,
+                                    dob = dob,
+                                    age = age,
+                                    location = location,
+                                    imageUrl = url,
+                                    about = about,
+                                )
+                                viewModel.saveUserProfile(userId = existingUserId, userProfile = exsistingUserProfile, game = true)
+                                repeat(3) {
+                                    navController.popBackStack()
+                                }
+                            }
+                        }
                     }
+
                 }
             } else {
                 showPopUp = true

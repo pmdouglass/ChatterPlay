@@ -1,3 +1,5 @@
+import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
@@ -7,7 +9,11 @@ plugins {
 
 android {
     namespace = "com.example.chatterplay"
-    compileSdk = 34
+    compileSdk = 35
+
+    val properties = gradleLocalProperties(rootDir, project.providers)
+    val supabaseUrl: String = properties.getProperty("supabaseUrl") ?: ""
+    val supabaseKey: String = properties.getProperty("supabaseKey") ?: ""
 
     defaultConfig {
         applicationId = "com.example.chatterplay"
@@ -15,6 +21,9 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_KEY", "\"$supabaseKey\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -40,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.3"
@@ -98,6 +108,11 @@ dependencies {
     implementation("com.google.firebase:firebase-bom:33.1.0")
 
     // Supabase libraries
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:1.3.2")
+    implementation("io.github.jan-tennert.supabase:compose-auth:1.3.2")
+    implementation("io.github.jan-tennert.supabase:compose-auth-ui:1.3.2")
+    implementation("io.github.jan-tennert.supabase:storage-kt:1.3.2")
+    implementation("io.ktor:ktor-client-cio:2.3.4")
 
 
 

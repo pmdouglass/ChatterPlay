@@ -2,6 +2,8 @@ package com.example.chatterplay.screens
 
 import android.content.res.Configuration
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Man
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
@@ -51,6 +54,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -67,6 +71,7 @@ import com.google.android.play.integrity.internal.i
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.DateOfBirth
+import com.example.chatterplay.data_class.uriToByteArray
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,7 +82,8 @@ fun ProfileScreen(
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
-    
+
+    val context = LocalContext.current
     val personalProfile by viewModel.userProfile.collectAsState()
     val alternateProfileCompletion = true //viewModel.alternateProfileCompletion.collectAsState()
     val alternateProfile by viewModel.crUserProfile.collectAsState()
@@ -108,6 +114,8 @@ fun ProfileScreen(
     var expand by remember { mutableStateOf(true)}
     val Clicked = if (expand) 550.dp else 250.dp
     var notes by remember { mutableStateOf("")}
+
+
     
     LaunchedEffect(personalProfile, alternateProfile, Unit) {
         viewModel.getUserProfile()
@@ -212,7 +220,7 @@ fun ProfileScreen(
                 when (selectedTabIndex) {
                     0 -> {
                         Image(
-                            painter = painterResource(id = R.drawable.anonymous),
+                            painter = rememberAsyncImagePainter(imageUrl),
                             contentDescription =null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -240,7 +248,7 @@ fun ProfileScreen(
                             }
                         } else {
                             Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
+                                painter = rememberAsyncImagePainter(AimageUrl),
                                 contentDescription =null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -304,7 +312,6 @@ fun ProfileScreen(
                         )
                     }
 
-
                     Text(
                         text = when (selectedTabIndex) {
                             0 -> "$fname $lname, $age"
@@ -361,13 +368,6 @@ fun ProfileScreen(
                                 .weight(1f)
 
                         )
-                        /*Text(
-                            "PA",
-                            style = CRAppTheme.typography.bodyLarge,
-                            color = if (game) Color.White else Color.Black,
-                            modifier = Modifier
-                                .padding(start = 25.dp, bottom = 30.dp)
-                        )*/
                         Column (
                             horizontalAlignment = Alignment.CenterHorizontally
                         ){
@@ -636,7 +636,7 @@ fun ProfileInfo(game: Boolean, expand: Boolean) {
             modifier = Modifier
                 .padding(top = 15.dp, bottom = 15.dp))
 
-        Row (
+        /*Row (
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
             modifier = Modifier
@@ -657,7 +657,7 @@ fun ProfileInfo(game: Boolean, expand: Boolean) {
                 .clip(RoundedCornerShape(15.dp)))
 
 
-        }
+        }*/
 
         Text(
             text = "LOCATION",

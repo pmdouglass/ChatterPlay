@@ -49,6 +49,17 @@ fun LoginScreen(navController: NavController) {
                 }
             }
     }
+    fun Quicklogin(){
+        FirebaseAuth.getInstance().signInWithEmailAndPassword("leo@gmail.com", "qqqqqq")
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful){
+                    navController.navigate("roomSelect")
+                } else {
+
+                }
+            }
+    }
+
 
     Column (
         verticalArrangement = Arrangement.Top,
@@ -104,6 +115,20 @@ fun LoginScreen(navController: NavController) {
                 style = CRAppTheme.typography.titleMedium,
             )
         }
+        Button(
+            onClick = {
+                      Quicklogin()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 25.dp)
+        ) {
+            Text (
+                "Quick Login",
+                style = CRAppTheme.typography.titleMedium,
+            )
+        }
+
 
         Text(
             "Forgot Password?",

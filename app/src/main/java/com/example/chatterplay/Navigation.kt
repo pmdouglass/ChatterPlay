@@ -163,7 +163,7 @@ fun AppNavHost(navController: NavHostController) {
             FindFriends(navController = navController)
         }
         composable("imagepicker"){
-            ImagePickerScreen()
+            ImagePickerScreen(navController = navController)
         }
     }
 

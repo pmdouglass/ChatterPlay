@@ -71,6 +71,7 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
 
     val userProfile by viewModel.userProfile.collectAsState()
     val crUserProfile by viewModel.crUserProfile.collectAsState()
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "123"
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
 
@@ -193,6 +194,8 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         .background(CRAppTheme.colorScheme.background)
                         .padding(PaddingValues)
                 ){
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(userId)
                     Spacer(modifier = Modifier.height(10.dp))
                     ChatRiseThumbnail(navController = navController)
                     Divider()
