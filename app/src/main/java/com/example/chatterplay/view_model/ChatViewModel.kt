@@ -12,6 +12,7 @@ import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.UserState
 import com.example.chatterplay.repository.ChatRepository
+import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.createSupabaseClient
@@ -304,6 +305,57 @@ class ChatViewModel: ViewModel() {
             }catch (e: Exception){
                 _userState.value = UserState.Error("Error: ${e.message}")
                 onResult(null, e.message)
+            }
+        }
+    }
+    fun selectUploadAndGetImage(game: Boolean, fileName: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit){
+        viewModelScope.launch {
+            _userState.value = UserState.Loading
+            try {
+
+                val bucket =
+                    if (!game){
+                        client.storage["ProfilePicture/Personal"]
+                    } else {
+                        client.storage["ProfilePicture/Alternate"]
+                    }
+
+                bucket.upload(
+                    path = if (!game) "Personal-$fileName.jpg" else "Alternate-$fileName.jpg",
+                    data = byteArray,
+                    upsert = true
+                )
+
+                val publicUrl = bucket.publicUrl(
+                    path = if (!game) "Personal-$fileName.jpg" else "Alternate-$fileName.jpg"
+                )
+
+                _userState.value = UserState.Success("Image uploaded and URL retrieved")
+                onResult(publicUrl, null)
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error: ${e.message}")
+                onResult(null, e.message)
+            }
+        }
+    }
+    val bucketName = "ProfilePictures"
+    val folderNamePersonal = "Personal"
+    val folderNameAlternate = "Alternate"
+    fun uploadProfilePictureAndSaveUri(game: Boolean, userId: String, byteArray: ByteArray){
+        viewModelScope.launch {
+            _userState.value = UserState.Loading
+            try {
+                val fileName = if (!game) "$folderNamePersonal/$userId.jpg" else "$folderNameAlternate/$userId.jpg"
+                val bucket = client.storage[bucketName]
+                bucket.upload(fileName, byteArray, true)
+                /*val publicUrl = bucket.publicUrl(fileName)
+
+                val updatedProfile = if (!game) userProfile.value!!.copy(imageUrl = publicUrl) else crUserProfile.value!!.copy(imageUrl = publicUrl)
+                chatRepository.saveUserProfile(userId = userId, userProfile = updatedProfile, game = game)
+
+                _userState.value = UserState.Success("Profile picture uploaded!")*/
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error: ${e.message}")
             }
         }
     }

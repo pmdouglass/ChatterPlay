@@ -75,19 +75,12 @@ fun SignupScreen4(
     val space = 15
 
 
-    val context = LocalContext.current
     var showPopUp by remember { mutableStateOf(false)}
+
+    val context = LocalContext.current
     var ImageUri by remember { mutableStateOf<Uri?>(null) }
     var byteArray by remember { mutableStateOf<ByteArray?>(null)}
-    val pickImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            ImageUri = uri
 
-        }
-
-    }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         ImageUri = uri
         byteArray = uri?.uriToByteArray(context)

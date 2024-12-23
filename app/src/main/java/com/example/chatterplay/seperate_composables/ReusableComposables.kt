@@ -1,7 +1,11 @@
 package com.example.chatterplay.seperate_composables
 
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
@@ -84,6 +88,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -110,6 +115,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
+import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.screens.login.CalculateBDtoAge
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
@@ -1439,6 +1445,14 @@ fun EditInfoDialog(
     val randomDay = rndDay.random()
     val editAge by remember { mutableStateOf(userProfile.age)}
     var editLocation by remember { mutableStateOf(userProfile.location)}
+    val context = LocalContext.current
+    var ImageUri by remember { mutableStateOf<Uri?>(null) }
+    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        ImageUri = uri
+        byteArray = uri?.uriToByteArray(context)
+    }
     var editInfo by remember { mutableStateOf(userData)}
 
     var currentPassword by remember{ mutableStateOf("")}
@@ -1563,14 +1577,65 @@ fun EditInfoDialog(
 
 
               when (edit){
+
+
                   "Picture" -> {
-                      Image(
-                          painter = rememberAsyncImagePainter(userProfile.imageUrl),
-                          contentDescription = null,
+                      var currentImage = userProfile.imageUrl
+                      Box(
                           modifier = Modifier
-                              .size(50.dp)
-                      )
+                              .size(200.dp)
+                      ){
+                          Box(
+                              modifier = Modifier
+                                  .size(200.dp)
+                                  .clip(CircleShape)
+                                  .border(2.dp, Color.Black, CircleShape)
+                          ){
+                              Image(
+                                  painter = rememberAsyncImagePainter(model = currentImage),
+                                  contentDescription = null,
+                                  contentScale = ContentScale.Crop,
+                                  modifier = Modifier
+                                      .fillMaxSize()
+                              )
+                          }
+                          Box(
+                              modifier = Modifier
+                                  .size(75.dp)
+                                  .clip(CircleShape)
+                                  .border(2.dp, Color.Black, CircleShape)
+                                  .align(Alignment.BottomEnd)
+                                  .background(CRAppTheme.colorScheme.background)
+                          ){
+
+
+                              IconButton(onClick = {
+                                  launcher.launch("image/*")
+                                  currentImage = ImageUri.toString()
+                              },
+                                  modifier = Modifier
+                                      .fillMaxSize()
+                                      .align(Alignment.Center)
+                              ) {
+                                  Icon(
+                                      imageVector = Icons.Default.Add,
+                                      contentDescription = null,
+                                      modifier = Modifier
+                                          .size(60.dp)
+
+                                  )
+                              }
+                          }
+                      }
                   }
+
+
+
+
+
+
+
+
                   "Password" -> {
                       Text(
                           "Your password must be at least 6 characters and should include a combination of numbers, letters and special characters (!$@%)",
@@ -1882,7 +1947,23 @@ fun EditInfoDialog(
                               }
                               else -> { userProfile }
                           }
-                          viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
+                          when (edit){
+                              "Picture" -> {
+                                  byteArray?.let {
+                                      viewModel.uploadProfilePictureAndSaveUri(
+                                          game = game,
+                                          userId = userProfile.userId,
+                                          byteArray = it
+                                      )
+                                  }
+                              }
+                              "Name", "About", "Gender", "Date of Birth", "Location" -> {
+                                  viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
+                              }
+                              else -> {
+
+                              }
+                          }
                           onDismiss()
 
                       },
@@ -1957,8 +2038,17 @@ fun SettingsInfoRow(
     Bio: Boolean = false,
     Edit: Boolean = false,
     editClick: Boolean = true,
-    Image: Boolean = false
+    Image: Boolean = false,
+    viewModel: ChatViewModel = viewModel()
 ) {
+    val context = LocalContext.current
+    var ImageUri by remember { mutableStateOf<Uri?>(null) }
+    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
+
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        ImageUri = uri
+        byteArray = uri?.uriToByteArray(context)
+    }
     when {
         Select -> {
             Column (
@@ -2108,6 +2198,12 @@ fun SettingsInfoRow(
             }
 
         }
+
+
+
+
+
+
         Image -> {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2129,20 +2225,18 @@ fun SettingsInfoRow(
                         .clickable { onClick() }
                 )
             }
+
+
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 16.dp, bottom = 16.dp)
             ){
                 Image(
-                    painter = if (imagePic != null) {
-                        painterResource(id = imagePic)
-                    } else {
-                        painterResource(id = R.drawable.pic4)
-                    },
-                    contentDescription = contentDescription,
+                    painter = rememberAsyncImagePainter(body),
+                    contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(200.dp)
@@ -2150,6 +2244,16 @@ fun SettingsInfoRow(
                 )
             }
         }
+
+
+
+
+
+
+
+
+
+
         else -> {
             Row(modifier = Modifier.fillMaxWidth()) { Text("Nothing Selected") }
         }
