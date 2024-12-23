@@ -3,7 +3,6 @@ package com.example.chatterplay.seperate_composables
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -116,6 +115,7 @@ import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.data_class.uriToByteArray
+import com.example.chatterplay.screens.login.CalculateAgeToDate
 import com.example.chatterplay.screens.login.CalculateBDtoAge
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
@@ -1443,7 +1443,7 @@ fun EditInfoDialog(
     val rndDay = (1..29).map { it.toString() }
     val randomMonth = rndMonth.random()
     val randomDay = rndDay.random()
-    val editAge by remember { mutableStateOf(userProfile.age)}
+    var editAge by remember { mutableStateOf(userProfile.age)}
     var editLocation by remember { mutableStateOf(userProfile.location)}
     val context = LocalContext.current
     var ImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -1577,64 +1577,6 @@ fun EditInfoDialog(
 
 
               when (edit){
-
-
-                  "Picture" -> {
-                      var currentImage = userProfile.imageUrl
-                      Box(
-                          modifier = Modifier
-                              .size(200.dp)
-                      ){
-                          Box(
-                              modifier = Modifier
-                                  .size(200.dp)
-                                  .clip(CircleShape)
-                                  .border(2.dp, Color.Black, CircleShape)
-                          ){
-                              Image(
-                                  painter = rememberAsyncImagePainter(model = currentImage),
-                                  contentDescription = null,
-                                  contentScale = ContentScale.Crop,
-                                  modifier = Modifier
-                                      .fillMaxSize()
-                              )
-                          }
-                          Box(
-                              modifier = Modifier
-                                  .size(75.dp)
-                                  .clip(CircleShape)
-                                  .border(2.dp, Color.Black, CircleShape)
-                                  .align(Alignment.BottomEnd)
-                                  .background(CRAppTheme.colorScheme.background)
-                          ){
-
-
-                              IconButton(onClick = {
-                                  launcher.launch("image/*")
-                                  currentImage = ImageUri.toString()
-                              },
-                                  modifier = Modifier
-                                      .fillMaxSize()
-                                      .align(Alignment.Center)
-                              ) {
-                                  Icon(
-                                      imageVector = Icons.Default.Add,
-                                      contentDescription = null,
-                                      modifier = Modifier
-                                          .size(60.dp)
-
-                                  )
-                              }
-                          }
-                      }
-                  }
-
-
-
-
-
-
-
 
                   "Password" -> {
                       Text(
@@ -1873,17 +1815,10 @@ fun EditInfoDialog(
                               .clip(RoundedCornerShape(8.dp))
                       )
                   }
+                  "Age" -> {
+                      DateDropDown(age = true, game = game){selected -> editAge = selected}
+                  }
               }
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1944,6 +1879,17 @@ fun EditInfoDialog(
                               }
                               "Location" -> {
                                   userProfile.copy(location = editLocation)
+                              }
+                              "Age" -> {
+                                  if (editAge == "0"){
+                                      editAge = "18"
+                                  }
+                                  val pickedYear = CalculateAgeToDate(editAge.toInt())
+                                  val Dob = DateOfBirth(month = randomMonth, day = randomDay, year = pickedYear)
+                                  userProfile.copy(
+                                      age = editAge,
+                                      dob = Dob
+                                  )
                               }
                               else -> { userProfile }
                           }
@@ -2278,7 +2224,13 @@ fun DateDropDown(
                 else -> "Unspecified"
             }
         }
-    val defaultTitle = if (age) "18" else default
+    val ageTitle =
+        if (alternateProfile.fname.isNullOrBlank()){
+            "18"
+        } else {
+            alternateProfile.age
+        }
+    val defaultTitle = if (age) ageTitle else default
     val options = when {
         month -> listOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
         day -> (1..31).map { it.toString() }

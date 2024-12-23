@@ -50,7 +50,7 @@ fun LoginScreen(navController: NavController) {
             }
     }
     fun Quicklogin(){
-        FirebaseAuth.getInstance().signInWithEmailAndPassword("leo@gmail.com", "qqqqqq")
+        FirebaseAuth.getInstance().signInWithEmailAndPassword("doug@gmail.com", "qqqqqq")
             .addOnCompleteListener { task ->
                 if (task.isSuccessful){
                     navController.navigate("roomSelect")
