@@ -191,7 +191,7 @@ fun SignupScreen4(
                             if (task.isSuccessful) {
                                 val newUserId = task.result?.user?.uid ?: return@addOnCompleteListener
                                 if (byteArray != null){
-                                    viewModel.selectUploadAndGet("personal$newUserId", byteArray!!) {url, error ->
+                                    viewModel.selectUploadAndGetImage(game = false, newUserId, byteArray!!) {url, error ->
                                         if (url != null) {
                                             val newUserProfile = UserProfile(
                                                 userId = newUserId,
@@ -220,7 +220,7 @@ fun SignupScreen4(
                 } else {
                     val existingUserId = currentUser
                     if (byteArray != null){
-                        viewModel.selectUploadAndGet("alternate$existingUserId", byteArray!!){ url, error ->
+                        viewModel.selectUploadAndGetImage(game = true, existingUserId, byteArray!!){ url, error ->
                             if (url != null){
                                 val exsistingUserProfile = UserProfile(
                                     userId = existingUserId,

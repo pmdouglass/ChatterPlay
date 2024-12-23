@@ -14,7 +14,6 @@ import com.example.chatterplay.screens.ChattingScreen
 import com.example.chatterplay.screens.EditPersonalInfo
 import com.example.chatterplay.screens.EditProfileScreen
 import com.example.chatterplay.screens.FindFriends
-import com.example.chatterplay.screens.ImagePickerScreen
 import com.example.chatterplay.screens.InviteScreen
 import com.example.chatterplay.screens.MainRoomSelect
 import com.example.chatterplay.screens.MainScreen
@@ -161,9 +160,6 @@ fun AppNavHost(navController: NavHostController) {
         }
         composable("friendsScreen") {
             FindFriends(navController = navController)
-        }
-        composable("imagepicker"){
-            ImagePickerScreen(navController = navController)
         }
     }
 

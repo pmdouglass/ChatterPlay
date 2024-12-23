@@ -1947,23 +1947,7 @@ fun EditInfoDialog(
                               }
                               else -> { userProfile }
                           }
-                          when (edit){
-                              "Picture" -> {
-                                  byteArray?.let {
-                                      viewModel.uploadProfilePictureAndSaveUri(
-                                          game = game,
-                                          userId = userProfile.userId,
-                                          byteArray = it
-                                      )
-                                  }
-                              }
-                              "Name", "About", "Gender", "Date of Birth", "Location" -> {
-                                  viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
-                              }
-                              else -> {
-
-                              }
-                          }
+                          viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
                           onDismiss()
 
                       },

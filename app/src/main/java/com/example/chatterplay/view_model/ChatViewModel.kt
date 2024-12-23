@@ -49,6 +49,10 @@ class ChatViewModel: ViewModel() {
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
     private val _crUserProfile = MutableStateFlow<UserProfile?>(null)
     val crUserProfile: StateFlow<UserProfile?> get() = _crUserProfile
+    private val _personalImage = mutableStateOf<String?>(null)
+    val personalImage: State<String?> get() = _personalImage
+    private val _alternateImage = mutableStateOf<String?>(null)
+    val alternateImage: State<String?> get() = _alternateImage
     private val _imageUrl = mutableStateOf<String?>(null)
     val imageUrl: State<String?> = _imageUrl
     private val _isUploading = mutableStateOf(false)
@@ -246,7 +250,6 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-
     fun createBucket(name: String){
         viewModelScope.launch {
             _userState.value = UserState.Loading
@@ -261,101 +264,29 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-    fun uploadImage(bucketName: String, fileName: String, byteArray: ByteArray){
+    fun selectUploadAndGetImage(game: Boolean, userId: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit){
         viewModelScope.launch {
             _userState.value = UserState.Loading
             try {
-                val bucket = client.storage[bucketName]
-                bucket.upload("$fileName.jpg", byteArray, true)
-                _userState.value = UserState.Success("Uploade Image Successful!")
-            }catch (e: Exception){
-                _userState.value = UserState.Error("Error: ${e.message}")
-            }
-        }
-    }
-    fun readPublicFile(bucketName: String, fileName: String, onImageUrlRetrieved:(url: String) -> Unit){
-        viewModelScope.launch {
-            try {
-                _userState.value = UserState.Loading
-                val bucket = client.storage[bucketName]
-                val url = bucket.publicUrl("$fileName.jpg")
-                onImageUrlRetrieved(url)
-                _userState.value = UserState.Success("File read successfully!")
-            }catch (e: Exception){
-                _userState.value = UserState.Error("Error: ${e.message}")
-            }
-        }
-    }
-    fun getPublicUrl(fileName: String, bucketName: String): String {
-        val bucket = client.storage.from(bucketName)
-        return bucket.publicUrl(fileName)
-    }
-    fun selectUploadAndGet(fileName: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit){
-        viewModelScope.launch {
-            _userState.value = UserState.Loading
-            try {
-                val bucket = client.storage["photo"]
 
-                bucket.upload("$fileName.jpg", byteArray, true)
+                val bucket = client.storage["ProfilePictures"]
+                val fileName = if (!game) "Personal$userId" else "Alternate$userId"
+                val path = if (!game) "Personal/$fileName.jpg" else "Alternate/$fileName.jpg"
 
-                val publicUrl = bucket.publicUrl("$fileName.jpg")
+                bucket.upload(path, byteArray, true)
+
+                val publicUrl = bucket.publicUrl(path)
 
                 _userState.value = UserState.Success("Image uploaded and URL retrieved")
+                if (!game) {
+                    _personalImage.value = publicUrl
+                }else {
+                    _alternateImage.value = publicUrl
+                }
                 onResult(publicUrl, null)
             }catch (e: Exception){
                 _userState.value = UserState.Error("Error: ${e.message}")
                 onResult(null, e.message)
-            }
-        }
-    }
-    fun selectUploadAndGetImage(game: Boolean, fileName: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit){
-        viewModelScope.launch {
-            _userState.value = UserState.Loading
-            try {
-
-                val bucket =
-                    if (!game){
-                        client.storage["ProfilePicture/Personal"]
-                    } else {
-                        client.storage["ProfilePicture/Alternate"]
-                    }
-
-                bucket.upload(
-                    path = if (!game) "Personal-$fileName.jpg" else "Alternate-$fileName.jpg",
-                    data = byteArray,
-                    upsert = true
-                )
-
-                val publicUrl = bucket.publicUrl(
-                    path = if (!game) "Personal-$fileName.jpg" else "Alternate-$fileName.jpg"
-                )
-
-                _userState.value = UserState.Success("Image uploaded and URL retrieved")
-                onResult(publicUrl, null)
-            }catch (e: Exception){
-                _userState.value = UserState.Error("Error: ${e.message}")
-                onResult(null, e.message)
-            }
-        }
-    }
-    val bucketName = "ProfilePictures"
-    val folderNamePersonal = "Personal"
-    val folderNameAlternate = "Alternate"
-    fun uploadProfilePictureAndSaveUri(game: Boolean, userId: String, byteArray: ByteArray){
-        viewModelScope.launch {
-            _userState.value = UserState.Loading
-            try {
-                val fileName = if (!game) "$folderNamePersonal/$userId.jpg" else "$folderNameAlternate/$userId.jpg"
-                val bucket = client.storage[bucketName]
-                bucket.upload(fileName, byteArray, true)
-                /*val publicUrl = bucket.publicUrl(fileName)
-
-                val updatedProfile = if (!game) userProfile.value!!.copy(imageUrl = publicUrl) else crUserProfile.value!!.copy(imageUrl = publicUrl)
-                chatRepository.saveUserProfile(userId = userId, userProfile = updatedProfile, game = game)
-
-                _userState.value = UserState.Success("Profile picture uploaded!")*/
-            }catch (e: Exception){
-                _userState.value = UserState.Error("Error: ${e.message}")
             }
         }
     }
