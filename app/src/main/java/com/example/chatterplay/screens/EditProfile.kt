@@ -148,13 +148,13 @@ fun EditProfileScreen(
                 }
                 when (selectedTabIndex) {
                     0 -> {
-                        SettingsInfoRow(title = "Profile Picture", body = "", Image = true, imagePic = R.drawable.cool_neon, onClick = { showEditInfo = true; titleEdit = "Picture" })
-                        SettingsInfoRow(Edit = true, amount = 2, title = "Name", body = personalProfile.fname, secondBody = personalProfile.lname, onClick = { showEditInfo = true; titleEdit = "Name" })
+                        SettingsInfoRow(Image = true, title = "Profile Picture", body = "", imagePic = R.drawable.cool_neon, onClick = { showEditInfo = true; titleEdit = "Picture" })
                         SettingsInfoRow(Bio = true, title = "About", body = personalProfile.about, onClick = { showEditInfo = true; titleEdit = "About" })
                         SettingsInfoRow(Edit = true, title = "Gender", body = personalProfile.gender, onClick = { showEditInfo = true; titleEdit = "Gender" })
-                        SettingsInfoRow(Edit = true, title = "Date of Birth", body = "${personalProfile.dob.month}-${personalProfile.dob.day}-${personalProfile.dob.year}" , onClick = { showEditInfo = true; titleEdit = "Date of Birth" })
-                        SettingsInfoRow(Edit = true, editClick = false, title = "Age", body = personalProfile.age , onClick = { showEditInfo = true; titleEdit = "Age" })
                         SettingsInfoRow(Edit = true, title = "Location", body = personalProfile.location , onClick = { showEditInfo = true; titleEdit = "Location" })
+                        SettingsInfoRow(Edit = true, editClick = false, amount = 2, title = "Name", body = personalProfile.fname, secondBody = personalProfile.lname, onClick = { showEditInfo = true; titleEdit = "Name" })
+                        SettingsInfoRow(Edit = true, editClick = false, title = "Date of Birth", body = "${personalProfile.dob.month}-${personalProfile.dob.day}-${personalProfile.dob.year}" , onClick = { showEditInfo = true; titleEdit = "Date of Birth" })
+                        SettingsInfoRow(Edit = true, editClick = false, title = "Age", body = personalProfile.age , onClick = { showEditInfo = true; titleEdit = "Age" })
                     }
                     1 -> {
                         if (alternateProfile.fname.isNullOrBlank()){
@@ -192,9 +192,9 @@ fun EditProfileScreen(
 
                             }
                         } else {
-                            SettingsInfoRow(game = true, title = "Profile Picture", body = "", Image = true, imagePic = R.drawable.cool_neon, onClick = { showGameEditInfo = true; titleEdit = "Picture" })
-                            SettingsInfoRow(game = true, Edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showGameEditInfo = true; titleEdit = "Name" })
+                            SettingsInfoRow(game = true, Image = true, title = "Profile Picture", body = "", imagePic = R.drawable.cool_neon, onClick = { showGameEditInfo = true; titleEdit = "Picture" })
                             SettingsInfoRow(game = true, Bio = true, title = "About", body = alternateProfile.about, onClick = { showGameEditInfo = true; titleEdit = "About" })
+                            SettingsInfoRow(game = true, Edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showGameEditInfo = true; titleEdit = "Name" })
                             SettingsInfoRow(game = true, Edit = true, title = "Gender", body = alternateProfile.gender, onClick = { showGameEditInfo = true; titleEdit = "Gender" })
                             SettingsInfoRow(game = true, Edit = true, editClick = false, title = "Date of Birth", body = "${alternateProfile.dob.month}-${alternateProfile.dob.day}-${alternateProfile.dob.year}", onClick = { showGameEditInfo = true; titleEdit = "Date of Birth" })
                             SettingsInfoRow(game = true, Edit = true, title = "Age", body = alternateProfile.age , onClick = { showGameEditInfo = true; titleEdit = "Age" })

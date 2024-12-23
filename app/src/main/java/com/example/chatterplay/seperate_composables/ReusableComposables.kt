@@ -1438,6 +1438,7 @@ fun EditInfoDialog(
     val randomMonth = rndMonth.random()
     val randomDay = rndDay.random()
     val editAge by remember { mutableStateOf(userProfile.age)}
+    var editLocation by remember { mutableStateOf(userProfile.location)}
     var editInfo by remember { mutableStateOf(userData)}
 
     var currentPassword by remember{ mutableStateOf("")}
@@ -1562,6 +1563,14 @@ fun EditInfoDialog(
 
 
               when (edit){
+                  "Picture" -> {
+                      Image(
+                          painter = rememberAsyncImagePainter(userProfile.imageUrl),
+                          contentDescription = null,
+                          modifier = Modifier
+                              .size(50.dp)
+                      )
+                  }
                   "Password" -> {
                       Text(
                           "Your password must be at least 6 characters and should include a combination of numbers, letters and special characters (!$@%)",
@@ -1703,7 +1712,7 @@ fun EditInfoDialog(
                           )
                       }
                   }
-                  "Email", "Gender", "Play" -> {
+                  "Email", "Gender" -> {
                       TextField(
                           value = editInfo,
                           onValueChange = {
@@ -1775,6 +1784,30 @@ fun EditInfoDialog(
                       DateDropDown(day = true, game = game) { selectedOption -> editDay = selectedOption}
                       DateDropDown(year = true, game = game) { selectedOption -> editYear = selectedOption}
                   }
+                  "Location" -> {
+                      TextField(
+                          value = editLocation,
+                          onValueChange = {
+                                          if (it.length <= 2 && it.all { char -> char.isLetter()}) {
+                                              editLocation = it.uppercase()
+                                          }
+                          },
+                          maxLines = 1,
+                          colors = TextFieldDefaults.textFieldColors(
+                              containerColor = Color.White,
+                              focusedIndicatorColor = Color.Transparent,
+                              unfocusedIndicatorColor = Color.Transparent
+                          ),
+                          modifier = Modifier
+                              .width(60.dp)
+                              .border(
+                                  2.dp,
+                                  Color.LightGray,
+                                  RoundedCornerShape(8.dp)
+                              )
+                              .clip(RoundedCornerShape(8.dp))
+                      )
+                  }
               }
 
 
@@ -1844,6 +1877,9 @@ fun EditInfoDialog(
                                       )
                                   )
                               }
+                              "Location" -> {
+                                  userProfile.copy(location = editLocation)
+                              }
                               else -> { userProfile }
                           }
                           viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
@@ -1905,7 +1941,24 @@ fun EditFirstNameDialog(
 
 
 @Composable
-fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, imagePic: Int? = null, extraChoice: Boolean = false, onClick: () -> Unit, Select: Boolean = false, Bio: Boolean = false, Edit: Boolean = false, editClick: Boolean = true, Image: Boolean = false) {
+fun SettingsInfoRow(
+    game: Boolean = false,
+    amount: Int = 1,
+    icon: ImageVector? = null,
+    contentDescription: String? = null,
+    title: String,
+    body: String = "",
+    secondBody: String = "",
+    arrow: Boolean = false,
+    imagePic: Int? = null,
+    extraChoice: Boolean = false,
+    onClick: () -> Unit,
+    Select: Boolean = false,
+    Bio: Boolean = false,
+    Edit: Boolean = false,
+    editClick: Boolean = true,
+    Image: Boolean = false
+) {
     when {
         Select -> {
             Column (
