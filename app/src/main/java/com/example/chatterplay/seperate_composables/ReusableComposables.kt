@@ -77,6 +77,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -112,9 +113,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.data_class.uriToByteArray
+import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.screens.login.CalculateAgeToDate
 import com.example.chatterplay.screens.login.CalculateBDtoAge
 import com.google.firebase.auth.FirebaseAuth
@@ -569,7 +572,7 @@ fun DynamicCircleBox(number: Int) {
 }
 
 @Composable
-fun PrivateGroupPicThumbnail(game: Boolean, memberCount: Int) {
+fun PrivateGroupPicThumbnail(game: Boolean, memberCount: Int, userProfile: UserProfile) {
 
     val displayPics = when {
         memberCount == 2 -> 1
@@ -591,7 +594,7 @@ fun PrivateGroupPicThumbnail(game: Boolean, memberCount: Int) {
 
         for (i in 0 until displayPics){
             Image(
-                painterResource(id = R.drawable.cool_neon),
+                rememberAsyncImagePainter(userProfile.imageUrl),
                 contentDescription = null,
                 modifier = Modifier
                     .size(imageSize)
@@ -633,6 +636,19 @@ fun PrivateGroupPicThumbnail(game: Boolean, memberCount: Int) {
 @Composable
 fun RoomRow(members: Int, title: String, who: String, message: String, time: String, unread: Int, game: Boolean, navController: NavController) {
 
+    val userProfile = UserProfile(
+        userId = "",
+        fname = "Alexandria",
+        lname = "Bartholomue",
+        gender = "Female",
+        dob = DateOfBirth(month = "January", day = "10", year = "1934"),
+        age = "24",
+        location = "PD",
+        imageUrl = "",
+        about = "kasjdfk jsdkfj jds kf sd",
+        pending = "NotPending",
+
+    )
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -651,7 +667,7 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
             modifier = Modifier
                 .fillMaxWidth()
         ){
-            PrivateGroupPicThumbnail(game, memberCount = members)
+            PrivateGroupPicThumbnail(game, memberCount = members, userProfile = userProfile)
             Spacer(modifier = Modifier.width(3.dp))
             Column (
                 verticalArrangement = Arrangement.Top,
@@ -768,16 +784,24 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
 
 @Composable
 fun RoomSelectionView(
+    userProfile: UserProfile,
+    room: ChatRoom,
     membersCount: Int,
-    members: Int,
-    title: String,
-    who: String,
-    message: String,
-    time: String,
-    unread: Int,
     game: Boolean,
-    navController: NavController
+    navController: NavController,
+    onClick: () -> Unit
 ) {
+
+    val chatRepository = ChatRepository()
+    val lastReplyImage = room.lastProfile
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val otherUserId = room.members.firstOrNull() {it != currentUserId}
+    val otherUserProfile by produceState<UserProfile?>(null, otherUserId) {
+        value = otherUserId?.let { chatRepository.getUserProfile(userId = it, game = game) }
+    }
+    val theirImage = otherUserProfile?.imageUrl
+    val theirName = "${otherUserProfile?.fname} ${otherUserProfile?.lname}"
+
 
     Column(
         modifier = Modifier
@@ -797,7 +821,7 @@ fun RoomSelectionView(
             modifier = Modifier
                 .fillMaxWidth()
         ){
-            PrivateGroupPicThumbnail(game, memberCount = membersCount)
+            PrivateGroupPicThumbnail(game, memberCount = membersCount, userProfile = userProfile)
             Spacer(modifier = Modifier.width(3.dp))
             Column (
                 verticalArrangement = Arrangement.Top,
@@ -811,36 +835,28 @@ fun RoomSelectionView(
                         .fillMaxWidth()
                         .padding(bottom = 8.dp)
                 ){
-                    if (membersCount <= 2){
-                        Text(
-                            who,
-                            style = CRAppTheme.typography.titleMedium,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                        )
-                    } else {
-                        Text(
-                            title,
-                            style = CRAppTheme.typography.titleMedium,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                        )
-                    }
+                    Text(
+                        text = if(membersCount <= 2) {
+                            theirName
+                        }else {
+                            room.roomName
+                              },
+                        style = CRAppTheme.typography.titleMedium,
+                        color = if (game) Color.White else Color.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .weight(1f)
+                    )
                     if (!game){
                         Text(
-                            "10/12",
+                            formattedDayTimestamp(room.lastMessageTimestamp),
                             style = CRAppTheme.typography.infoMedium,
                             color = if (game) Color.White else Color.Black,
                         )
-                        if (members >= 2){
+                        if (membersCount >= 2){
                             Text(
-                                time,
+                                formattedDayTimestamp(room.lastMessageTimestamp),
                                 style = CRAppTheme.typography.infoMedium,
                                 color = if (game) Color.White else Color.Black,
                                 modifier = Modifier
@@ -849,7 +865,7 @@ fun RoomSelectionView(
                         }
                     }
                 }
-                if (members >= 2){
+                if (membersCount >= 2){
 
                 } else {
                     Row(
@@ -860,7 +876,7 @@ fun RoomSelectionView(
                             .padding(bottom = 5.dp)
                     ){
                         Image(
-                            painter = painterResource(id = R.drawable.cool_neon),
+                            painter = rememberAsyncImagePainter(lastReplyImage),
                             contentDescription =null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -869,7 +885,7 @@ fun RoomSelectionView(
                         )
 
                         Text(
-                            who,
+                            room.lastMessage,
                             style = CRAppTheme.typography.bodyLarge,
                             color = if (game) Color.White else Color.Black,
                             maxLines = 1,
@@ -880,7 +896,7 @@ fun RoomSelectionView(
                         )
                         if (!game){
                             Text(
-                                "$time",
+                                text =formattedDayTimestamp(room.lastMessageTimestamp),
                                 style = CRAppTheme.typography.infoMedium,
                                 color = if (game) Color.White else Color.Black,
                                 modifier = Modifier
@@ -897,14 +913,14 @@ fun RoomSelectionView(
                         .padding(bottom = 5.dp)
                 ){
                     Text(
-                        "$message",
+                        room.lastMessage,
                         style = CRAppTheme.typography.bodySmall,
                         color = if (game) Color.White else Color.Black,
                         maxLines = 3,
                         modifier = Modifier
                             .weight(1f)
                     )
-                    DynamicCircleBox(number = unread)
+                    DynamicCircleBox(number = 5)
                 }
             }
         }
@@ -1256,25 +1272,25 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
 }
 
 @Composable
-fun PersonRow(PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, self: Boolean, navController: NavController) {
+fun PersonRow(userProfile: UserProfile, PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, self: Boolean, navController: NavController) {
     Row (
         horizontalArrangement = Arrangement.SpaceEvenly,
         modifier = modifier
     ){
-        PersonIcon(imgSize = PicSize, firstName = "Tim", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Clay", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Jason", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Alexandria", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Mammoa", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Daddy", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Timothy", txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
+        PersonIcon(imgSize = PicSize, userProfile = userProfile, txtSize = txtSize, game = game, self = self, navController = navController)
 
     }
 }
 
 @Composable
 fun PersonIcon(
-    firstName: String,
+    userProfile: UserProfile,
     imgSize: Int = 30,
     txtSize: Int = 10,
     clickable: Boolean = true,
@@ -1296,7 +1312,7 @@ fun PersonIcon(
         verticalArrangement = Arrangement.Center
     ){
         Image(
-            painter = painterResource(R.drawable.anonymous),
+            painter = rememberAsyncImagePainter(userProfile.imageUrl),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -1304,7 +1320,7 @@ fun PersonIcon(
                 .clip(CircleShape)
         )
         Text(
-            firstName,
+            userProfile.fname,
             fontSize = txtSize.sp
         )
 

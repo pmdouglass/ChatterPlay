@@ -47,6 +47,10 @@ class ChatRepository {
                 .get()
                 .await()
             return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
+            /*return usersCollection.document(userId)
+                .get()
+                .await()
+                .toObject(UserProfile::class.java)*/
 
         } else {
             val snapshot = usersCollection
@@ -153,6 +157,15 @@ class ChatRepository {
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         }
     }
+
+
+
+
+
+
+
+
+
     suspend fun getChatMessages(roomId: String, userId: String): List<ChatMessage> {
         val roomSnapshot = chatRoomsCollection.document(roomId).get().await()
         val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
@@ -193,6 +206,7 @@ class ChatRepository {
             null
         }
     }
+
 
     suspend fun getRoomInfo(CRRoomId: String, roomId: String): ChatRoom? {
         if (CRRoomId == "0"){

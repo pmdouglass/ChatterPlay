@@ -17,6 +17,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -29,15 +31,20 @@ import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.PersonRow
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
 import com.example.chatterplay.seperate_composables.RightSideModalDrawer
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
+import com.example.chatterplay.view_model.ChatViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainScreen(navController: NavController) {
+fun MainScreen(navController: NavController, viewModel: ChatViewModel = viewModel()) {
+
 
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
 
     RightSideModalDrawer(
         drawerState  = drawerState,
@@ -73,6 +80,7 @@ fun MainScreen(navController: NavController) {
                             .padding(paddingValues)
                     ){
                         PersonRow(
+                            userProfile = alternateProfile,
                             PicSize = 40,
                             txtSize = 8,
                             game = true,

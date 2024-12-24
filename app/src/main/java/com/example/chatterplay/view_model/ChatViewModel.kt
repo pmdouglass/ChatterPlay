@@ -52,14 +52,8 @@ class ChatViewModel: ViewModel() {
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
     private val _crUserProfile = MutableStateFlow<UserProfile?>(null)
     val crUserProfile: StateFlow<UserProfile?> get() = _crUserProfile
-    private val _personalImage = mutableStateOf<String?>(null)
-    val personalImage: State<String?> get() = _personalImage
-    private val _alternateImage = mutableStateOf<String?>(null)
-    val alternateImage: State<String?> get() = _alternateImage
-    private val _imageUrl = mutableStateOf<String?>(null)
-    val imageUrl: State<String?> = _imageUrl
-    private val _isUploading = mutableStateOf(false)
-    val isUploading: State<Boolean> = _isUploading
+    private val _chatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
+    val chatRooms: StateFlow<List<ChatRoom>>  = _chatRooms
     private val _allUsers = MutableStateFlow<List<UserProfile>>(emptyList())
     val allUsers: StateFlow<List<UserProfile>> get() = _allUsers
     private val _alternateProfileCompletion = MutableStateFlow(false)
@@ -86,7 +80,7 @@ class ChatViewModel: ViewModel() {
             getUserProfile()
             getAllUsers()
             //getChatRoomsWithUnreadCount()
-            //fetchAllChatRooms() // needs Improvements
+            getAllChatRooms()
         }
     }
 
@@ -162,6 +156,39 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
+
+    private fun getAllChatRooms() {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        currentUser?.let { user ->
+            chatRepository.getChatRooms()
+                .whereArrayContains("members", user.uid)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("ChatViewModel", "listen failed.", e)
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null) {
+                        val rooms = snapshot.documents.map { document ->
+                            document.toObject(ChatRoom::class.java)!!
+                        }.filter { room ->
+                            !room.hiddenFor.contains(user.uid)
+                        }.sortedBy { it.lastMessageTimestamp }  // Sort in descending order
+                        _chatRooms.value = rooms
+                        if (!isUnreadMessageCountFetched) {
+                            fetchUnreadMessageCount()
+                            isUnreadMessageCountFetched = true
+                        }
+                    }
+                }
+        }
+    }
+
+
+
+
+
+
     fun fetchChatMessages(roomId: String){
         viewModelScope.launch {
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -281,11 +308,6 @@ class ChatViewModel: ViewModel() {
                 val publicUrl = bucket.publicUrl(path)
 
                 _userState.value = UserState.Success("Image uploaded and URL retrieved")
-                if (!game) {
-                    _personalImage.value = publicUrl
-                }else {
-                    _alternateImage.value = publicUrl
-                }
                 onResult(publicUrl, null)
             }catch (e: Exception){
                 _userState.value = UserState.Error("Error: ${e.message}")
