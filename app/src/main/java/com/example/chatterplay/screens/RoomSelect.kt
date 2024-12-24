@@ -69,14 +69,11 @@ import okhttp3.Route
 @Composable
 fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
-    val userProfile by viewModel.userProfile.collectAsState()
-    val crUserProfile by viewModel.crUserProfile.collectAsState()
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "123"
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
-
-    val gameStatus = "start"
     var search by remember { mutableStateOf("")}
+
 
     ModalNavigationDrawer(
         drawerState = drawerState,
