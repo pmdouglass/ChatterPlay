@@ -769,9 +769,6 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
 @Composable
 fun RoomSelectionView(
     membersCount: Int,
-
-
-
     members: Int,
     title: String,
     who: String,
@@ -1280,19 +1277,26 @@ fun PersonIcon(
     firstName: String,
     imgSize: Int = 30,
     txtSize: Int = 10,
+    clickable: Boolean = true,
     game: Boolean,
     self: Boolean,
     navController: NavController
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .padding(10.dp)
-            .clickable { navController.navigate("profileScreen/${game}/${self}") }
+            .clickable {
+                if (clickable){
+                    navController.navigate("profileScreen/${game}/${self}")
+                }else {
+
+                }
+            },
+        verticalArrangement = Arrangement.Center
     ){
         Image(
-            painter = painterResource(id = R.drawable.cool_neon),
+            painter = painterResource(R.drawable.anonymous),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier

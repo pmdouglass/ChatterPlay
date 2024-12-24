@@ -3,6 +3,7 @@ package com.example.chatterplay
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -25,6 +26,8 @@ import com.example.chatterplay.screens.login.SignupScreen2
 import com.example.chatterplay.screens.login.SignupScreen3
 import com.example.chatterplay.screens.login.SignupScreen4
 import com.example.chatterplay.seperate_composables.FriendInfoRow
+import com.example.chatterplay.view_model.ChatViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -35,132 +38,135 @@ fun AppNavHost(navController: NavHostController) {
     val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val startDestination = if (currentUser.isNotEmpty()) "roomSelect" else "loginScreen"
 
-    NavHost(navController = navController, startDestination = startDestination) {
+    if (startDestination != "Loading"){
+        NavHost(navController = navController, startDestination =  startDestination){
 
-        composable("loginScreen"){
-            LoginScreen(navController = navController)
-        }
-        composable("signupScreen1"){
-            SignupScreen1(navController = navController)
-        }
-        composable("signupScreen2/{email}/{password}/{game}", arguments = listOf(navArgument("game") {type = NavType.BoolType})){backstackEntry ->
-            val email = backstackEntry.arguments?.getString("email") ?: ""
-            val password = backstackEntry.arguments?.getString("password") ?: ""
-            val game = backstackEntry.arguments?.getBoolean("game") ?: false
-            SignupScreen2(email = email,password = password,navController =  navController,game = game)
-        }
-        composable("signupScreen3/{email}/{password}/{fName}/{lName}/{month}/{day}/{year}/{age}/{gender}/{location}/{game}",
-            arguments = listOf(
-                navArgument("email") {type = NavType.StringType},
-                navArgument("password") {type = NavType.StringType},
-                navArgument("fName") {type = NavType.StringType},
-                navArgument("lName") {type = NavType.StringType},
-                navArgument("month") {type = NavType.StringType},
-                navArgument("day") {type = NavType.StringType},
-                navArgument("year") {type = NavType.StringType},
-                navArgument("age") {type = NavType.StringType},
-                navArgument("gender") {type = NavType.StringType},
-                navArgument("location") {type = NavType.StringType},
-                navArgument("game") {type = NavType.BoolType}
-            )
-        ){backstackEntry ->
-            val email = backstackEntry.arguments?.getString("email") ?: ""
-            val password = backstackEntry.arguments?.getString("password") ?: ""
-            val fName = backstackEntry.arguments?.getString("fName") ?: ""
-            val lName = backstackEntry.arguments?.getString("lName") ?: ""
-            val gender = backstackEntry.arguments?.getString("gender") ?: ""
-            val age = backstackEntry.arguments?.getString("age") ?: ""
-            val location = backstackEntry.arguments?.getString("location") ?: ""
-            val month = backstackEntry.arguments?.getString("month") ?: ""
-            val day = backstackEntry.arguments?.getString("day") ?: ""
-            val year = backstackEntry.arguments?.getString("year") ?: ""
-            val game = backstackEntry.arguments?.getBoolean("game") ?: false
+            composable("loginScreen"){
+                LoginScreen(navController = navController)
+            }
+            composable("signupScreen1"){
+                SignupScreen1(navController = navController)
+            }
+            composable("signupScreen2/{email}/{password}/{game}", arguments = listOf(navArgument("game") {type = NavType.BoolType})){backstackEntry ->
+                val email = backstackEntry.arguments?.getString("email") ?: ""
+                val password = backstackEntry.arguments?.getString("password") ?: ""
+                val game = backstackEntry.arguments?.getBoolean("game") ?: false
+                SignupScreen2(email = email,password = password,navController =  navController,game = game)
+            }
+            composable("signupScreen3/{email}/{password}/{fName}/{lName}/{month}/{day}/{year}/{age}/{gender}/{location}/{game}",
+                arguments = listOf(
+                    navArgument("email") {type = NavType.StringType},
+                    navArgument("password") {type = NavType.StringType},
+                    navArgument("fName") {type = NavType.StringType},
+                    navArgument("lName") {type = NavType.StringType},
+                    navArgument("month") {type = NavType.StringType},
+                    navArgument("day") {type = NavType.StringType},
+                    navArgument("year") {type = NavType.StringType},
+                    navArgument("age") {type = NavType.StringType},
+                    navArgument("gender") {type = NavType.StringType},
+                    navArgument("location") {type = NavType.StringType},
+                    navArgument("game") {type = NavType.BoolType}
+                )
+            ){backstackEntry ->
+                val email = backstackEntry.arguments?.getString("email") ?: ""
+                val password = backstackEntry.arguments?.getString("password") ?: ""
+                val fName = backstackEntry.arguments?.getString("fName") ?: ""
+                val lName = backstackEntry.arguments?.getString("lName") ?: ""
+                val gender = backstackEntry.arguments?.getString("gender") ?: ""
+                val age = backstackEntry.arguments?.getString("age") ?: ""
+                val location = backstackEntry.arguments?.getString("location") ?: ""
+                val month = backstackEntry.arguments?.getString("month") ?: ""
+                val day = backstackEntry.arguments?.getString("day") ?: ""
+                val year = backstackEntry.arguments?.getString("year") ?: ""
+                val game = backstackEntry.arguments?.getBoolean("game") ?: false
 
-            SignupScreen3(email = email, password = password, fName = fName, lName = lName, month = month, day = day, year = year, age = age, gender = gender, location = location, navController = navController, game = game)
+                SignupScreen3(email = email, password = password, fName = fName, lName = lName, month = month, day = day, year = year, age = age, gender = gender, location = location, navController = navController, game = game)
 
-        }
-        composable("signupScreen4/{email}/{password}/{fName}/{lName}/{month}/{day}/{year}/{age}/{gender}/{location}/{about}/{game}",
-            arguments = listOf(
-                navArgument("email") {type = NavType.StringType},
-                navArgument("password") {type = NavType.StringType},
-                navArgument("fName") {type = NavType.StringType},
-                navArgument("lName") {type = NavType.StringType},
-                navArgument("month") {type = NavType.StringType},
-                navArgument("day") {type = NavType.StringType},
-                navArgument("year") {type = NavType.StringType},
-                navArgument("age") {type = NavType.StringType},
-                navArgument("gender") {type = NavType.StringType},
-                navArgument("location") {type = NavType.StringType},
-                navArgument("game") {type = NavType.BoolType}
-            )
-        ){backstackEntry ->
-            val email = backstackEntry.arguments?.getString("email") ?: ""
-            val password = backstackEntry.arguments?.getString("password") ?: ""
-            val about = backstackEntry.arguments?.getString("about") ?: ""
-            val fName = backstackEntry.arguments?.getString("fName") ?: ""
-            val lName = backstackEntry.arguments?.getString("lName") ?: ""
-            val gender = backstackEntry.arguments?.getString("gender") ?: ""
-            val age = backstackEntry.arguments?.getString("age") ?: ""
-            val location = backstackEntry.arguments?.getString("location") ?: ""
-            val month = backstackEntry.arguments?.getString("month") ?: ""
-            val day = backstackEntry.arguments?.getString("day") ?: ""
-            val year = backstackEntry.arguments?.getString("year") ?: ""
-            val game = backstackEntry.arguments?.getBoolean("game") ?: false
+            }
+            composable("signupScreen4/{email}/{password}/{fName}/{lName}/{month}/{day}/{year}/{age}/{gender}/{location}/{about}/{game}",
+                arguments = listOf(
+                    navArgument("email") {type = NavType.StringType},
+                    navArgument("password") {type = NavType.StringType},
+                    navArgument("fName") {type = NavType.StringType},
+                    navArgument("lName") {type = NavType.StringType},
+                    navArgument("month") {type = NavType.StringType},
+                    navArgument("day") {type = NavType.StringType},
+                    navArgument("year") {type = NavType.StringType},
+                    navArgument("age") {type = NavType.StringType},
+                    navArgument("gender") {type = NavType.StringType},
+                    navArgument("location") {type = NavType.StringType},
+                    navArgument("game") {type = NavType.BoolType}
+                )
+            ){backstackEntry ->
+                val email = backstackEntry.arguments?.getString("email") ?: ""
+                val password = backstackEntry.arguments?.getString("password") ?: ""
+                val about = backstackEntry.arguments?.getString("about") ?: ""
+                val fName = backstackEntry.arguments?.getString("fName") ?: ""
+                val lName = backstackEntry.arguments?.getString("lName") ?: ""
+                val gender = backstackEntry.arguments?.getString("gender") ?: ""
+                val age = backstackEntry.arguments?.getString("age") ?: ""
+                val location = backstackEntry.arguments?.getString("location") ?: ""
+                val month = backstackEntry.arguments?.getString("month") ?: ""
+                val day = backstackEntry.arguments?.getString("day") ?: ""
+                val year = backstackEntry.arguments?.getString("year") ?: ""
+                val game = backstackEntry.arguments?.getBoolean("game") ?: false
 
 
-            SignupScreen4(email = email, password = password, fName = fName, lName = lName, month = month, day = day, year = year, age = age, gender = gender, location = location, about = about, navController = navController, game = game)
-        }
+                SignupScreen4(email = email, password = password, fName = fName, lName = lName, month = month, day = day, year = year, age = age, gender = gender, location = location, about = about, navController = navController, game = game)
+            }
 
-        composable("roomSelect"){
-            MainRoomSelect(navController = navController)
-        }
-        composable("mainScreen"){
-            MainScreen(navController = navController)
-        }
-        composable("inviteScreen/{CRRoomId}/{game}",
-            arguments = listOf(
+            composable("roomSelect"){
+                MainRoomSelect(navController = navController)
+            }
+            composable("mainScreen"){
+                MainScreen(navController = navController)
+            }
+            composable("inviteScreen/{CRRoomId}/{game}",
+                arguments = listOf(
+                    navArgument("game") {type = NavType.BoolType}
+                )){backStackEntry ->
+                val game = backStackEntry.arguments?.getBoolean("game") ?: false
+                val CRRoomId = backStackEntry.arguments?.getString("CRRoomId") ?: ""
+
+                InviteScreen(CRRoomId = CRRoomId, game = game, navController = navController)
+            }
+            composable("profileScreen/{game}/{self}",
+                arguments = listOf(
+                    navArgument("game") {type = NavType.BoolType},
+                    navArgument("self") {type = NavType.BoolType}
+                )){backStackEntry ->
+                val game = backStackEntry.arguments?.getBoolean("game") ?: false
+                val self = backStackEntry.arguments?.getBoolean("self") ?: false
+                ProfileScreen(game = game, self = self, navController = navController)
+            }
+            composable("chatScreen/{CRRoomId}/{roomId}/{game}", arguments = listOf(
                 navArgument("game") {type = NavType.BoolType}
             )){backStackEntry ->
-            val game = backStackEntry.arguments?.getBoolean("game") ?: false
-            val CRRoomId = backStackEntry.arguments?.getString("CRRoomId") ?: ""
-
-            InviteScreen(CRRoomId = CRRoomId, game = game, navController = navController)
-        }
-        composable("profileScreen/{game}/{self}",
-            arguments = listOf(
-                navArgument("game") {type = NavType.BoolType},
-                navArgument("self") {type = NavType.BoolType}
-            )){backStackEntry ->
-            val game = backStackEntry.arguments?.getBoolean("game") ?: false
-            val self = backStackEntry.arguments?.getBoolean("self") ?: false
-            ProfileScreen(game = game, self = self, navController = navController)
-        }
-        composable("chatScreen/{CRRoomId}/{roomId}/{game}", arguments = listOf(
-            navArgument("game") {type = NavType.BoolType}
-        )){backStackEntry ->
-            val game = backStackEntry.arguments?.getBoolean("game") ?: false
-            val userId = backStackEntry.arguments?.getString("userId")
-            val CRRoomId = backStackEntry.arguments?.getString("CRRoomId")
-            val roomId = backStackEntry.arguments?.getString("roomId")
-            if (CRRoomId != null && roomId != null){
-                ChattingScreen(game = game, CRRoomId = CRRoomId, roomId = roomId, navController = navController)
+                val game = backStackEntry.arguments?.getBoolean("game") ?: false
+                val userId = backStackEntry.arguments?.getString("userId")
+                val CRRoomId = backStackEntry.arguments?.getString("CRRoomId")
+                val roomId = backStackEntry.arguments?.getString("roomId")
+                if (CRRoomId != null && roomId != null){
+                    ChattingScreen(game = game, CRRoomId = CRRoomId, roomId = roomId, navController = navController)
+                }
+            }
+            composable("settingsScreen") {
+                SettingsScreen(game = false, navController = navController)
+            }
+            composable("editPersonalInfo") {
+                EditPersonalInfo(navController = navController)
+            }
+            composable("editProfile"){
+                EditProfileScreen(navController = navController)
+            }
+            composable("aboutChatrise"){
+                AboutChatRise(navController = navController)
+            }
+            composable("friendsScreen") {
+                FindFriends(navController = navController)
             }
         }
-        composable("settingsScreen") {
-            SettingsScreen(game = false, navController = navController)
-        }
-        composable("editPersonalInfo") {
-            EditPersonalInfo(navController = navController)
-        }
-        composable("editProfile"){
-            EditProfileScreen(navController = navController)
-        }
-        composable("aboutChatrise"){
-            AboutChatRise(navController = navController)
-        }
-        composable("friendsScreen") {
-            FindFriends(navController = navController)
-        }
     }
+
 
 }

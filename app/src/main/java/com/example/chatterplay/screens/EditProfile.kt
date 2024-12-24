@@ -90,8 +90,7 @@ fun EditProfileScreen(
     var showEditInfo by remember { mutableStateOf(false)}
     var showGameEditInfo by remember { mutableStateOf(false)}
     var showImageEdit by remember { mutableStateOf(false)}
-    val imagePersonal by viewModel.personalImage
-    val imageAlternate by viewModel.alternateImage
+    var showGameImageEdit by remember { mutableStateOf(false)}
 
     var showEdit by remember { mutableStateOf(false)}
 
@@ -116,16 +115,6 @@ fun EditProfileScreen(
                                 .size(35.dp)
                         )
                     }
-                },
-                actions = {
-                          IconButton( onClick = {navController.navigate("roomSelect")}){
-                              Icon(
-                                  Icons.Default.ImageAspectRatio,
-                                  contentDescription = null,
-                                  modifier = Modifier
-                                      .size(35.dp)
-                              )
-                          }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = CRAppTheme.colorScheme.background
@@ -213,7 +202,7 @@ fun EditProfileScreen(
 
                             }
                         } else {
-                            SettingsInfoRow(game = true, Image = true, title = "Profile Picture", body = alternateProfile.imageUrl, onClick = { showGameEditInfo = true; titleEdit = "Picture" })
+                            SettingsInfoRow(game = true, Image = true, title = "Profile Picture", body = alternateProfile.imageUrl, onClick = { showGameImageEdit = true; titleEdit = "Picture" })
                             SettingsInfoRow(game = true, Bio = true, title = "About", body = alternateProfile.about, onClick = { showGameEditInfo = true; titleEdit = "About" })
                             SettingsInfoRow(game = true, Edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showGameEditInfo = true; titleEdit = "Name" })
                             SettingsInfoRow(game = true, Edit = true, title = "Gender", body = alternateProfile.gender, onClick = { showGameEditInfo = true; titleEdit = "Gender" })
@@ -255,6 +244,15 @@ fun EditProfileScreen(
                     onDismiss = {showImageEdit = false}
                 )
             }
+            if (showGameImageEdit){
+                EditImageDialog(
+                    edit = titleEdit,
+                    userProfile = personalProfile,
+                    game = true,
+                    onDismiss = {showImageEdit = false}
+                )
+            }
+
         }
     )
 
