@@ -153,6 +153,12 @@ class ChatRepository {
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         }
     }
+
+
+
+
+
+
     suspend fun getChatMessages(roomId: String, userId: String): List<ChatMessage> {
         val roomSnapshot = chatRoomsCollection.document(roomId).get().await()
         val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
@@ -220,6 +226,7 @@ class ChatRepository {
     }
 
     fun getChatRooms() = chatRoomsCollection
+    fun getCRRoom() = CRGameRoomsCollection
     suspend fun getUnreadMessageCount(roomId: String, userId: String): Int{
         Log.d("Time", "Inside repository unread Messages")
         val roomRef = chatRoomsCollection.document(roomId)
@@ -251,3 +258,17 @@ class ChatRepository {
     }
 }
 
+
+suspend fun fetchUserProfile(userId: String): UserProfile? {
+    // Replace this with the actual method to fetch the user profile
+    return try {
+        val documentSnapshot = FirebaseFirestore.getInstance()
+            .collection("Users")
+            .document(userId)
+            .get()
+            .await()
+        documentSnapshot.toObject(UserProfile::class.java)
+    } catch (e: Exception){
+        null
+    }
+}

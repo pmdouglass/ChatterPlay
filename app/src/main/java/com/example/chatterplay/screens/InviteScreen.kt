@@ -187,8 +187,7 @@ import com.google.firebase.auth.FirebaseAuth
                             containerColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
-                        )
-                        ,
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                     )

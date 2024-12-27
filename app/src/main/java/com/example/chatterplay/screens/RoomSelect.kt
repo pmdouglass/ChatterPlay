@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -61,6 +63,8 @@ import com.example.chatterplay.seperate_composables.RoomRow
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.navigateToChattingScreen
+import com.example.chatterplay.seperate_composables.RoomSelectionView
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import okhttp3.Route
@@ -69,6 +73,11 @@ import okhttp3.Route
 @Composable
 fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
+
+    val chatRooms by viewModel.allChatRooms.collectAsState()
+    val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp }
+    val userProfile by viewModel.userProfile.collectAsState()
+    val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -222,6 +231,37 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
 
                     }
                     Spacer(modifier = Modifier.height(20.dp))
+
+
+                    LazyColumn (
+                        modifier = Modifier
+                            .fillMaxSize()
+                    ){
+                        items(allRooms){ room ->
+                            userProfile?.let { profile ->
+                                val CRRoomId = "0"
+                                RoomSelectionView(
+                                    game = false,
+                                    room = room,
+                                    membersCount = room.members.size,
+                                    replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
+                                    onClick = {
+                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false")
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+
+
+
+
+
+
+
+
+
                     RoomRow(
                         members = 3,
                         title = "Pence Park Ultimate Frisbee",

@@ -38,9 +38,9 @@ import com.example.chatterplay.view_model.ChatViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChattingScreen(
-    game: Boolean,
     CRRoomId: String,
     roomId: String,
+    game: Boolean,
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
@@ -134,7 +134,9 @@ fun ChattingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatLazyColumn(viewModel = viewModel)
+                ChatLazyColumn(
+                    viewModel = viewModel
+                )
 
             }
 

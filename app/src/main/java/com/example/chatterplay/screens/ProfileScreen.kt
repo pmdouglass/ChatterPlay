@@ -162,13 +162,18 @@ fun ProfileScreen(
                         }
                     },
                     actions = {
-                              IconButton(onClick = {navController.navigate("editProfile")}) {
-                                  Icon(
-                                      Icons.Default.ManageAccounts,
-                                      contentDescription = null,
-                                      modifier = Modifier.size(35.dp)
-                                  )
-                              }
+                        if (self){
+                            IconButton(onClick = {navController.navigate("editProfile")}) {
+                                Icon(
+                                    Icons.Default.ManageAccounts,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(35.dp)
+                                )
+                            }
+                        }
+                        else {
+
+                        }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = CRAppTheme.colorScheme.onBackground
