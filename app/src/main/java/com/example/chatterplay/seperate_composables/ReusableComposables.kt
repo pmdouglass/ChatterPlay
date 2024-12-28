@@ -1278,8 +1278,8 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
 }
 
 @Composable
-fun PersonRow(PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, self: Boolean, navController: NavController) {
-    Row (
+fun PersonRow(userProfile: UserProfile, PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, self: Boolean, navController: NavController, chatRoomMembers: List<UserProfile>) {
+    /*Row (
         horizontalArrangement = Arrangement.SpaceEvenly,
         modifier = modifier
     ){
@@ -1291,12 +1291,27 @@ fun PersonRow(PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, sel
         PersonIcon(imgSize = PicSize, firstName = "Daddy", txtSize = txtSize, game = game, self = self, navController = navController)
         PersonIcon(imgSize = PicSize, firstName = "Timothy", txtSize = txtSize, game = game, self = self, navController = navController)
 
+    }*/
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(10.dp)
+    ) {
+        items(chatRoomMembers){ member ->
+            PersonIcon(
+                member = member,
+                clickable = true,
+                game = false,
+                self = false,
+                navController = navController
+            )
+        }
     }
 }
 
 @Composable
 fun PersonIcon(
-    firstName: String,
+    member: UserProfile,
     imgSize: Int = 30,
     txtSize: Int = 10,
     clickable: Boolean = true,
@@ -1310,7 +1325,7 @@ fun PersonIcon(
             .padding(10.dp)
             .clickable {
                 if (clickable){
-                    navController.navigate("profileScreen/${game}/${self}")
+                    navController.navigate("profileScreen/${game}/${self}/${member.userId}")
                 }else {
 
                 }
@@ -1318,7 +1333,7 @@ fun PersonIcon(
         verticalArrangement = Arrangement.Center
     ){
         Image(
-            painter = painterResource(R.drawable.anonymous),
+            painter = rememberAsyncImagePainter(member.imageUrl),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -1326,7 +1341,7 @@ fun PersonIcon(
                 .clip(CircleShape)
         )
         Text(
-            firstName,
+            member.fname,
             fontSize = txtSize.sp
         )
 

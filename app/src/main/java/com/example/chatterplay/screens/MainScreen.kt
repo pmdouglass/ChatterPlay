@@ -32,19 +32,23 @@ import com.example.chatterplay.seperate_composables.PersonRow
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
 import com.example.chatterplay.seperate_composables.RightSideModalDrawer
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
 fun MainScreen(navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
 
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
 
     RightSideModalDrawer(
         drawerState  = drawerState,
@@ -79,16 +83,11 @@ fun MainScreen(navController: NavController, viewModel: ChatViewModel = viewMode
                             .background(customPurple)
                             .padding(paddingValues)
                     ){
-                        PersonRow(
-                            userProfile = alternateProfile,
-                            PicSize = 40,
-                            txtSize = 8,
+                        AllMembersRow(
+                            chatRoomMembers = chatRoomMembers,
                             game = true,
                             self = false,
-                            navController = navController,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp, bottom = 10.dp)
+                            navController = navController
                         )
                         Divider()
                         Column (

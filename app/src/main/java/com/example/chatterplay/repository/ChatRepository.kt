@@ -265,3 +265,17 @@ class ChatRepository {
     }
 }
 
+
+suspend fun fetchUserProfile(userId: String): UserProfile? {
+    // Replace this with the actual method to fetch the user profile
+    return try {
+        val documentSnapshot = FirebaseFirestore.getInstance()
+            .collection("Users")
+            .document(userId)
+            .get()
+            .await()
+        documentSnapshot.toObject(UserProfile::class.java)
+    } catch (e: Exception){
+        null
+    }
+}

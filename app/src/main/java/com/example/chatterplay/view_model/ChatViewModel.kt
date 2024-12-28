@@ -144,14 +144,14 @@ class ChatViewModel: ViewModel() {
             val currentUser = FirebaseAuth.getInstance().currentUser ?: return@launch
             val allMemberIds = (memberIds + currentUser.uid).sorted()
 
-            val existingRoomId = chatRepository.checkIfChatRoomExists(crRoomId = CRRoomId, members = allMemberIds)
+            val existingRoomId = chatRepository.checkIfChatRoomExists(CRRoomId = CRRoomId, members = allMemberIds)
 
             if (existingRoomId != null){
                 onRoomCreated(existingRoomId)
             } else {
-                val roomId = chatRepository.createChatRoom(crRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
+                val roomId = chatRepository.createChatRoom(CRRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
                 memberIds.forEach { memberIds ->
-                    chatRepository.addMemberToRoom(crRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
+                    chatRepository.addMemberToRoom(CRRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
                 }
                 onRoomCreated(roomId)
             }
@@ -233,7 +233,7 @@ class ChatViewModel: ViewModel() {
     }
     fun getRoomInfo(CRRoomId: String, roomId: String){
         viewModelScope.launch {
-            val roomInfo = chatRepository.getRoomInfo(crRoomId = CRRoomId, roomId = roomId)
+            val roomInfo = chatRepository.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
             _roomInfo.value = roomInfo
         }
     }
