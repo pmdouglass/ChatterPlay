@@ -78,6 +78,7 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
     val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp }
     val userProfile by viewModel.userProfile.collectAsState()
     val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
@@ -121,7 +122,7 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         )
                     },
                     onClick = {
-                        navController.navigate("profileScreen/false/true")
+                        navController.navigate("profileScreen/false/true/$userId")
                         coroutineScope.launch {
                             drawerState.close()
                         }
@@ -167,19 +168,6 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         )
                     },
                     actions = {
-                        IconButton(onClick = {
-                            FirebaseAuth.getInstance().signOut()
-                            navController.navigate("imagepicker") {
-                                popUpTo(0)
-                            }
-                        }) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
                         IconButton(onClick = {
                             val CRRoomId = "0"
                             navController.navigate("inviteScreen/$CRRoomId/false")

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -126,9 +127,6 @@ fun ChattingScreen(
             )
             Divider()
 
-
-
-
             Column (
                 verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier
@@ -144,11 +142,3 @@ fun ChattingScreen(
     }
 }
 
-
-@Preview
-@Composable
-fun TestChattingScreen() {
-    CRAppTheme {
-        ChattingScreen(game = true , CRRoomId = "0", roomId = "", navController = rememberNavController())
-    }
-}

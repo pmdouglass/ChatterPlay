@@ -85,7 +85,6 @@ class ChatViewModel: ViewModel() {
 
     init {
         viewModelScope.launch {
-            getUserProfile()
             getAllUsers()
             //getChatRoomsWithUnreadCount()
             fetchAllChatRooms()
@@ -107,12 +106,11 @@ class ChatViewModel: ViewModel() {
       }
     }
 
-    suspend fun getUserProfile(){
-        val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    suspend fun getUserProfile(userId: String){
         viewModelScope.launch {
-            val profile = chatRepository.getUserProfile(currentUser, false)
+            val profile = chatRepository.getUserProfile(userId, false)
             _userProfile.value = profile
-            val crProfile = chatRepository.getUserProfile(currentUser, true)
+            val crProfile = chatRepository.getUserProfile(userId, true)
             _crUserProfile.value = crProfile
 
         }

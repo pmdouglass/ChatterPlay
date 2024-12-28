@@ -3,14 +3,12 @@ package com.example.chatterplay
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.chatterplay.data_class.DateOfBirth
-import com.example.chatterplay.screens.AboutChatRise
+import com.example.chatterplay.screens.Subscreens.AboutChatRise
 import com.example.chatterplay.screens.ChattingScreen
 import com.example.chatterplay.screens.EditPersonalInfo
 import com.example.chatterplay.screens.EditProfileScreen
@@ -126,14 +124,15 @@ fun AppNavHost(navController: NavHostController) {
 
                 InviteScreen(CRRoomId = CRRoomId, game = game, navController = navController)
             }
-            composable("profileScreen/{game}/{self}",
+            composable("profileScreen/{game}/{self}/{userId}",
                 arguments = listOf(
                     navArgument("game") {type = NavType.BoolType},
                     navArgument("self") {type = NavType.BoolType}
                 )){backStackEntry ->
                 val game = backStackEntry.arguments?.getBoolean("game") ?: false
                 val self = backStackEntry.arguments?.getBoolean("self") ?: false
-                ProfileScreen(game = game, self = self, navController = navController)
+                val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                ProfileScreen(userId = userId, game = game, self = self, navController = navController)
             }
             "chatScreen/"
             composable("chatScreen/{CRRoomId}/{roomId}/{game}", arguments = listOf(

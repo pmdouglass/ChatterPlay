@@ -136,7 +136,7 @@ enum class RowState (val string: String){
 }
 
 @Composable
-fun rememberProfileState(viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
+fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
     val personalState by viewModel.userProfile.collectAsState()
     val alternateState by viewModel.crUserProfile.collectAsState()
 
@@ -144,7 +144,7 @@ fun rememberProfileState(viewModel: ChatViewModel = viewModel()): Pair<UserProfi
     val alternateProfile = alternateState ?: UserProfile()
 
     LaunchedEffect(Unit) {
-        viewModel.getUserProfile()
+        viewModel.getUserProfile(userId = userId)
     }
     return  Pair(personalProfile, alternateProfile)
 
@@ -161,7 +161,8 @@ fun ChatRiseThumbnail(
     var status by remember { mutableStateOf("start")}
     var selfSelect by remember { mutableStateOf(false)}
     var altSelect by remember { mutableStateOf(true)}
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
     val width = 100
 
 
@@ -1349,7 +1350,7 @@ fun UserProfileIcon(
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .padding(10.dp)
-            .clickable { navController.navigate("profileScreen/${game}/${self}") }
+            .clickable { navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}") }
     ){
         Image(
             painter = rememberAsyncImagePainter(chatMember.imageUrl),
@@ -1458,8 +1459,8 @@ fun EditInfoDialog(
     onDismiss: () -> Unit,
     viewModel: ChatViewModel = viewModel()
 ) {
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
     val userId = userProfile.userId
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
     var editFname by remember { mutableStateOf(userProfile.fname)}
     var editLname by remember { mutableStateOf(userProfile.lname)}
     var editAbout by remember{ mutableStateOf(userProfile.about)}
@@ -2231,7 +2232,8 @@ fun DateDropDown(
     viewModel: ChatViewModel = viewModel(),
     onOptionSelected: (String) -> Unit
 ) {
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
 
     // State for the dropdown menu
     val title = when {
@@ -2487,7 +2489,8 @@ fun ChatLazyColumn(
     viewModel: ChatViewModel
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val userId = currentUser?.uid ?: ""
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
@@ -2531,7 +2534,7 @@ fun ChatLazyColumn(
                     modifier = Modifier.padding(end = 10.dp)
                 )
                 Image(
-                    painter = rememberAsyncImagePainter(model = R.drawable.anonymous),
+                    painter = rememberAsyncImagePainter(personalProfile.imageUrl),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -2612,7 +2615,7 @@ fun ChatBubble(
             Row(
                 horizontalArrangement = Arrangement.End,
                 modifier = Modifier
-                    .widthIn(max = 260.dp)
+                    .widthIn(max = 360.dp)
                     .clip(
                         RoundedCornerShape(
                             topStart = if (!isFromMe) 0.dp else borderRad,

@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Chat Rise"
+rootProject.name = "ChatterPlay"
 include(":app")

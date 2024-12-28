@@ -1,15 +1,11 @@
 package com.example.chatterplay.screens
 
 import android.content.res.Configuration
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,12 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.GroupAdd
-import androidx.compose.material.icons.filled.Man
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
@@ -43,14 +37,12 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
@@ -60,23 +52,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
 import com.example.chatterplay.seperate_composables.MainTopAppBar
+import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
 import com.example.chatterplay.view_model.ChatViewModel
-import com.google.android.play.integrity.internal.i
-import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.data_class.DateOfBirth
-import com.example.chatterplay.data_class.uriToByteArray
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
+    userId: String,
     game: Boolean,
     self: Boolean,
     viewModel: ChatViewModel = viewModel(),
@@ -84,29 +75,10 @@ fun ProfileScreen(
 ) {
 
     val context = LocalContext.current
-    val personalProfile by viewModel.userProfile.collectAsState()
-    val alternateProfileCompletion = true //viewModel.alternateProfileCompletion.collectAsState()
-    val alternateProfile by viewModel.crUserProfile.collectAsState()
 
-    // Personal
-    var fname by remember { mutableStateOf("")}
-    var lname by remember { mutableStateOf("")}
-    var dob by remember { mutableStateOf(DateOfBirth(month = "December", day = "15", year = "2024"))}
-    var age by remember { mutableStateOf("")}
-    var location by remember { mutableStateOf("")}
-    var imageUrl by remember { mutableStateOf("")}
-    var about by remember { mutableStateOf("")}
-    var gender by remember { mutableStateOf("")}
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
 
-    // Alternate
-    var Afname by remember { mutableStateOf("")}
-    var Alname by remember { mutableStateOf("")}
-    var Adob by remember { mutableStateOf(DateOfBirth(month = "December", day = "15", year = "2024"))}
-    var Aage by remember { mutableStateOf("")}
-    var Alocation by remember { mutableStateOf("")}
-    var AimageUrl by remember { mutableStateOf("")}
-    var Aabout by remember { mutableStateOf("")}
-    var Agender by remember { mutableStateOf("")}
+
 
     var selectedGame = game
     val tabs = listOf("Personal", "Alternate")
@@ -117,29 +89,8 @@ fun ProfileScreen(
 
 
     
-    LaunchedEffect(personalProfile, alternateProfile, Unit) {
-        viewModel.getUserProfile()
-        personalProfile?.let { 
-            fname = it.fname
-            lname = it.lname
-            location = it.location
-            age = it.age
-            about = it.about
-            gender = it.gender
-            imageUrl = it.imageUrl
-            dob = it.dob
-        }
-
-        alternateProfile?.let {
-            Afname = it.fname
-            Alname = it.lname
-            Alocation = it.location
-            Aage = it.age
-            Aabout = it.about
-            Agender = it.gender
-            AimageUrl = it.imageUrl
-            Adob = it.dob
-        }
+    LaunchedEffect(Unit) {
+        viewModel.getUserProfile(userId = userId)
     }
 
     Scaffold(
@@ -225,7 +176,7 @@ fun ProfileScreen(
                 when (selectedTabIndex) {
                     0 -> {
                         Image(
-                            painter = rememberAsyncImagePainter(imageUrl),
+                            painter = rememberAsyncImagePainter(personalProfile.imageUrl),
                             contentDescription =null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -235,7 +186,7 @@ fun ProfileScreen(
                         )
                     }
                     1 -> {
-                        if (Afname.isNullOrBlank()){
+                        if (alternateProfile.fname.isNullOrBlank()){
                             Column(
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -253,7 +204,7 @@ fun ProfileScreen(
                             }
                         } else {
                             Image(
-                                painter = rememberAsyncImagePainter(AimageUrl),
+                                painter = rememberAsyncImagePainter(alternateProfile.imageUrl),
                                 contentDescription =null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -319,8 +270,8 @@ fun ProfileScreen(
 
                     Text(
                         text = when (selectedTabIndex) {
-                            0 -> "$fname $lname, $age"
-                            1 -> "$Afname, $Aage"
+                            0 -> "${personalProfile.fname} ${personalProfile.lname}, ${personalProfile.age}"
+                            1 -> "${alternateProfile.fname}, ${alternateProfile.age}"
                             else -> "Nothing Selected"
                         },
                         style = CRAppTheme.typography.headingLarge,
@@ -349,8 +300,8 @@ fun ProfileScreen(
                     ){
                         Text(
                             text = when (selectedTabIndex) {
-                                0 -> gender
-                                1 -> Agender
+                                0 -> personalProfile.gender
+                                1 -> alternateProfile.gender
                                 else -> "Nothing Selected"
                             },
                             style = CRAppTheme.typography.infoLarge,
@@ -484,8 +435,8 @@ fun ProfileScreen(
 
                     Text(
                         text = when (selectedTabIndex) {
-                            0 -> location
-                            1 -> Alocation
+                            0 -> personalProfile.location
+                            1 -> alternateProfile.location
                             else -> "Nothing Selected"
                         },
                         style = CRAppTheme.typography.bodyLarge,
@@ -518,8 +469,8 @@ fun ProfileScreen(
 
                     Text(
                         text = when (selectedTabIndex) {
-                            0 -> about
-                            1 -> Aabout
+                            0 -> personalProfile.about
+                            1 -> alternateProfile.about
                             else -> "Nothing Selected"
                         },
                         style = CRAppTheme.typography.bodyLarge,
@@ -730,15 +681,3 @@ fun ProfileInfo(game: Boolean, expand: Boolean) {
     }
 }
 
-
-
-
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Light Mode", showBackground = true)
-@Composable
-fun PreviewProfile() {
-    CRAppTheme () {
-        Surface {
-            ProfileScreen(false, self = true, navController = rememberNavController())
-        }
-    }
-}

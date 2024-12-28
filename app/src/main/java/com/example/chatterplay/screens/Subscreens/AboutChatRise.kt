@@ -1,4 +1,4 @@
-package com.example.chatterplay.screens
+package com.example.chatterplay.screens.Subscreens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
