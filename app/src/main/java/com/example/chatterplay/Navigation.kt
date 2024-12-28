@@ -3,14 +3,12 @@ package com.example.chatterplay
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.chatterplay.data_class.DateOfBirth
-import com.example.chatterplay.screens.AboutChatRise
+import com.example.chatterplay.screens.subscreens.AboutChatRise
 import com.example.chatterplay.screens.ChattingScreen
 import com.example.chatterplay.screens.EditPersonalInfo
 import com.example.chatterplay.screens.EditProfileScreen
@@ -25,12 +23,8 @@ import com.example.chatterplay.screens.login.SignupScreen1
 import com.example.chatterplay.screens.login.SignupScreen2
 import com.example.chatterplay.screens.login.SignupScreen3
 import com.example.chatterplay.screens.login.SignupScreen4
-import com.example.chatterplay.seperate_composables.FriendInfoRow
-import com.example.chatterplay.view_model.ChatViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -130,24 +124,29 @@ fun AppNavHost(navController: NavHostController) {
 
                 InviteScreen(CRRoomId = CRRoomId, game = game, navController = navController)
             }
-            composable("profileScreen/{game}/{self}",
+            composable("profileScreen/{game}/{self}/{userId}",
                 arguments = listOf(
                     navArgument("game") {type = NavType.BoolType},
                     navArgument("self") {type = NavType.BoolType}
                 )){backStackEntry ->
                 val game = backStackEntry.arguments?.getBoolean("game") ?: false
                 val self = backStackEntry.arguments?.getBoolean("self") ?: false
-                ProfileScreen(game = game, self = self, navController = navController)
+                val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                ProfileScreen(userId = userId, game = game, self = self, navController = navController)
             }
+            "chatScreen/"
             composable("chatScreen/{CRRoomId}/{roomId}/{game}", arguments = listOf(
                 navArgument("game") {type = NavType.BoolType}
             )){backStackEntry ->
                 val game = backStackEntry.arguments?.getBoolean("game") ?: false
                 val userId = backStackEntry.arguments?.getString("userId")
-                val CRRoomId = backStackEntry.arguments?.getString("CRRoomId")
+                val CRRoomId = backStackEntry.arguments?.getString("CRRoomId") ?: "0"
                 val roomId = backStackEntry.arguments?.getString("roomId")
+                val friendChat = backStackEntry.arguments?.getString("friendChat")?.toBoolean() ?: false
+                val riserChat = backStackEntry.arguments?.getString("riserChat")?.toBoolean() ?: false
+
                 if (CRRoomId != null && roomId != null){
-                    ChattingScreen(game = game, CRRoomId = CRRoomId, roomId = roomId, navController = navController)
+                    ChattingScreen(CRRoomId = CRRoomId, roomId = roomId, game = game, navController = navController)
                 }
             }
             composable("settingsScreen") {
@@ -168,5 +167,27 @@ fun AppNavHost(navController: NavHostController) {
         }
     }
 
+
+}
+
+fun navigateToChattingScreen(
+    navController: NavController,
+    CRRoomId: String? = null,
+    roomId: String,
+    friendChat: Boolean = false,
+    riserChat: Boolean = false
+){
+
+    var route = "chattingScreen/$roomId"
+
+    if  (CRRoomId != null){
+        route += "?CRRoomId=$CRRoomId"
+    }
+
+    if (friendChat || riserChat){
+        route += if (CRRoomId == null) "?friendChat=$friendChat&riserChat=$riserChat" else "&friendChat=$friendChat&riserChat=$riserChat"
+    }
+
+    navController.navigate(route)
 
 }

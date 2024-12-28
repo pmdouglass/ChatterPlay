@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -62,6 +63,7 @@ import com.example.chatterplay.seperate_composables.RoomRow
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.navigateToChattingScreen
 import com.example.chatterplay.seperate_composables.RoomSelectionView
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -71,16 +73,17 @@ import okhttp3.Route
 @Composable
 fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
-    val chatRooms by viewModel.chatRooms.collectAsState()
+
+    val chatRooms by viewModel.allChatRooms.collectAsState()
     val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp }
     val userProfile by viewModel.userProfile.collectAsState()
-    val crUserProfile by viewModel.crUserProfile.collectAsState()
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "123"
+    val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
-
-    val gameStatus = "start"
     var search by remember { mutableStateOf("")}
+
 
     ModalNavigationDrawer(
         drawerState = drawerState,
@@ -119,7 +122,7 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         )
                     },
                     onClick = {
-                        navController.navigate("profileScreen/false/true")
+                        navController.navigate("profileScreen/false/true/$userId")
                         coroutineScope.launch {
                             drawerState.close()
                         }
@@ -165,19 +168,6 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         )
                     },
                     actions = {
-                        IconButton(onClick = {
-                            FirebaseAuth.getInstance().signOut()
-                            navController.navigate("imagepicker") {
-                                popUpTo(0)
-                            }
-                        }) {
-                            Icon(
-                                Icons.Default.Menu,
-                                contentDescription = null,
-                                modifier = Modifier.size(40.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
                         IconButton(onClick = {
                             val CRRoomId = "0"
                             navController.navigate("inviteScreen/$CRRoomId/false")
@@ -230,23 +220,76 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                     }
                     Spacer(modifier = Modifier.height(20.dp))
 
+
                     LazyColumn (
                         modifier = Modifier
                             .fillMaxSize()
                     ){
-                        items(allRooms) { room ->
+                        items(allRooms){ room ->
                             userProfile?.let { profile ->
+                                val CRRoomId = "0"
                                 RoomSelectionView(
-                                    userProfile = userProfile,
+                                    game = false,
                                     room = room,
                                     membersCount = room.members.size,
-                                    game = false,
-                                    onClick = {},
-                                    navController = navController
+                                    replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
+                                    onClick = {
+                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false")
+                                    }
                                 )
                             }
                         }
                     }
+
+
+
+
+
+
+
+
+
+
+                    RoomRow(
+                        members = 3,
+                        title = "Pence Park Ultimate Frisbee",
+                        who = "Tim C",
+                        message = "Did you guys see my awsome play?",
+                        time = "10:15am",
+                        unread = 12,
+                        game = false,
+                        navController = navController
+                    )
+                    RoomRow(
+                        members = 13,
+                        title = "Movie Buffs",
+                        who = "John L",
+                        message = "Just saw the latest thriller - the plot twist was insane!",
+                        time = " 6:20pm",
+                        unread = 7,
+                        game = false,
+                        navController = navController
+                    )
+                    RoomRow(
+                        members = 2,
+                        title = "Tech Talk",
+                        who = "Chris O",
+                        message = "Has anyone tried the new VR headset? Wondering if it's worth the hype!",
+                        time = "1:15 pm",
+                        unread = 0,
+                        game = false,
+                        navController = navController
+                    )
+                    RoomRow(
+                        members = 21,
+                        title ="Book Nook",
+                        who = "Amy W",
+                        message = "Just finished Pachinko - the family dynamics were so intense.",
+                        time = "4:10 pm",
+                        unread = 21,
+                        game = false,
+                        navController = navController
+                    )
 
                 }
             }

@@ -1,6 +1,5 @@
 package com.example.chatterplay.screens.login
 
-import android.net.Uri
 import android.os.Build
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -20,24 +19,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Email
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxColors
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,7 +36,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,11 +64,8 @@ import java.time.format.DateTimeFormatter
 
 
 @RequiresApi(Build.VERSION_CODES.O)
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen1(navController: NavController) {
-
-    val pad = 50
 
     var showPopUp by remember { mutableStateOf(false)}
     var email by remember { mutableStateOf("")}
@@ -169,7 +153,7 @@ fun SignupScreen1(navController: NavController) {
 
         Button(
             onClick =  {
-                if (email.isNotEmpty() && password.isNotEmpty() && confirmPassword.isNotEmpty() && password == confirmPassword && terms == true) {
+                if (email.isNotEmpty() && password.isNotEmpty() && confirmPassword.isNotEmpty() && password == confirmPassword && terms) {
                     navController.navigate("signupScreen2/${email}/${confirmPassword}/false")
                 } else{
                     showPopUp = true
@@ -194,7 +178,7 @@ fun SignupScreen1(navController: NavController) {
         if (showPopUp) {
             SimplePopupScreen(
                 text = "You must fill out all the fields",
-                showPopup = showPopUp,
+                showPopup = false,
                 onDismissRequest = {showPopUp = false}
             )
         }
@@ -251,6 +235,7 @@ fun SimplePopupScreen(text: String = "", textfield: Boolean = false, showPopup: 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CustomField(
+    modifier: Modifier = Modifier,
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
@@ -258,7 +243,6 @@ fun CustomField(
     placeholder: String = "",
     keyboardtypeOption: KeyboardType,
     inputValidator: (String) -> Boolean,
-    modifier: Modifier = Modifier,
     errorText: String = "Invalid input",
     settings: Boolean = false,
     capitalizefirstLetter: Boolean = false,
@@ -267,16 +251,6 @@ fun CustomField(
 ) {
     var isFieldValid by remember { mutableStateOf(true) } // Validate input based on provided logic
     var passwordVisible by remember { mutableStateOf(false) } // Password visibility toggle
-
-    var pickedDate by remember { mutableStateOf(LocalDate.now())}
-
-    val formattedDate by remember {
-        derivedStateOf {
-            DateTimeFormatter
-                .ofPattern("MMM dd yyyy")
-                .format(pickedDate)
-        }
-    }
 
     val dateDialogState = rememberMaterialDialogState()
 

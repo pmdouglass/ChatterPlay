@@ -70,6 +70,7 @@ import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.seperate_composables.EditFirstNameDialog
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -84,6 +85,7 @@ fun EditProfileScreen(
     //val auth = FirebaseAuth.getInstance()
     //val currentUser = auth.currentUser
 
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val tabs = listOf("Personal", "Alternate")
     var selectedTabIndex by remember { mutableStateOf(0)}
     val scrollState = rememberScrollState()
@@ -95,7 +97,7 @@ fun EditProfileScreen(
     var showEdit by remember { mutableStateOf(false)}
 
     var titleEdit by remember{ mutableStateOf("")}
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
 
 
 
@@ -278,7 +280,8 @@ fun EditPersonalInfo(
     var password by remember { mutableStateOf("")}
     var confirmPassword by remember { mutableStateOf("")}
     var titleEdit by remember{ mutableStateOf("")}
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel)
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
 
 
 

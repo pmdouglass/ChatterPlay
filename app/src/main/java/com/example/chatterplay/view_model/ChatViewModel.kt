@@ -12,17 +12,14 @@ import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.UserState
 import com.example.chatterplay.repository.ChatRepository
-import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.gotrue.GoTrue
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 
@@ -52,8 +49,14 @@ class ChatViewModel: ViewModel() {
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
     private val _crUserProfile = MutableStateFlow<UserProfile?>(null)
     val crUserProfile: StateFlow<UserProfile?> get() = _crUserProfile
-    private val _chatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
-    val chatRooms: StateFlow<List<ChatRoom>>  = _chatRooms
+    private val _personalImage = mutableStateOf<String?>(null)
+    val personalImage: State<String?> get() = _personalImage
+    private val _alternateImage = mutableStateOf<String?>(null)
+    val alternateImage: State<String?> get() = _alternateImage
+    private val _imageUrl = mutableStateOf<String?>(null)
+    val imageUrl: State<String?> = _imageUrl
+    private val _isUploading = mutableStateOf(false)
+    val isUploading: State<Boolean> = _isUploading
     private val _allUsers = MutableStateFlow<List<UserProfile>>(emptyList())
     val allUsers: StateFlow<List<UserProfile>> get() = _allUsers
     private val _alternateProfileCompletion = MutableStateFlow(false)
@@ -77,10 +80,9 @@ class ChatViewModel: ViewModel() {
 
     init {
         viewModelScope.launch {
-            getUserProfile()
             getAllUsers()
             //getChatRoomsWithUnreadCount()
-            getAllChatRooms()
+            fetchAllChatRooms()
         }
     }
 
@@ -99,12 +101,11 @@ class ChatViewModel: ViewModel() {
       }
     }
 
-    suspend fun getUserProfile(){
-        val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    suspend fun getUserProfile(userId: String){
         viewModelScope.launch {
-            val profile = chatRepository.getUserProfile(currentUser, false)
+            val profile = chatRepository.getUserProfile(userId, false)
             _userProfile.value = profile
-            val crProfile = chatRepository.getUserProfile(currentUser, true)
+            val crProfile = chatRepository.getUserProfile(userId, true)
             _crUserProfile.value = crProfile
 
         }
@@ -143,47 +144,19 @@ class ChatViewModel: ViewModel() {
             val currentUser = FirebaseAuth.getInstance().currentUser ?: return@launch
             val allMemberIds = (memberIds + currentUser.uid).sorted()
 
-            val existingRoomId = chatRepository.checkIfChatRoomExists(CRRoomId = CRRoomId, members = allMemberIds)
+            val existingRoomId = chatRepository.checkIfChatRoomExists(crRoomId = CRRoomId, members = allMemberIds)
 
             if (existingRoomId != null){
                 onRoomCreated(existingRoomId)
             } else {
-                val roomId = chatRepository.createChatRoom(CRRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
+                val roomId = chatRepository.createChatRoom(crRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
                 memberIds.forEach { memberIds ->
-                    chatRepository.addMemberToRoom(CRRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
+                    chatRepository.addMemberToRoom(crRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
                 }
                 onRoomCreated(roomId)
             }
         }
     }
-
-    private fun getAllChatRooms() {
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        currentUser?.let { user ->
-            chatRepository.getChatRooms()
-                .whereArrayContains("members", user.uid)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        Log.w("ChatViewModel", "listen failed.", e)
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot != null) {
-                        val rooms = snapshot.documents.map { document ->
-                            document.toObject(ChatRoom::class.java)!!
-                        }.filter { room ->
-                            !room.hiddenFor.contains(user.uid)
-                        }.sortedBy { it.lastMessageTimestamp }  // Sort in descending order
-                        _chatRooms.value = rooms
-                        if (!isUnreadMessageCountFetched) {
-                            fetchUnreadMessageCount()
-                            isUnreadMessageCountFetched = true
-                        }
-                    }
-                }
-        }
-    }
-
 
 
 
@@ -260,7 +233,7 @@ class ChatViewModel: ViewModel() {
     }
     fun getRoomInfo(CRRoomId: String, roomId: String){
         viewModelScope.launch {
-            val roomInfo = chatRepository.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
+            val roomInfo = chatRepository.getRoomInfo(crRoomId = CRRoomId, roomId = roomId)
             _roomInfo.value = roomInfo
         }
     }
@@ -308,6 +281,11 @@ class ChatViewModel: ViewModel() {
                 val publicUrl = bucket.publicUrl(path)
 
                 _userState.value = UserState.Success("Image uploaded and URL retrieved")
+                if (!game) {
+                    _personalImage.value = publicUrl
+                }else {
+                    _alternateImage.value = publicUrl
+                }
                 onResult(publicUrl, null)
             }catch (e: Exception){
                 _userState.value = UserState.Error("Error: ${e.message}")

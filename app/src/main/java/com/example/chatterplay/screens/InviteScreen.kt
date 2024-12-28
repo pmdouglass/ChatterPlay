@@ -56,6 +56,7 @@ import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.FriendInfoRow
@@ -129,10 +130,19 @@ import com.google.firebase.auth.FirebaseAuth
                     Text(
                         text = "CREATE",
                         style = CRAppTheme.typography.headingSmall,
-                        color = if (game) Color.White else Color.Black,
+                        color =
+                        if (selectedUsers.size == 0){
+                            Color.Gray
+                        }else if (game) {
+                            Color.White
+                        } else {
+                            Color.Black
+                        },
                         modifier = Modifier
                             .clickable {
-                                if (currentUser != null && selectedUsers.isNotEmpty()){
+                                if (selectedUsers.size == 0){
+
+                                }else if (currentUser != null && selectedUsers.isNotEmpty()){
                                     val theRoomName = if (roomName.isBlank()) {
                                         selectedUsers.joinToString(", ") { it.fname}
                                     } else {
@@ -187,8 +197,7 @@ import com.google.firebase.auth.FirebaseAuth
                             containerColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
-                        )
-                        ,
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                     )
@@ -246,7 +255,7 @@ import com.google.firebase.auth.FirebaseAuth
                                     .size(50.dp)
                             ){
                                 Image(
-                                    painter = painterResource(id = R.drawable.cool_neon),
+                                    painter = rememberAsyncImagePainter(user.imageUrl),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
@@ -285,10 +294,11 @@ import com.google.firebase.auth.FirebaseAuth
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .padding(6.dp)
                                 .clickable { toggleUserSelection(user) }
                         ){
                             Image(
-                                painter = painterResource(id = R.drawable.person_sillouette),
+                                painter = rememberAsyncImagePainter(user.imageUrl),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier

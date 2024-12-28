@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -38,9 +39,9 @@ import com.example.chatterplay.view_model.ChatViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChattingScreen(
-    game: Boolean,
     CRRoomId: String,
     roomId: String,
+    game: Boolean,
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
@@ -126,15 +127,14 @@ fun ChattingScreen(
             )
             Divider()
 
-
-
-
             Column (
                 verticalArrangement = Arrangement.Bottom,
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatLazyColumn(viewModel = viewModel)
+                ChatLazyColumn(
+                    viewModel = viewModel
+                )
 
             }
 
@@ -142,11 +142,3 @@ fun ChattingScreen(
     }
 }
 
-
-@Preview
-@Composable
-fun TestChattingScreen() {
-    CRAppTheme {
-        ChattingScreen(game = true , CRRoomId = "0", roomId = "", navController = rememberNavController())
-    }
-}
