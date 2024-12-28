@@ -1,9 +1,5 @@
 package com.example.chatterplay.data_class
 
-import android.util.Log
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.tasks.await
-
 data class UserProfile(
     val userId: String = "",
     val fname: String = "",

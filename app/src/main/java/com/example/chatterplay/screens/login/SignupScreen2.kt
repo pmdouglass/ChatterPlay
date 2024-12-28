@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.Button
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,29 +32,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
 import java.time.LocalDate
 
 
-
 @RequiresApi(Build.VERSION_CODES.O)
-fun CalculateAgeToDate(AgeInt: Int): String{
+fun calculateAgeToDate(ageInt: Int): String{
     val today = LocalDate.now()
-    val year = today.minusYears(AgeInt.toLong()).year
+    val year = today.minusYears(ageInt.toLong()).year
 
     return year.toString()
 }
+
 @RequiresApi(Build.VERSION_CODES.O)
-fun CalculateBDtoAge(yearDate: String): Int{
+fun calculateBDtoAge(yearDate: String): Int {
     val today = LocalDate.now()
-    var age = today.year - yearDate.toInt()
-    return age
+    return today.year - yearDate.toInt()
 
 }
 
@@ -67,7 +63,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
     val width = 150
     var showPopUp by remember { mutableStateOf(false)}
     var popupResults by remember { mutableStateOf("")}
-    val todaysDate = LocalDate.now()
+    LocalDate.now()
 
     var fName by remember { mutableStateOf("")}
     var lName by remember { mutableStateOf("")}
@@ -139,7 +135,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
                 keyboardtypeOption = KeyboardType.Text,
                 inputValidator ={true},
                 capitalizefirstLetter = true,
-                game = game
+                game = false
             )
         }
 
@@ -156,7 +152,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
         )
 
         if (game){
-            DateDropDown(age = true, game = game){selected -> ageTemp = selected}
+            DateDropDown(age = true, game = true){selected -> ageTemp = selected}
         } else {
 
             Text(
@@ -170,9 +166,9 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
                     .fillMaxWidth()
                     .height(100.dp)
             ){
-                DateDropDown(month = true, game = game) { selectedOption -> month = selectedOption}
-                DateDropDown(day = true, game = game) { selectedOption -> day = selectedOption}
-                DateDropDown(year = true, game = game) { selectedOption -> year = selectedOption}
+                DateDropDown(month = true, game = false) { selectedOption -> month = selectedOption}
+                DateDropDown(day = true, game = false) { selectedOption -> day = selectedOption}
+                DateDropDown(year = true, game = false) { selectedOption -> year = selectedOption}
             }
         }
 
@@ -250,7 +246,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            if (popupResults.isBlank()) "Custom Description" else "$popupResults",
+            popupResults.ifBlank { "Custom Description" },
             style = CRAppTheme.typography.headingLarge,
             color = if (popupResults.isBlank()) Color.Gray else Color.Black,
             textAlign = TextAlign.Center,
@@ -267,7 +263,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
                         manSelect = false
                         womanSelect = false
                         moreSelect = true
-                        gender = "$popupResults"
+                        gender = popupResults
                     }
                 }
         )
@@ -286,7 +282,7 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
                         showPopUp = true
                         return@Button
                     }
-                    val age = CalculateBDtoAge(year).toString()
+                    val age = calculateBDtoAge(year).toString()
                     navController.navigate("signupScreen3/${email}/${password}/${fName}/${lName}/${month}/${day}/${year}/${age}/${gender}/${location}/false")
                 } else {
 
@@ -297,8 +293,8 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
 
 
                     ageInt?.let {
-                        val calYear = CalculateAgeToDate(ageInt)
-                        if (calYear.isNullOrBlank()){
+                        val calYear = calculateAgeToDate(ageInt)
+                        if (calYear.isBlank()){
                             Log.d("Test Message", "calYear is null or blank")
                             showPopUp = true
                             return@Button
@@ -337,19 +333,19 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
         if (showPopUp){
             SimplePopupScreen(
                 text = "Please fill out all the fields",
-                showPopup = showPopUp,
+                showPopup = false,
                 onDismissRequest = { showPopUp = false }
             )
         }
         if (moreOpen){
             SimplePopupScreen(
-                showPopup = moreOpen,
+                showPopup = false,
                 textfield = true,
                 onDismissRequest = {input ->
                     moreOpen = false
                     manSelect = false
                     womanSelect = false
-                    moreSelect = if (input.isNotBlank()) true else false
+                    moreSelect = input.isNotBlank()
                     popupResults = input
                     gender = input
                 }
@@ -363,20 +359,4 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
 
 }
 
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Preview
-@Composable
-fun signupPreview() {
-    CRAppTheme {
-        Surface {
-            SignupScreen2(
-                email = "kjdfja",
-                password = "kjkasdf",
-                navController = rememberNavController(),
-                game = true
-            )
-        }
-    }
-}
 

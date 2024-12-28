@@ -44,8 +44,6 @@ fun LoginScreen(navController: NavController) {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful){
                     navController.navigate("roomSelect")
-                } else {
-
                 }
             }
     }
@@ -54,8 +52,6 @@ fun LoginScreen(navController: NavController) {
             .addOnCompleteListener { task ->
                 if (task.isSuccessful){
                     navController.navigate("roomSelect")
-                } else {
-
                 }
             }
     }

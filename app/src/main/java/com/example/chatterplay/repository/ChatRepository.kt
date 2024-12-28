@@ -6,7 +6,6 @@ import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -17,9 +16,9 @@ class ChatRepository {
     private val firestore = FirebaseFirestore.getInstance()
     private val usersCollection = firestore.collection("Users")
     private val chatRoomsCollection = firestore.collection("Chat Rooms")
-    private val CRGameRoomsCollection = firestore.collection("ChatRise Game")
-    val more = "Alternate"
-    val chatrise = "ChatRise"
+    private val crGameRoomsCollection = firestore.collection("ChatRise Game")
+    private val more = "Alternate"
+    private val chatrise = "ChatRise"
 
 
     suspend fun saveUserProfile(
@@ -102,9 +101,9 @@ class ChatRepository {
     }
 
 
-    suspend fun checkIfChatRoomExists(CRRoomId: String, members: List<String>): String? {
+    suspend fun checkIfChatRoomExists(crRoomId: String, members: List<String>): String? {
         val sortedMembers = members.sorted()
-        if (CRRoomId == "0") {
+        if (crRoomId == "0") {
             val querySnapshot = chatRoomsCollection.get().await()
             for (document in querySnapshot.documents) {
                 val chatRoom = document.toObject(ChatRoom::class.java)
@@ -114,7 +113,7 @@ class ChatRepository {
             }
         }else {
             val querySnapshot = chatRoomsCollection
-                .document(CRRoomId)
+                .document(crRoomId)
                 .collection("Private Chats")
                 .get().await()
             for (document in querySnapshot.documents){
@@ -126,28 +125,28 @@ class ChatRepository {
         }
         return null
     }
-    suspend fun createChatRoom(CRRoomId: String, members: List<String>, roomName: String): String {
+    suspend fun createChatRoom(crRoomId: String, members: List<String>, roomName: String): String {
         val sortedMembers = members.sorted()
         val roomId = chatRoomsCollection.document().id
         val chatRoom = ChatRoom(roomId = roomId, members = sortedMembers, roomName = roomName)
 
-        if (CRRoomId == "0"){
+        if (crRoomId == "0"){
             chatRoomsCollection.document(roomId).set(chatRoom).await()
         } else {
-            CRGameRoomsCollection.document(CRRoomId)
+            crGameRoomsCollection.document(crRoomId)
                 .collection("Private Chats")
                 .document(roomId)
                 .set(chatRoom).await()
         }
         return roomId
     }
-    suspend fun addMemberToRoom(CRRoomId: String, roomId: String, memberId: String){
-        if (CRRoomId == "0"){
+    suspend fun addMemberToRoom(crRoomId: String, roomId: String, memberId: String){
+        if (crRoomId == "0"){
             val roomRef = chatRoomsCollection.document(roomId)
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         } else {
-            val roomRef = CRGameRoomsCollection
-                .document(CRRoomId)
+            val roomRef = crGameRoomsCollection
+                .document(crRoomId)
                 .collection("Private Chats")
                 .document(roomId)
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
@@ -200,8 +199,8 @@ class ChatRepository {
         }
     }
 
-    suspend fun getRoomInfo(CRRoomId: String, roomId: String): ChatRoom? {
-        if (CRRoomId == "0"){
+    suspend fun getRoomInfo(crRoomId: String, roomId: String): ChatRoom? {
+        if (crRoomId == "0"){
             return try {
                 val snapshot = chatRoomsCollection.document(roomId)
                     .get()
@@ -212,7 +211,7 @@ class ChatRepository {
             }
         } else {
             return try {
-                val snapshot = CRGameRoomsCollection.document(CRRoomId)
+                val snapshot = crGameRoomsCollection.document(crRoomId)
                     .collection("Private Chats")
                     .document(roomId)
                     .get()
@@ -226,13 +225,11 @@ class ChatRepository {
     }
 
     fun getChatRooms() = chatRoomsCollection
-    fun getCRRoom() = CRGameRoomsCollection
     suspend fun getUnreadMessageCount(roomId: String, userId: String): Int{
         Log.d("Time", "Inside repository unread Messages")
         val roomRef = chatRoomsCollection.document(roomId)
         val roomSnapshot = roomRef.get().await()
         val chatRoom = roomSnapshot.toObject(ChatRoom::class.java)
-        val lastSeenTimestamp = chatRoom?.lastSeenTimestamps?.get(userId) ?: Timestamp(0,0)
 
         val messagesSnapshot = roomRef.collection("messages")
             //.whereGreaterThan("timestamp", lastSeenTimestamp)

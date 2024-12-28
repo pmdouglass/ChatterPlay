@@ -74,7 +74,6 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -93,7 +92,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -106,7 +104,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.lifecycle.Observer
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
@@ -123,8 +120,8 @@ import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.repository.fetchUserProfile
-import com.example.chatterplay.screens.login.CalculateAgeToDate
-import com.example.chatterplay.screens.login.CalculateBDtoAge
+import com.example.chatterplay.screens.login.calculateAgeToDate
+import com.example.chatterplay.screens.login.calculateBDtoAge
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 
@@ -1896,7 +1893,7 @@ fun EditInfoDialog(
                                   }
                               }
                               "Date of Birth" -> {
-                                  val age = CalculateBDtoAge(editYear).toString()
+                                  val age = calculateBDtoAge(editYear).toString()
                                   userProfile.copy(
                                       age = age,
                                       dob = DateOfBirth(
@@ -1913,7 +1910,7 @@ fun EditInfoDialog(
                                   if (editAge == "0"){
                                       editAge = "18"
                                   }
-                                  val pickedYear = CalculateAgeToDate(editAge.toInt())
+                                  val pickedYear = calculateAgeToDate(editAge.toInt())
                                   val Dob = DateOfBirth(month = randomMonth, day = randomDay, year = pickedYear)
                                   userProfile.copy(
                                       age = editAge,

@@ -4,8 +4,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.BuildConfig
@@ -14,17 +12,14 @@ import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.UserState
 import com.example.chatterplay.repository.ChatRepository
-import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.gotrue.GoTrue
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 
@@ -149,14 +144,14 @@ class ChatViewModel: ViewModel() {
             val currentUser = FirebaseAuth.getInstance().currentUser ?: return@launch
             val allMemberIds = (memberIds + currentUser.uid).sorted()
 
-            val existingRoomId = chatRepository.checkIfChatRoomExists(CRRoomId = CRRoomId, members = allMemberIds)
+            val existingRoomId = chatRepository.checkIfChatRoomExists(crRoomId = CRRoomId, members = allMemberIds)
 
             if (existingRoomId != null){
                 onRoomCreated(existingRoomId)
             } else {
-                val roomId = chatRepository.createChatRoom(CRRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
+                val roomId = chatRepository.createChatRoom(crRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
                 memberIds.forEach { memberIds ->
-                    chatRepository.addMemberToRoom(CRRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
+                    chatRepository.addMemberToRoom(crRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
                 }
                 onRoomCreated(roomId)
             }
@@ -238,7 +233,7 @@ class ChatViewModel: ViewModel() {
     }
     fun getRoomInfo(CRRoomId: String, roomId: String){
         viewModelScope.launch {
-            val roomInfo = chatRepository.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
+            val roomInfo = chatRepository.getRoomInfo(crRoomId = CRRoomId, roomId = roomId)
             _roomInfo.value = roomInfo
         }
     }

@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -53,7 +52,6 @@ import com.example.chatterplay.data_class.uriToByteArray
 import com.google.firebase.auth.FirebaseAuth
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignupScreen4(
     email: String,
@@ -78,14 +76,13 @@ fun SignupScreen4(
     var showPopUp by remember { mutableStateOf(false)}
 
     val context = LocalContext.current
-    var ImageUri by remember { mutableStateOf<Uri?>(null) }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
     var byteArray by remember { mutableStateOf<ByteArray?>(null)}
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        ImageUri = uri
+        imageUri = uri
         byteArray = uri?.uriToByteArray(context)
     }
-    var selectedImage by remember { mutableStateOf<String?>("")}
 
 
     Column (
@@ -123,9 +120,9 @@ fun SignupScreen4(
                     .clip(CircleShape)
                     .border(2.dp, Color.Black, CircleShape)
             ){
-                if (ImageUri != null){
+                if (imageUri != null){
                     Image(
-                        painter = rememberAsyncImagePainter(model = ImageUri),
+                        painter = rememberAsyncImagePainter(model = imageUri),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
@@ -150,7 +147,7 @@ fun SignupScreen4(
 
                 IconButton(onClick = {
                                      launcher.launch("image/*")
-                    if (ImageUri == null){
+                    if (imageUri == null){
                         Log.d("Test Message", "Image selection was canceled")
                     }
                 },
@@ -177,11 +174,11 @@ fun SignupScreen4(
                 return@Button
             }
             val dob = DateOfBirth(
-                month = "${month}",
+                month = month,
                 day = day,
                 year = year
             )
-            if (ImageUri != null && fName.isNotBlank() && lName.isNotBlank() && age.isNotBlank() && gender.isNotBlank()){
+            if (imageUri != null && fName.isNotBlank() && lName.isNotBlank() && age.isNotBlank() && gender.isNotBlank()){
                 val auth = FirebaseAuth.getInstance()
                 val currentUser = auth.currentUser?.uid
 
@@ -218,12 +215,15 @@ fun SignupScreen4(
                         }
 
                 } else {
-                    val existingUserId = currentUser
                     if (byteArray != null){
-                        viewModel.selectUploadAndGetImage(game = true, existingUserId, byteArray!!){ url, error ->
-                            if (url != null){
+                        viewModel.selectUploadAndGetImage(
+                            game = true,
+                            currentUser,
+                            byteArray!!
+                        ) { url, error ->
+                            if (url != null) {
                                 val exsistingUserProfile = UserProfile(
-                                    userId = existingUserId,
+                                    userId = currentUser,
                                     fname = fName,
                                     lname = lName,
                                     gender = gender,
@@ -233,7 +233,11 @@ fun SignupScreen4(
                                     imageUrl = url,
                                     about = about,
                                 )
-                                viewModel.saveUserProfile(userId = existingUserId, userProfile = exsistingUserProfile, game = true)
+                                viewModel.saveUserProfile(
+                                    userId = currentUser,
+                                    userProfile = exsistingUserProfile,
+                                    game = true
+                                )
                                 repeat(3) {
                                     navController.popBackStack()
                                 }
@@ -254,7 +258,7 @@ fun SignupScreen4(
         if (showPopUp){
             SimplePopupScreen(
                 text = "Please fill out all the fields",
-                showPopup = showPopUp,
+                showPopup = false,
                 onDismissRequest = { showPopUp = false }
             )
         }
