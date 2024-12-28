@@ -1,4 +1,4 @@
-package com.example.chatterplay.screens.Subscreens
+package com.example.chatterplay.screens.subscreens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
