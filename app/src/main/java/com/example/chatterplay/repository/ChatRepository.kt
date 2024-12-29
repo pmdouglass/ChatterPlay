@@ -4,6 +4,7 @@ import android.net.Uri
 import android.util.Log
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
+import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -22,6 +23,9 @@ class ChatRepository {
     val chatrise = "ChatRise"
 
 
+
+    fun getChatRooms() = chatRoomsCollection
+    fun getMainChatRoom() = CRGameRoomsCollection
     suspend fun saveUserProfile(
         userId: String,
         userProfile: UserProfile,
@@ -233,7 +237,6 @@ class ChatRepository {
 
     }
 
-    fun getChatRooms() = chatRoomsCollection
     suspend fun getUnreadMessageCount(roomId: String, userId: String): Int{
         Log.d("Time", "Inside repository unread Messages")
         val roomRef = chatRoomsCollection.document(roomId)
@@ -263,7 +266,107 @@ class ChatRepository {
             ))
         }.await()
     }
+
+
+
+
+
+
+    suspend fun createMainChatriseRoomIfPendingusersMeetCondition(minimumPendingUsers: Int, userId: String): Boolean {
+        val pendingUsersSnapshot = usersCollection
+            .whereEqualTo("pending", "Pending")
+            .get()
+            .await()
+
+        if (pendingUsersSnapshot.documents.size >= minimumPendingUsers) {
+            val pendingUsers = pendingUsersSnapshot.documents.mapNotNull { it.toObject(UserProfile::class.java) }
+                .filter { it.userId != userId }
+
+            if (pendingUsers.size == minimumPendingUsers -1){
+                val selectedUsers = pendingUsers.shuffled().take(minimumPendingUsers-1)
+                val memberIds = selectedUsers.map { it.userId } + userId
+
+                val uniqueMemberIds = memberIds.toSet().toList()
+                val CRRoomId = CRGameRoomsCollection.document().id
+
+                val gamePathRef = CRGameRoomsCollection
+                    .document(CRRoomId)
+                    .collection("Games")
+
+                val chatRoom = ChatRoom(
+                    roomId = CRRoomId,
+                    roomName = "Chatrise",
+                    members = uniqueMemberIds,
+                    createdAt = Timestamp.now()
+                )
+                val gameDocuments = listOf(
+                    "AskMeAnything",
+                    "PopQuiz",
+                    "NameThePicture",
+                    "YesOrNo",
+                    "Mojojojo"
+                )
+
+                CRGameRoomsCollection.document(CRRoomId).set(chatRoom).await()
+
+                gameDocuments.forEach { gameName ->
+                    val gameData = GameData(
+                        gameName = gameName,
+                        gameStatus = "NotYetPlayed",
+                        hasViewed = false
+                    )
+                    gamePathRef.document(gameName).set(gameData)
+                }
+
+                val defaultGameStatus = gameDocuments.associateWith { false }
+
+                selectedUsers.forEach { user ->
+                    usersCollection.document(user.userId).update("pending", "In Game").await()
+                    CRGameRoomsCollection.document(CRRoomId).collection("Members").document(user.userId)
+                        .set(mapOf("Games" to defaultGameStatus)).await()
+
+                }
+                usersCollection.document(userId).update("pending", "In Game").await()
+                return true
+            }
+        }
+        return false
+    }
+    suspend fun getUsersStatus(userId: String): String?{
+        return try {
+            val documentSnapshot = usersCollection.document(userId).get().await()
+            documentSnapshot.getString("pending")
+        }catch (e: Exception) {
+            null
+        }
+    }
+    suspend fun updateUserPendingStatus(userId: String, status: String) {
+        try {
+            usersCollection.document(userId).update("pending", status).await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+
+
+
+
+
+
+
+
 }
+
+
+
+
+
+
+
+
+
+
 
 
 suspend fun fetchUserProfile(userId: String): UserProfile? {

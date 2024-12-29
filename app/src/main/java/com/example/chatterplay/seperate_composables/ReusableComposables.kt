@@ -156,6 +156,7 @@ fun ChatRiseThumbnail(
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
     var status by remember { mutableStateOf("start")}
+    val userGameStateStatus by viewModel.usersStatus.collectAsState()
     var selfSelect by remember { mutableStateOf(false)}
     var altSelect by remember { mutableStateOf(true)}
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -192,10 +193,10 @@ fun ChatRiseThumbnail(
                     text = "ChatRise",
                     style = CRAppTheme.typography.headingMedium,
                     modifier = Modifier
-                        .then(if (status == "start") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                        .then(if (userGameStateStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
                 )
-                when (status) {
-                    "start" -> {
+                when (userGameStateStatus) {
+                    "NotPending" -> {
                         Box(
                             modifier = Modifier
                                 .size(20.dp)
@@ -211,14 +212,18 @@ fun ChatRiseThumbnail(
                         }
                     }
 
-                    "wait" -> {
-                        IconButton(onClick = { status = "play" }) {
+                    "Pending" -> {
+                        IconButton(onClick = {
+
+                        }) {
                             Icon(
                                 Icons.Default.HideImage,
                                 contentDescription = null
                             )
                         }
-                        IconButton(onClick = { status = "start" }) {
+                        IconButton(onClick = {
+
+                        }) {
                             Icon(
                                 Icons.Default.Clear,
                                 contentDescription = null
@@ -226,7 +231,7 @@ fun ChatRiseThumbnail(
                         }
                     }
 
-                    "play" -> {
+                    "In Game" -> {
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -242,7 +247,7 @@ fun ChatRiseThumbnail(
                         }
                         Spacer(modifier = Modifier.width(15.dp))
                         DynamicCircleBox(number = 121)
-                        IconButton(onClick = { status = "wait" }) {
+                        IconButton(onClick = {  }) {
                             Icon(
                                 Icons.Default.Clear,
                                 contentDescription = null
@@ -252,8 +257,8 @@ fun ChatRiseThumbnail(
                 }
 
             }
-            when (status){
-                "start" -> {
+            when (userGameStateStatus){
+                "NotPending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -407,7 +412,7 @@ fun ChatRiseThumbnail(
 
                             )
                             Button(onClick = {
-                                             status = "wait"
+                                viewModel.createChatriseRoom(3)
                             },
                                 modifier = Modifier
                                     .padding(5.dp)
@@ -418,7 +423,7 @@ fun ChatRiseThumbnail(
 
                     }
                 }
-                "wait" -> {
+                "Pending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -484,7 +489,7 @@ fun ChatRiseThumbnail(
                         }
                     }
                 }
-                "play" -> {
+                "In Game" -> {
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier

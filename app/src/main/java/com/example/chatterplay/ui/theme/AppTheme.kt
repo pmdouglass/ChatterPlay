@@ -112,7 +112,28 @@ private val CRtypography = AppTypography(
         fontSize = 39.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 2.sp
+    ),
+    T1 = TextStyle(
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    T2 = TextStyle(
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    T3 = TextStyle(
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    T4 = TextStyle(
+        fontSize = 16.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
+    T5 = TextStyle(
+        fontSize = 19.sp,
+        fontWeight = FontWeight.SemiBold
     )
+
 
 
     )
