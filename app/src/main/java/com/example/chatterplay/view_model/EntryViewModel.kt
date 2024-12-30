@@ -2,22 +2,29 @@ package com.example.chatterplay.view_model
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chatterplay.repository.RoomCreateRepository
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class RoomCreationViewModel: ViewModel(){
 
+
+    private val userRepository = RoomCreateRepository()
     // User state flow ("NotPending", "Pending", "InGame")
-    private val _userState = MutableStateFlow("NotPending")
-    val userState: StateFlow<String> = _userState
+    private val _userState = MutableStateFlow<String?>("NotPending")
+    val userState: StateFlow<String?> = _userState
 
     // Room readiness flow
     private val _roomReady = MutableStateFlow(false)
     val roomReady: StateFlow<Boolean> = _roomReady
 
-    // Simulating backend service
-    private val backendService = BackendService()
+    // Get CRRoomId
+    private val _CRRoomId = MutableStateFlow<String?>(null)
+    val CRRoomId: StateFlow<String?> = _CRRoomId
+
+    private val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     // Initialize and fetch user state
     init {
@@ -27,10 +34,11 @@ class RoomCreationViewModel: ViewModel(){
     // Check the user's current state from the backend
     private fun checkUserState() {
         viewModelScope.launch {
-            val state = backendService.fetchUserState()
-            _userState.value = state
-            if (state == "InGame") {
+            val status = userRepository.fetchUserProfile(userId)
+            _userState.value = status ?: "NotPending"
+            if (status == "InGame"){
                 _roomReady.value = true
+                monitorPendingUsers()
             }
         }
     }
@@ -39,8 +47,8 @@ class RoomCreationViewModel: ViewModel(){
     fun setToPending() {
         if (_userState.value == "NotPending") {
             viewModelScope.launch {
-                val success = backendService.updateUserState("Pending")
-                if (success) {
+                val success = userRepository.updateUserPendingState(userId, "Pending")
+                if (success){
                     _userState.value = "Pending"
                     monitorPendingUsers()
                 }
@@ -51,30 +59,40 @@ class RoomCreationViewModel: ViewModel(){
     // Monitor the backend for room readiness
     private fun monitorPendingUsers() {
         viewModelScope.launch {
-            backendService.listenForRoomUpdates { isReady ->
-                _roomReady.value = isReady
-                if (isReady) {
-                    _userState.value = "InGame"
+            while (_userState.value == "Pending"){
+                val roomSize = 3
+                val pendingUsers = userRepository.fetchUsersPendingState()
+                if (pendingUsers.size >= roomSize){
+                    val usersToUpdate = pendingUsers.take(roomSize)
+                    val success = userRepository.updateUsersToInGame(usersToUpdate)
+                    if (success){
+                        val roomSuccess = userRepository.createNewCRRoom(
+                            roomName = "ChatRise",
+                            members = usersToUpdate
+                        )
+                        if (roomSuccess){
+                            _userState.value = "InGame"
+                            _roomReady.value = true
+                            val roomId = userRepository.getCRRoomId(userId)
+                            if (roomId != null){
+                                _CRRoomId.value = roomId
+                            }
+                            break
+                        }
+                    }
                 }
+                kotlinx.coroutines.delay(2000)
             }
         }
     }
-
-    // Simulating backend service class
-    class BackendService {
-        suspend fun fetchUserState(): String {
-            // Simulate backend fetch
-            return "NotPending"
+    /*private fun getCRRoomId(){
+        viewModelScope.launch {
+            val roomId = userRepository.getCRRoomId(userId)
+            if (roomId != null){
+                _CRRoomId.value = roomId
+            } else {
+                _CRRoomId.value = "0"
+            }
         }
-
-        suspend fun updateUserState(newState: String): Boolean {
-            // Simulate backend update
-            return true
-        }
-
-        fun listenForRoomUpdates(onRoomReady: (Boolean) -> Unit) {
-            // Simulate backend listener
-            onRoomReady(true)
-        }
-    }
+    }*/
 }

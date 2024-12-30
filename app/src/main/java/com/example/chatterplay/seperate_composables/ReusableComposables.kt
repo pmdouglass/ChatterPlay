@@ -122,6 +122,7 @@ import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.repository.fetchUserProfile
 import com.example.chatterplay.screens.login.calculateAgeToDate
 import com.example.chatterplay.screens.login.calculateBDtoAge
+import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 
@@ -147,21 +148,86 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
 
 }
 
+@Composable
+fun experimentPending(
+    roomCreate: RoomCreationViewModel = viewModel(),
+    navController: NavController
+){
+
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .background(Color.Green)
+    ){
+        val userState by roomCreate.userState.collectAsState()
+        val roomReady by roomCreate.roomReady.collectAsState()
+
+        when {
+            roomReady -> {
+                RoomScreen(navController = navController)
+            }
+            userState == "Pending" -> {
+                WaitingScreen()
+            }
+            userState == "NotPending" -> {
+                NotPendingScreen(onButtonClick = { roomCreate.setToPending()})
+            }
+        }
+    }
+}
+@Composable
+fun RoomScreen(roomCreate: RoomCreationViewModel = viewModel(), navController: NavController){
+    val CRRoomId by roomCreate.CRRoomId.collectAsState()
+    val room = "0"
+
+    Text("Room Screen")
+    Button(onClick = {
+        navController.navigate("chatScreen/${room}/${CRRoomId}/true")
+    }){
+        Text("Go to Room")
+    }
+}
+@Composable
+fun WaitingScreen(){
+    Text("Waiting on other players")
+}
+@Composable
+fun NotPendingScreen(
+    onButtonClick: () -> Unit
+){
+    Button(onClick = onButtonClick){
+        Text("Join Room")
+    }
+}
+
+
+
+
+
+
+
+
+
 
 @Composable
 fun ChatRiseThumbnail(
     viewModel: ChatViewModel = viewModel(),
+    roomCreate: RoomCreationViewModel = viewModel(),
     navController: NavController
 ) {
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
-    var status by remember { mutableStateOf("start")}
-    val userGameStateStatus by viewModel.usersStatus.collectAsState()
     var selfSelect by remember { mutableStateOf(false)}
     var altSelect by remember { mutableStateOf(true)}
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
     val width = 100
+
+    val userState by roomCreate.userState.collectAsState()
+    val roomReady by roomCreate.roomReady.collectAsState()
 
 
 
@@ -193,10 +259,10 @@ fun ChatRiseThumbnail(
                     text = "ChatRise",
                     style = CRAppTheme.typography.headingMedium,
                     modifier = Modifier
-                        .then(if (userGameStateStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                        .then(if (userState == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
                 )
-                when (userGameStateStatus) {
-                    "NotPending" -> {
+                when  {
+                    userState == "NotPending" -> {
                         Box(
                             modifier = Modifier
                                 .size(20.dp)
@@ -211,9 +277,8 @@ fun ChatRiseThumbnail(
                             )
                         }
                     }
-
-                    "Pending" -> {
-                        IconButton(onClick = {
+                    userState == "Pending" -> {
+                        /*IconButton(onClick = {
 
                         }) {
                             Icon(
@@ -228,10 +293,9 @@ fun ChatRiseThumbnail(
                                 Icons.Default.Clear,
                                 contentDescription = null
                             )
-                        }
+                        }*/
                     }
-
-                    "In Game" -> {
+                    roomReady -> {
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -247,18 +311,12 @@ fun ChatRiseThumbnail(
                         }
                         Spacer(modifier = Modifier.width(15.dp))
                         DynamicCircleBox(number = 121)
-                        IconButton(onClick = {  }) {
-                            Icon(
-                                Icons.Default.Clear,
-                                contentDescription = null
-                            )
-                        }
                     }
                 }
 
             }
-            when (userGameStateStatus){
-                "NotPending" -> {
+            when {
+                userState == "NotPending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -412,7 +470,7 @@ fun ChatRiseThumbnail(
 
                             )
                             Button(onClick = {
-                                viewModel.createChatriseRoom(3)
+                                roomCreate.setToPending()
                             },
                                 modifier = Modifier
                                     .padding(5.dp)
@@ -423,7 +481,7 @@ fun ChatRiseThumbnail(
 
                     }
                 }
-                "Pending" -> {
+                userState == "Pending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -489,12 +547,12 @@ fun ChatRiseThumbnail(
                         }
                     }
                 }
-                "In Game" -> {
+                roomReady -> {
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clickable { navController.navigate("mainScreen") }
+                            .clickable { }
                     ) {
                         Row (
                             verticalAlignment = Alignment.Top,

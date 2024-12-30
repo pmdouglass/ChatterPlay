@@ -65,6 +65,7 @@ import com.example.chatterplay.view_model.ChatViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.navigateToChattingScreen
 import com.example.chatterplay.seperate_composables.RoomSelectionView
+import com.example.chatterplay.seperate_composables.experimentPending
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import okhttp3.Route
@@ -189,6 +190,7 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         .padding(PaddingValues)
                 ){
                     Spacer(modifier = Modifier.height(10.dp))
+                    //ChatRiseThumbnail(navController = navController)
                     ChatRiseThumbnail(navController = navController)
                     Divider()
                     Text(
@@ -241,55 +243,6 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         }
                     }
 
-
-
-
-
-
-
-
-
-
-                    RoomRow(
-                        members = 3,
-                        title = "Pence Park Ultimate Frisbee",
-                        who = "Tim C",
-                        message = "Did you guys see my awsome play?",
-                        time = "10:15am",
-                        unread = 12,
-                        game = false,
-                        navController = navController
-                    )
-                    RoomRow(
-                        members = 13,
-                        title = "Movie Buffs",
-                        who = "John L",
-                        message = "Just saw the latest thriller - the plot twist was insane!",
-                        time = " 6:20pm",
-                        unread = 7,
-                        game = false,
-                        navController = navController
-                    )
-                    RoomRow(
-                        members = 2,
-                        title = "Tech Talk",
-                        who = "Chris O",
-                        message = "Has anyone tried the new VR headset? Wondering if it's worth the hype!",
-                        time = "1:15 pm",
-                        unread = 0,
-                        game = false,
-                        navController = navController
-                    )
-                    RoomRow(
-                        members = 21,
-                        title ="Book Nook",
-                        who = "Amy W",
-                        message = "Just finished Pachinko - the family dynamics were so intense.",
-                        time = "4:10 pm",
-                        unread = 21,
-                        game = false,
-                        navController = navController
-                    )
 
                 }
             }
