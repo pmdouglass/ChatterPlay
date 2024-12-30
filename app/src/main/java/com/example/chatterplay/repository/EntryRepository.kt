@@ -1,8 +1,8 @@
 package com.example.chatterplay.repository
 
 import com.example.chatterplay.data_class.ChatRoom
+import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.GameData
-import com.example.chatterplay.data_class.Games
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -63,6 +63,43 @@ class RoomCreateRepository {
         }
     }
 
+    suspend fun createCRSelectedProfileUsers(CRRoomId: String, userIds: List<String>): Boolean{
+        return try {
+            val batch = firestore.batch()
+
+            userIds.forEach{ userId ->
+                // Step 1: Get the primary UserProfile
+                val primaryProfileRef = userCollection.document(userId)
+                val primaryProfileSnapshot = primaryProfileRef.get().await()
+                val selectedProfile = primaryProfileSnapshot.getString("selectedProfile") ?: "self"
+
+                // Step 2: Determine which UserProfile to use
+                val userProfile = if (selectedProfile == "self"){
+                    primaryProfileSnapshot.toObject(UserProfile::class.java) // Main Profile
+                }else {
+                    val alternateProfileRef = primaryProfileRef.collection("Alternate").document("ChatRise")
+                    val alternateProfileSnapshot = alternateProfileRef.get().await()
+                    alternateProfileSnapshot.toObject(UserProfile::class.java) // Alternate Profile
+                }
+
+                // Step 3: Add to batch operation
+                if (userProfile != null){
+                    val userDocRef = CRRoomCollection.document(CRRoomId)
+                        .collection("Users")
+                        .document(userId)
+                    batch.set(userDocRef, userProfile)
+                }
+            }
+
+            // Step 4: Commit the batch
+            batch.commit().await()
+            true
+        }catch (e: Exception){
+            e.printStackTrace()
+            false
+        }
+    }
+
     suspend fun createNewCRRoom(roomName: String, members: List<String>): Boolean{
         return try {
             // create room
@@ -102,6 +139,15 @@ class RoomCreateRepository {
             false
         }
 
+    }
+    suspend fun fetchUsersSelectedProfileStatus(userId: String): String?{
+        return try {
+            val documentSnapshot = userCollection.document(userId).get().await()
+            documentSnapshot.getString("selectedProfile")
+        }catch (e: Exception){
+            e.printStackTrace()
+            null
+        }
     }
     suspend fun getCRRoomId(userId: String): String? {
         return try {

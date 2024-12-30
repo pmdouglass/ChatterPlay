@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -21,11 +20,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shop
 import androidx.compose.material3.Divider
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,20 +52,16 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.R
 import com.example.chatterplay.seperate_composables.ChatRiseThumbnail
-import com.example.chatterplay.seperate_composables.RoomRow
+import com.example.chatterplay.seperate_composables.RoomSelectionView
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.chatterplay.navigateToChattingScreen
-import com.example.chatterplay.seperate_composables.RoomSelectionView
-import com.example.chatterplay.seperate_composables.experimentPending
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
-import okhttp3.Route
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

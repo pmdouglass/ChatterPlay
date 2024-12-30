@@ -42,8 +42,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.HideImage
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
@@ -149,70 +147,6 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
 }
 
 @Composable
-fun experimentPending(
-    roomCreate: RoomCreationViewModel = viewModel(),
-    navController: NavController
-){
-
-    Column(
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(200.dp)
-            .background(Color.Green)
-    ){
-        val userState by roomCreate.userState.collectAsState()
-        val roomReady by roomCreate.roomReady.collectAsState()
-
-        when {
-            roomReady -> {
-                RoomScreen(navController = navController)
-            }
-            userState == "Pending" -> {
-                WaitingScreen()
-            }
-            userState == "NotPending" -> {
-                NotPendingScreen(onButtonClick = { roomCreate.setToPending()})
-            }
-        }
-    }
-}
-@Composable
-fun RoomScreen(roomCreate: RoomCreationViewModel = viewModel(), navController: NavController){
-    val CRRoomId by roomCreate.CRRoomId.collectAsState()
-    val room = "0"
-
-    Text("Room Screen")
-    Button(onClick = {
-        navController.navigate("chatScreen/${room}/${CRRoomId}/true")
-    }){
-        Text("Go to Room")
-    }
-}
-@Composable
-fun WaitingScreen(){
-    Text("Waiting on other players")
-}
-@Composable
-fun NotPendingScreen(
-    onButtonClick: () -> Unit
-){
-    Button(onClick = onButtonClick){
-        Text("Join Room")
-    }
-}
-
-
-
-
-
-
-
-
-
-
-@Composable
 fun ChatRiseThumbnail(
     viewModel: ChatViewModel = viewModel(),
     roomCreate: RoomCreationViewModel = viewModel(),
@@ -220,20 +154,18 @@ fun ChatRiseThumbnail(
 ) {
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
-    var selfSelect by remember { mutableStateOf(false)}
-    var altSelect by remember { mutableStateOf(true)}
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    var selfSelect by remember { mutableStateOf(true)}
+    var altSelect by remember { mutableStateOf(false)}
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
+
     val width = 100
 
     val userState by roomCreate.userState.collectAsState()
     val roomReady by roomCreate.roomReady.collectAsState()
+    val CRRoomId by roomCreate.CRRoomId.collectAsState()
 
-
-
-    var hasProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
-
-
+    var hasAlternateProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
 
 
     Column (
@@ -277,24 +209,7 @@ fun ChatRiseThumbnail(
                             )
                         }
                     }
-                    userState == "Pending" -> {
-                        /*IconButton(onClick = {
-
-                        }) {
-                            Icon(
-                                Icons.Default.HideImage,
-                                contentDescription = null
-                            )
-                        }
-                        IconButton(onClick = {
-
-                        }) {
-                            Icon(
-                                Icons.Default.Clear,
-                                contentDescription = null
-                            )
-                        }*/
-                    }
+                    userState == "Pending" -> {}
                     roomReady -> {
                         Column(
                             verticalArrangement = Arrangement.Center,
@@ -396,7 +311,7 @@ fun ChatRiseThumbnail(
                                             .clip(CircleShape)
                                     )
                                 }else {
-                                    if (hasProfile){
+                                    if (hasAlternateProfile){
                                         Column(
                                             horizontalAlignment = Alignment.End,
                                             modifier = Modifier
@@ -470,6 +385,18 @@ fun ChatRiseThumbnail(
 
                             )
                             Button(onClick = {
+                                val updatedProfile = when {
+                                    selfSelect -> { personalProfile.copy(selectedProfile = "self")}
+                                    altSelect -> { personalProfile.copy(selectedProfile = "alt")}
+                                    else -> { personalProfile}
+                                }
+                                val altUpdatedProfile = when {
+                                    selfSelect -> {alternateProfile.copy(selectedProfile = "self")}
+                                    altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
+                                    else -> { alternateProfile}
+                                }
+                                viewModel.saveUserProfile(userId = currentUserId, userProfile = updatedProfile, game = false)
+                                viewModel.saveUserProfile(userId = currentUserId, userProfile = altUpdatedProfile, game = true)
                                 roomCreate.setToPending()
                             },
                                 modifier = Modifier
@@ -548,11 +475,16 @@ fun ChatRiseThumbnail(
                     }
                 }
                 roomReady -> {
+                    /*CRRoomId?.let { roomId ->
+
+                    }*/
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clickable { }
+                            .clickable {
+                                navController.navigate("mainScreen")
+                            }
                     ) {
                         Row (
                             verticalAlignment = Alignment.Top,
@@ -1056,13 +988,6 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
 
             }
-
-
-
-
-
-
-
         }
         Image(
             painter = painterResource(id = R.drawable.anonymous),

@@ -2,6 +2,8 @@ package com.example.chatterplay.view_model
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,6 +12,8 @@ import kotlinx.coroutines.launch
 
 class RoomCreationViewModel: ViewModel(){
 
+
+    val viewModel = ChatViewModel()
 
     private val userRepository = RoomCreateRepository()
     // User state flow ("NotPending", "Pending", "InGame")
@@ -24,11 +28,16 @@ class RoomCreationViewModel: ViewModel(){
     private val _CRRoomId = MutableStateFlow<String?>(null)
     val CRRoomId: StateFlow<String?> = _CRRoomId
 
+    // selected Profile
+    private val _selectedProfile = MutableStateFlow<String?>("self")
+    val selectedProfile: StateFlow<String?> = _selectedProfile
+
     private val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     // Initialize and fetch user state
     init {
         checkUserState()
+        checkSelectedProfile()
     }
 
     // Check the user's current state from the backend
@@ -40,6 +49,12 @@ class RoomCreationViewModel: ViewModel(){
                 _roomReady.value = true
                 monitorPendingUsers()
             }
+        }
+    }
+    private fun checkSelectedProfile(){
+        viewModelScope.launch {
+            val status = userRepository.fetchUsersSelectedProfileStatus(userId)
+            _selectedProfile.value = status ?: "self"
         }
     }
 
@@ -70,12 +85,16 @@ class RoomCreationViewModel: ViewModel(){
                             roomName = "ChatRise",
                             members = usersToUpdate
                         )
+                        // Update users
                         if (roomSuccess){
                             _userState.value = "InGame"
                             _roomReady.value = true
+                            // get roomID
                             val roomId = userRepository.getCRRoomId(userId)
                             if (roomId != null){
                                 _CRRoomId.value = roomId
+                                // add users
+                                userRepository.createCRSelectedProfileUsers(CRRoomId = roomId, userIds = usersToUpdate)
                             }
                             break
                         }
@@ -85,14 +104,7 @@ class RoomCreationViewModel: ViewModel(){
             }
         }
     }
-    /*private fun getCRRoomId(){
-        viewModelScope.launch {
-            val roomId = userRepository.getCRRoomId(userId)
-            if (roomId != null){
-                _CRRoomId.value = roomId
-            } else {
-                _CRRoomId.value = "0"
-            }
-        }
-    }*/
+
+
+
 }
