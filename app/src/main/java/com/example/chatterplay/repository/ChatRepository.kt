@@ -245,16 +245,16 @@ class ChatRepository {
         }.await()
         Log.d("Message", "Repository send Message")
     }
-    suspend fun getChatMessages(roomId: String, userId: String): List<ChatMessage> {
-        Log.d("Message", "Repository got Message")
-        val roomSnapshot = chatRoomsCollection.document().get().await()
+    suspend fun getChatMessages(roomId: String, userId: String, game: Boolean): List<ChatMessage> {
+        val room = if (game) CRGameRoomsCollection else chatRoomsCollection
+        val roomSnapshot = room.document(roomId).get().await()
         val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
         val hiddenTimestamp = chatRoom.hiddenTimestamp[userId] ?: Timestamp(0,0)
 
-        val querySnapshot = chatRoomsCollection
+        val querySnapshot = room
             .document(roomId)
             .collection("messages")
-            //.whereGreaterThan("timestamp", hiddenTimestamp)
+            .whereGreaterThan("timestamp", hiddenTimestamp)
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .get()
             .await()

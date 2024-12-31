@@ -177,11 +177,10 @@ class ChatViewModel: ViewModel() {
 
 
 
-    fun fetchChatMessages(roomId: String){
-        Log.d("Message", "ViewModel got message")
+    fun fetchChatMessages(roomId: String, game: Boolean){
         viewModelScope.launch {
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val messages = chatRepository.getChatMessages(roomId, userId)
+            val messages = chatRepository.getChatMessages(roomId = roomId, userId = userId, game = game)
             _messages.value = messages
         }
     }
@@ -266,7 +265,7 @@ class ChatViewModel: ViewModel() {
                     image = userProfile.imageUrl
                 )
                 chatRepository.sendMessage(roomId, chatMessage)
-                fetchChatMessages(roomId)
+                fetchChatMessages(roomId = roomId, game = game)
             }
         }
     }

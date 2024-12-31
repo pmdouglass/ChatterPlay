@@ -155,7 +155,7 @@ fun LazyChatColumn(
     val listState = rememberLazyListState()
 
     LaunchedEffect(roomId){
-        viewModel.fetchChatMessages(roomId = roomId)
+        viewModel.fetchChatMessages(roomId = roomId, true)
     }
 
     val ScrollToBottom = remember {

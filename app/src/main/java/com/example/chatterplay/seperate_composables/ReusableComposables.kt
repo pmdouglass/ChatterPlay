@@ -2497,6 +2497,7 @@ fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boole
 }
 @Composable
 fun ChatLazyColumn(
+    roomId: String,
     viewModel: ChatViewModel = viewModel()
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -2504,6 +2505,10 @@ fun ChatLazyColumn(
     val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
+
+    LaunchedEffect(roomId){
+        viewModel.fetchChatMessages(roomId = roomId, game = false)
+    }
 
     val ScrollToBottom = remember {
         derivedStateOf {
