@@ -178,6 +178,7 @@ class ChatViewModel: ViewModel() {
 
 
     fun fetchChatMessages(roomId: String){
+        Log.d("Message", "ViewModel got message")
         viewModelScope.launch {
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
             val messages = chatRepository.getChatMessages(roomId, userId)
@@ -310,11 +311,6 @@ class ChatViewModel: ViewModel() {
         }
     }
 
-
-
-
-
-
     fun fetchUsersStatus(){
         Log.d("ChatRise ViewModel", " fetching user Status")
         val currentUser = FirebaseAuth.getInstance().currentUser
@@ -335,14 +331,6 @@ class ChatViewModel: ViewModel() {
             }
         }
     }*/
-    fun updateUserPendingStatus(status: String) {
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
-        viewModelScope.launch {
-            chatRepository.updateUserPendingStatus(currentUser.uid, status)
-            fetchUsersStatus()
-
-        }
-    }
 
 
 

@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 import android.util.Log
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,6 +11,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowCircleDown
@@ -26,9 +32,14 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -38,8 +49,14 @@ import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
 import com.example.chatterplay.seperate_composables.RightSideModalDrawer
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.ChatRoom
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.navigation.CRNavHost
 import com.example.chatterplay.seperate_composables.AllMembersRow
+import com.example.chatterplay.seperate_composables.ChatBubble
+import com.example.chatterplay.seperate_composables.ChatLazyColumn
 import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -49,14 +66,19 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainScreen(navController: NavController, viewModel: ChatViewModel = viewModel()) {
+fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
 
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
-    val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
+
+
+    val profile = rememberCRProfile(CRRoomId = CRRoomId)
+    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
+
+    LaunchedEffect(CRRoomId){
+        viewModel.fetchChatRoomMembers(roomId = CRRoomId, game = true)
+    }
 
     RightSideModalDrawer(
         drawerState  = drawerState,
@@ -102,22 +124,105 @@ fun MainScreen(navController: NavController, viewModel: ChatViewModel = viewMode
                             verticalArrangement = Arrangement.Bottom,
                             modifier = Modifier
                                 .fillMaxSize()
-                        ) {
-                            ChatBubbleMock(true, false)
-                            Spacer(modifier = Modifier.height(25.dp))
-                            ChatBubbleMock(true, true)
-                            Spacer(modifier = Modifier.height(25.dp))
+                        ){
+                            LazyChatColumn(
+                                roomId = CRRoomId,
+                                profile = profile,
+                                game = true,
+                                viewModel = viewModel
+                            )
                         }
                     }
                 }
             )
+
         }
+
     )
 
+}
 
 
+@Composable
+fun LazyChatColumn(
+    roomId: String,
+    profile: UserProfile,
+    game: Boolean,
+    viewModel: ChatViewModel = viewModel()
+) {
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val messages by viewModel.messages.collectAsState()
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(roomId){
+        viewModel.fetchChatMessages(roomId = roomId)
+    }
+
+    val ScrollToBottom = remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size -1
+        }
+    }
+    if (ScrollToBottom.value){
+        LaunchedEffect(messages.size) {
+            if (messages.isNotEmpty()){
+                listState.animateScrollToItem(messages.size -1)
+            }
+
+        }
+    }
+    Log.d("Message", "Message size is ${messages.size}")
+
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.Bottom,
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        itemsIndexed(messages) { index, message ->
+            val previousMessage = if(index >0) messages[index - 1] else null
+            ChatBubble(
+                image = message.image,
+                message = message,
+                isFromMe = message.senderId == currentUser?.uid,
+                previousMessage = previousMessage
+            )
+        }
+        item {
+            Row (
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ){
+                Text(
+                    "Sending as",
+                    modifier = Modifier.padding(end = 10.dp)
+                )
+                Image(
+                    painter = rememberAsyncImagePainter(profile.imageUrl),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(15.dp)
+                        .clip(CircleShape)
+                )
+                Text(
+                    profile.fname,
+                    modifier = Modifier.padding(start = 10.dp)
+                )
+            }
+        }
+    }
 
 }
+
+
+
+
+
+
+
+
 
 @Composable
 fun ChatRiseScreen(CRRoomId: String, navController: NavController, viewModel: ChatViewModel = viewModel()) {

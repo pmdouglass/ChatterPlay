@@ -132,6 +132,8 @@ enum class RowState (val string: String){
     check("check")
 }
 
+
+
 @Composable
 fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
     val personalState by viewModel.userProfile.collectAsState()
@@ -491,7 +493,7 @@ fun ChatRiseThumbnail(
                         modifier = Modifier
                             .fillMaxSize()
                             .clickable {
-                                navController.navigate("mainScreen/${CRRoomId}")
+                                navController.navigate("mainScreen/$CRRoomId")
                             }
                     ) {
                         Text("RoomId is: $CRRoomId")
@@ -1006,7 +1008,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 .size(100.dp)
                 .clip(CircleShape)
                 .clickable {
-                    navController.navigate("profileScreen/true/true")
+
                 }
         )
 
@@ -1057,7 +1059,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 .fillMaxWidth()
         ) {
             IconButton(onClick = {
-                navController.navigate("mainScreen")
+
             }) {
                 Icon(
                     imageVector = Icons.Default.Home,
@@ -1066,7 +1068,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 )
             }
             IconButton(onClick = {
-                navController.navigate("profileScreen/true/true")
+
             }) {
                 Icon(
                     imageVector = Icons.Default.Person,
@@ -2495,7 +2497,7 @@ fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boole
 }
 @Composable
 fun ChatLazyColumn(
-    viewModel: ChatViewModel
+    viewModel: ChatViewModel = viewModel()
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val userId = currentUser?.uid ?: ""

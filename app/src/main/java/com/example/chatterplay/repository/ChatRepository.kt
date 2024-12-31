@@ -18,7 +18,7 @@ class ChatRepository {
     private val firestore = FirebaseFirestore.getInstance()
     private val usersCollection = firestore.collection("Users")
     private val chatRoomsCollection = firestore.collection("Chat Rooms")
-    private val CRGameRoomsCollection = firestore.collection("ChatRise Game")
+    private val CRGameRoomsCollection = firestore.collection("ChatriseRooms")
     val more = "Alternate"
     val chatrise = "ChatRise"
 
@@ -166,23 +166,7 @@ class ChatRepository {
 
 
 
-    suspend fun getChatMessages(roomId: String, userId: String): List<ChatMessage> {
-        val roomSnapshot = chatRoomsCollection.document(roomId).get().await()
-        val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
-        val hiddenTimestamp = chatRoom.hiddenTimestamp[userId] ?: Timestamp(0,0)
 
-        val querySnapshot = chatRoomsCollection
-            .document(roomId)
-            .collection("messages")
-            .whereGreaterThan("timestamp", hiddenTimestamp)
-            .orderBy("timestamp", Query.Direction.ASCENDING)
-            .get()
-            .await()
-        return querySnapshot.documents.map { document ->
-            document.toObject(ChatMessage::class.java)!!
-        }
-
-    }
     suspend fun getChatRoomMembers(roomId: String, game: Boolean): List<UserProfile> {
         val roomCollection = if (game) CRGameRoomsCollection else chatRoomsCollection
         val usersPath = if (game) roomCollection.document(roomId).collection("Users") else usersCollection
@@ -259,86 +243,38 @@ class ChatRepository {
                 "hiddenTimestamp" to emptyMap<String, Timestamp>()
             ))
         }.await()
+        Log.d("Message", "Repository send Message")
     }
+    suspend fun getChatMessages(roomId: String, userId: String): List<ChatMessage> {
+        Log.d("Message", "Repository got Message")
+        val roomSnapshot = chatRoomsCollection.document().get().await()
+        val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
+        val hiddenTimestamp = chatRoom.hiddenTimestamp[userId] ?: Timestamp(0,0)
 
-
-
-
-
-
-    suspend fun createMainChatriseRoomIfPendingusersMeetCondition(minimumPendingUsers: Int, userId: String): Boolean {
-        val pendingUsersSnapshot = usersCollection
-            .whereEqualTo("pending", "Pending")
+        val querySnapshot = chatRoomsCollection
+            .document(roomId)
+            .collection("messages")
+            //.whereGreaterThan("timestamp", hiddenTimestamp)
+            .orderBy("timestamp", Query.Direction.ASCENDING)
             .get()
             .await()
-
-        if (pendingUsersSnapshot.documents.size >= minimumPendingUsers) {
-            val pendingUsers = pendingUsersSnapshot.documents.mapNotNull { it.toObject(UserProfile::class.java) }
-                .filter { it.userId != userId }
-
-            if (pendingUsers.size == minimumPendingUsers -1){
-                val selectedUsers = pendingUsers.shuffled().take(minimumPendingUsers-1)
-                val memberIds = selectedUsers.map { it.userId } + userId
-
-                val uniqueMemberIds = memberIds.toSet().toList()
-                val CRRoomId = CRGameRoomsCollection.document().id
-
-                val gamePathRef = CRGameRoomsCollection
-                    .document(CRRoomId)
-                    .collection("Games")
-
-                val chatRoom = ChatRoom(
-                    roomId = CRRoomId,
-                    roomName = "Chatrise",
-                    members = uniqueMemberIds,
-                    createdAt = Timestamp.now()
-                )
-                val gameDocuments = listOf(
-                    "AskMeAnything",
-                    "PopQuiz",
-                    "NameThePicture",
-                    "YesOrNo",
-                    "Mojojojo"
-                )
-
-                CRGameRoomsCollection.document(CRRoomId).set(chatRoom).await()
-
-                gameDocuments.forEach { gameName ->
-                    val gameData = GameData(
-                        gameName = gameName,
-                        gameStatus = "NotYetPlayed",
-                        hasViewed = false
-                    )
-                    gamePathRef.document(gameName).set(gameData)
-                }
-
-                val defaultGameStatus = gameDocuments.associateWith { false }
-
-                selectedUsers.forEach { user ->
-                    usersCollection.document(user.userId).update("pending", "In Game").await()
-                    CRGameRoomsCollection.document(CRRoomId).collection("Members").document(user.userId)
-                        .set(mapOf("Games" to defaultGameStatus)).await()
-
-                }
-                usersCollection.document(userId).update("pending", "In Game").await()
-                return true
-            }
+        return querySnapshot.documents.map { document ->
+            document.toObject(ChatMessage::class.java)!!
         }
-        return false
+
     }
+
+
+
+
+
+
     suspend fun getUsersStatus(userId: String): String?{
         return try {
             val documentSnapshot = usersCollection.document(userId).get().await()
             documentSnapshot.getString("pending")
         }catch (e: Exception) {
             null
-        }
-    }
-    suspend fun updateUserPendingStatus(userId: String, status: String) {
-        try {
-            usersCollection.document(userId).update("pending", status).await()
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
