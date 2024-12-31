@@ -1,5 +1,6 @@
 package com.example.chatterplay.seperate_composables
 
+import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -62,6 +63,7 @@ import com.google.firebase.auth.FirebaseAuth
 fun ChatLazyColumn(
     roomId: String,
     profile: UserProfile,
+    game: Boolean,
     viewModel: ChatViewModel = viewModel()
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -69,7 +71,7 @@ fun ChatLazyColumn(
     val listState = rememberLazyListState()
 
     LaunchedEffect(roomId){
-        viewModel.fetchChatMessages(roomId = roomId, game = false)
+        viewModel.fetchChatMessages(roomId = roomId, game = game)
     }
 
     val ScrollToBottom = remember {
@@ -221,12 +223,18 @@ fun ChatBubble(
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatInput(viewModel: ChatViewModel, roomId: String) {
+fun ChatInput(
+    viewModel: ChatViewModel = viewModel(),
+    roomId: String,
+    game: Boolean
+) {
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    Log.d("Debug-Message", "Current user: ${currentUser?.uid}")
     var input by remember { mutableStateOf("") }
 
     fun send(){
         if (input.isNotBlank()) {
-            viewModel.sendMessage(roomId = roomId, message = input, game = false)
+            viewModel.sendMessage(roomId = roomId, message = input, game = game)
             input = ""
         }
     }

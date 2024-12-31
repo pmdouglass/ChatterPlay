@@ -56,6 +56,7 @@ import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.navigation.CRNavHost
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatBubble
+import com.example.chatterplay.seperate_composables.ChatInput
 import com.example.chatterplay.seperate_composables.ChatLazyColumn
 import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.seperate_composables.rememberProfileState
@@ -103,7 +104,10 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                         )
                 },
                 bottomBar = {
-                    BottomInputBar()
+                    ChatInput(
+                        roomId = CRRoomId,
+                        game = true
+                    )
                 },
                 content = {paddingValues ->
                     Column (
@@ -125,7 +129,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                             modifier = Modifier
                                 .fillMaxSize()
                         ){
-                            ChatLazyColumn(roomId = CRRoomId, profile = profile)
+                            ChatLazyColumn(roomId = CRRoomId, profile = profile, game = true)
                         }
                     }
                 }

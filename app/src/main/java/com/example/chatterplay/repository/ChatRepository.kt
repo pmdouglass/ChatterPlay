@@ -44,7 +44,26 @@ class ChatRepository {
         }
     }
 
+    suspend fun getProfileToSend(userId: String, roomId: String = "0", game: Boolean): UserProfile? {
+        if (!game){
+            val snapshot = usersCollection
+                .whereEqualTo("userId", userId).get().await()
+            return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
+        } else {
+            if (roomId != "0"){
+                val snapshot = CRGameRoomsCollection
+                    .document(roomId)
+                    .collection("Users")
+                    .whereEqualTo("userId", userId).get().await()
+                return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
+            } else {
+                Log.d("Debug-Message", "No RoomId to fetch UserProfile")
+            }
+        }
+        return null
+    }
     suspend fun getUserProfile(userId: String, game: Boolean): UserProfile? {
+        Log.d("Debug-Message", "Fetching profile for userId: $userId")
         if (!game) {
             val snapshot = usersCollection
                 .whereEqualTo("userId", userId)
@@ -230,8 +249,9 @@ class ChatRepository {
 
         return messagesSnapshot.size()
     }
-    suspend fun sendMessage(roomId: String, chatMessage: ChatMessage) {
-        val roomRef = chatRoomsCollection.document(roomId)
+    suspend fun sendMessage(roomId: String, chatMessage: ChatMessage, game: Boolean) {
+        val room = if (game) CRGameRoomsCollection else chatRoomsCollection
+        val roomRef = room.document(roomId)
         val messageWithTimestamp = chatMessage.copy(timestamp = Timestamp.now())
         firestore.runTransaction { transaction ->
             transaction.set(roomRef.collection("messages").document(), messageWithTimestamp)
@@ -262,6 +282,34 @@ class ChatRepository {
             document.toObject(ChatMessage::class.java)!!
         }
 
+    }
+    fun observeChatMessages(
+        userId: String,
+        roomId: String,
+        game: Boolean,
+        onMessagesChanged: (List<ChatMessage>) -> Unit,
+        onError: (Exception) -> Unit
+    ){
+        val room = if (game) CRGameRoomsCollection else chatRoomsCollection
+        room.document(roomId)
+            .collection("messages")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null){
+                    return@addSnapshotListener
+                }
+                if (snapshot != null){
+                    val chatRoomDocument = room.document(roomId).get().result
+                    val chatRoom = chatRoomDocument?.toObject(ChatRoom::class.java) ?: return@addSnapshotListener
+
+                    val hiddenTimestamp = chatRoom.hiddenTimestamp[userId] ?: Timestamp(0,0)
+                    val messages = snapshot.documents
+                        .mapNotNull { document ->
+                            val chatMessage = document.toObject(ChatMessage::class.java)
+                            chatMessage?.takeIf { it.timestamp > hiddenTimestamp }
+                        }
+                    onMessagesChanged(messages)
+                }
+            }
     }
 
 

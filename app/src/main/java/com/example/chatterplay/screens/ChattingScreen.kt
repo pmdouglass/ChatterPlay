@@ -114,7 +114,10 @@ fun ChattingScreen(
             }
         },
         bottomBar = {
-            ChatInput(viewModel = viewModel, roomId = roomId )
+            ChatInput(
+                roomId = roomId,
+                game = false
+            )
         }
     ){paddingValues ->
         Column (
@@ -138,7 +141,7 @@ fun ChattingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatLazyColumn(roomId = roomId, profile = personalProfile)
+                ChatLazyColumn(roomId = roomId, profile = personalProfile, game = false)
 
             }
 

@@ -63,6 +63,8 @@ class ChatViewModel: ViewModel() {
     val allUsers: StateFlow<List<UserProfile>> get() = _allUsers
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
+    private val _fetchedMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val fetchedMessages: StateFlow<List<ChatMessage>> = _fetchedMessages
     private val _chatRoomMembers = MutableStateFlow<List<UserProfile>>(emptyList())
     val chatRoomMembers: StateFlow<List<UserProfile>> get() = _chatRoomMembers
     private val _chatRoomMembersCount = MutableStateFlow<Int>(0)
@@ -184,6 +186,23 @@ class ChatViewModel: ViewModel() {
             _messages.value = messages
         }
     }
+    fun observeChatMessages(
+        roomId: String,
+        game: Boolean
+    ){
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        chatRepository.observeChatMessages(
+            roomId = roomId,
+            userId = userId,
+            game = game,
+            onMessagesChanged = {messages ->
+                _fetchedMessages.value = messages
+            },
+            onError = {error ->
+                Log.e("ChatViewModel", "Error observing chat messages", error)
+            }
+        )
+    }
     fun fetchChatRoomMembers(roomId: String, game: Boolean){
         val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
@@ -254,19 +273,22 @@ class ChatViewModel: ViewModel() {
         }
     }
     fun sendMessage(roomId: String, message: String, game: Boolean){
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
-            val userProfile = chatRepository.getUserProfile(userId = currentUser.uid, game = game)
-            if (userProfile != null) {
-                val chatMessage = ChatMessage(
-                    senderId = userProfile.userId,
-                    senderName = userProfile.fname,
-                    message = message,
-                    image = userProfile.imageUrl
-                )
-                chatRepository.sendMessage(roomId, chatMessage)
-                fetchChatMessages(roomId = roomId, game = game)
+            val userProfile = chatRepository.getProfileToSend(userId = currentUser, roomId = roomId, game = game)
+            if (userProfile == null){
+                Log.d("Debug-Message", "Failed to fetch user profile for userId: ${currentUser}")
+                return@launch
             }
+            val chatMessage = ChatMessage(
+                senderId = userProfile.userId,
+                senderName = userProfile.fname,
+                message = message,
+                image = userProfile.imageUrl
+            )
+            Log.d("Debug-Message", "Sending message: $chatMessage")
+            chatRepository.sendMessage(roomId = roomId, chatMessage = chatMessage, game = game)
+            fetchChatMessages(roomId = roomId, game = game)
         }
     }
     fun createBucket(name: String){
