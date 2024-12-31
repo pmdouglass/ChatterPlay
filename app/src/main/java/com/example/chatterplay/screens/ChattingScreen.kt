@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -32,8 +33,10 @@ import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
 import com.example.chatterplay.seperate_composables.ChatLazyColumn
 import com.example.chatterplay.seperate_composables.MainTopAppBar
+import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,15 +48,18 @@ fun ChattingScreen(
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val chatRoom by viewModel.roomInfo.collectAsState()
     val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
     val membersCount by viewModel.chatRoomMembersCount.collectAsState()
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
 
     LaunchedEffect(CRRoomId, roomId) {
-        viewModel.fetchChatMessages(roomId)
-        viewModel.fetchChatRoomMembers(roomId)
+        viewModel.fetchChatRoomMembers(roomId = roomId, game = false)
         viewModel.fetchSingleChatRoomMemberCount(roomId)
         viewModel.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
+        Log.d("examp", "Chat room members: $chatRoomMembers")
+
     }
 
 
@@ -108,7 +114,10 @@ fun ChattingScreen(
             }
         },
         bottomBar = {
-            ChatInput(viewModel = viewModel, roomId = roomId )
+            ChatInput(
+                roomId = roomId,
+                game = false
+            )
         }
     ){paddingValues ->
         Column (
@@ -132,9 +141,7 @@ fun ChattingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatLazyColumn(
-                    viewModel = viewModel
-                )
+                ChatLazyColumn(roomId = roomId, profile = personalProfile, game = false)
 
             }
 

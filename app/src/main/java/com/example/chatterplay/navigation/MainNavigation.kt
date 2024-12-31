@@ -1,4 +1,4 @@
-package com.example.chatterplay
+package com.example.chatterplay.navigation
 
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -8,7 +8,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import com.example.chatterplay.screens.subscreens.AboutChatRise
+import com.example.chatterplay.screens.ChatRiseScreen
 import com.example.chatterplay.screens.ChattingScreen
 import com.example.chatterplay.screens.EditPersonalInfo
 import com.example.chatterplay.screens.EditProfileScreen
@@ -23,7 +23,7 @@ import com.example.chatterplay.screens.login.SignupScreen1
 import com.example.chatterplay.screens.login.SignupScreen2
 import com.example.chatterplay.screens.login.SignupScreen3
 import com.example.chatterplay.screens.login.SignupScreen4
-import androidx.navigation.NavController
+import com.example.chatterplay.screens.subscreens.AboutChatRise
 import com.google.firebase.auth.FirebaseAuth
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -112,8 +112,12 @@ fun AppNavHost(navController: NavHostController) {
             composable("roomSelect"){
                 MainRoomSelect(navController = navController)
             }
-            composable("mainScreen"){
-                MainScreen(navController = navController)
+            composable("mainScreen/{CRRoomId}"){backStackEntry ->
+                val CRRoomId = backStackEntry.arguments?.getString("CRRoomId")
+                if (CRRoomId != null){
+                    MainScreen(CRRoomId = CRRoomId, navController = navController)
+                }
+
             }
             composable("inviteScreen/{CRRoomId}/{game}",
                 arguments = listOf(
@@ -134,18 +138,14 @@ fun AppNavHost(navController: NavHostController) {
                 val userId = backStackEntry.arguments?.getString("userId") ?: ""
                 ProfileScreen(userId = userId, game = game, self = self, navController = navController)
             }
-            "chatScreen/"
             composable("chatScreen/{CRRoomId}/{roomId}/{game}", arguments = listOf(
                 navArgument("game") {type = NavType.BoolType}
             )){backStackEntry ->
                 val game = backStackEntry.arguments?.getBoolean("game") ?: false
-                val userId = backStackEntry.arguments?.getString("userId")
                 val CRRoomId = backStackEntry.arguments?.getString("CRRoomId") ?: "0"
                 val roomId = backStackEntry.arguments?.getString("roomId")
-                val friendChat = backStackEntry.arguments?.getString("friendChat")?.toBoolean() ?: false
-                val riserChat = backStackEntry.arguments?.getString("riserChat")?.toBoolean() ?: false
 
-                if (CRRoomId != null && roomId != null){
+                if (roomId != null){
                     ChattingScreen(CRRoomId = CRRoomId, roomId = roomId, game = game, navController = navController)
                 }
             }
@@ -167,27 +167,5 @@ fun AppNavHost(navController: NavHostController) {
         }
     }
 
-
-}
-
-fun navigateToChattingScreen(
-    navController: NavController,
-    CRRoomId: String? = null,
-    roomId: String,
-    friendChat: Boolean = false,
-    riserChat: Boolean = false
-){
-
-    var route = "chattingScreen/$roomId"
-
-    if  (CRRoomId != null){
-        route += "?CRRoomId=$CRRoomId"
-    }
-
-    if (friendChat || riserChat){
-        route += if (CRRoomId == null) "?friendChat=$friendChat&riserChat=$riserChat" else "&friendChat=$friendChat&riserChat=$riserChat"
-    }
-
-    navController.navigate(route)
 
 }

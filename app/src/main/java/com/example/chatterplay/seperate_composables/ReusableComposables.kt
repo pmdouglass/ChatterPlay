@@ -42,8 +42,6 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.HideImage
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
@@ -122,6 +120,8 @@ import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.repository.fetchUserProfile
 import com.example.chatterplay.screens.login.calculateAgeToDate
 import com.example.chatterplay.screens.login.calculateBDtoAge
+import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
 
@@ -135,7 +135,7 @@ enum class RowState (val string: String){
 @Composable
 fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
     val personalState by viewModel.userProfile.collectAsState()
-    val alternateState by viewModel.crUserProfile.collectAsState()
+    val alternateState by viewModel.alternateUserProfile.collectAsState()
 
     val personalProfile = personalState ?: UserProfile()
     val alternateProfile = alternateState ?: UserProfile()
@@ -146,27 +146,31 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
     return  Pair(personalProfile, alternateProfile)
 
 }
-
-
 @Composable
-fun ChatRiseThumbnail(
-    viewModel: ChatViewModel = viewModel(),
-    navController: NavController
-) {
+fun rememberCRProfile(CRRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
+    val profileState by viewModel.userProfile.collectAsState()
+    val profile = profileState ?: UserProfile()
+    LaunchedEffect(Unit){
+        viewModel.getUserProfile(CRRoomId = CRRoomId)
+    }
+    return profile
+}
+@Composable
+fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCreationViewModel = viewModel(), navController: NavController) {
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
-    var status by remember { mutableStateOf("start")}
-    var selfSelect by remember { mutableStateOf(false)}
-    var altSelect by remember { mutableStateOf(true)}
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    var selfSelect by remember { mutableStateOf(true)}
+    var altSelect by remember { mutableStateOf(false)}
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
+
     val width = 100
 
+    val userState by roomCreate.userState.collectAsState()
+    val roomReady by roomCreate.roomReady.collectAsState()
 
 
-    var hasProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
-
-
+    var hasAlternateProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
 
 
     Column (
@@ -192,10 +196,10 @@ fun ChatRiseThumbnail(
                     text = "ChatRise",
                     style = CRAppTheme.typography.headingMedium,
                     modifier = Modifier
-                        .then(if (status == "start") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                        .then(if (userState == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
                 )
-                when (status) {
-                    "start" -> {
+                when  {
+                    userState == "NotPending" -> {
                         Box(
                             modifier = Modifier
                                 .size(20.dp)
@@ -210,23 +214,8 @@ fun ChatRiseThumbnail(
                             )
                         }
                     }
-
-                    "wait" -> {
-                        IconButton(onClick = { status = "play" }) {
-                            Icon(
-                                Icons.Default.HideImage,
-                                contentDescription = null
-                            )
-                        }
-                        IconButton(onClick = { status = "start" }) {
-                            Icon(
-                                Icons.Default.Clear,
-                                contentDescription = null
-                            )
-                        }
-                    }
-
-                    "play" -> {
+                    userState == "Pending" -> {}
+                    roomReady -> {
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -242,18 +231,12 @@ fun ChatRiseThumbnail(
                         }
                         Spacer(modifier = Modifier.width(15.dp))
                         DynamicCircleBox(number = 121)
-                        IconButton(onClick = { status = "wait" }) {
-                            Icon(
-                                Icons.Default.Clear,
-                                contentDescription = null
-                            )
-                        }
                     }
                 }
 
             }
-            when (status){
-                "start" -> {
+            when {
+                userState == "NotPending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -333,7 +316,7 @@ fun ChatRiseThumbnail(
                                             .clip(CircleShape)
                                     )
                                 }else {
-                                    if (hasProfile){
+                                    if (hasAlternateProfile){
                                         Column(
                                             horizontalAlignment = Alignment.End,
                                             modifier = Modifier
@@ -407,7 +390,19 @@ fun ChatRiseThumbnail(
 
                             )
                             Button(onClick = {
-                                             status = "wait"
+                                val updatedProfile = when {
+                                    selfSelect -> { personalProfile.copy(selectedProfile = "self")}
+                                    altSelect -> { personalProfile.copy(selectedProfile = "alt")}
+                                    else -> { personalProfile}
+                                }
+                                val altUpdatedProfile = when {
+                                    selfSelect -> {alternateProfile.copy(selectedProfile = "self")}
+                                    altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
+                                    else -> { alternateProfile}
+                                }
+                                viewModel.saveUserProfile(userId = currentUserId, userProfile = updatedProfile, game = false)
+                                viewModel.saveUserProfile(userId = currentUserId, userProfile = altUpdatedProfile, game = true)
+                                roomCreate.setToPending()
                             },
                                 modifier = Modifier
                                     .padding(5.dp)
@@ -418,7 +413,7 @@ fun ChatRiseThumbnail(
 
                     }
                 }
-                "wait" -> {
+                userState == "Pending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -484,13 +479,17 @@ fun ChatRiseThumbnail(
                         }
                     }
                 }
-                "play" -> {
+                roomReady -> {
+                    val CRRoomId by roomCreate.CRRoomId.collectAsState()
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier
                             .fillMaxSize()
-                            .clickable { navController.navigate("mainScreen") }
+                            .clickable {
+                                navController.navigate("mainScreen/$CRRoomId")
+                            }
                     ) {
+                        Text("RoomId is: $CRRoomId")
                         Row (
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.Start,
@@ -560,7 +559,6 @@ fun ChatRiseThumbnail(
         }
     }
 }
-
 @Composable
 fun DynamicCircleBox(number: Int) {
 
@@ -585,14 +583,8 @@ fun DynamicCircleBox(number: Int) {
         }
     }
 }
-
 @Composable
-fun PrivateGroupPicThumbnail(
-    game: Boolean,
-    room: ChatRoom,
-    memberCount: Int,
-    imageUrls: List<String>
-) {
+fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, imageUrls: List<String>) {
 
 
 
@@ -669,7 +661,6 @@ fun PrivateGroupPicThumbnail(
         }
     }
 }
-
 @Composable
 fun RoomRow(members: Int, title: String, who: String, message: String, time: String, unread: Int, game: Boolean, navController: NavController) {
 
@@ -805,15 +796,8 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
         Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
     }
 }
-
 @Composable
-fun RoomSelectionView(
-    game: Boolean,
-    room: ChatRoom,
-    membersCount: Int,
-    replyCount: Int,
-    onClick: () -> Unit
-) {
+fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCount: Int, onClick: () -> Unit) {
 
     val lastReplyImage = room.lastProfile
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -933,7 +917,6 @@ fun RoomSelectionView(
         Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
     }
 }
-
 @Composable
 fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAction: () -> Unit, navController: NavController) {
 
@@ -993,13 +976,6 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
 
             }
-
-
-
-
-
-
-
         }
         Image(
             painter = painterResource(id = R.drawable.anonymous),
@@ -1009,7 +985,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 .size(100.dp)
                 .clip(CircleShape)
                 .clickable {
-                    navController.navigate("profileScreen/true/true")
+
                 }
         )
 
@@ -1060,7 +1036,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 .fillMaxWidth()
         ) {
             IconButton(onClick = {
-                navController.navigate("mainScreen")
+
             }) {
                 Icon(
                     imageVector = Icons.Default.Home,
@@ -1069,7 +1045,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 )
             }
             IconButton(onClick = {
-                navController.navigate("profileScreen/true/true")
+
             }) {
                 Icon(
                     imageVector = Icons.Default.Person,
@@ -1100,7 +1076,6 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
         Spacer(modifier = Modifier.height(pad.dp + 10.dp))
     }
 }
-
 @Composable
 fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
         DrawerValue.Closed
@@ -1149,7 +1124,6 @@ fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifi
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navController: NavController, modifier: Modifier = Modifier) {
@@ -1276,186 +1250,10 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
 
     }
 }
-
-@Composable
-fun PersonRow(PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, self: Boolean, navController: NavController) {
-    Row (
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        modifier = modifier
-    ){
-        PersonIcon(imgSize = PicSize, firstName = "Tim", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Clay", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Jason", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Alexandria", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Mammoa", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Daddy", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Timothy", txtSize = txtSize, game = game, self = self, navController = navController)
-
-    }
-}
-
-@Composable
-fun PersonIcon(
-    firstName: String,
-    imgSize: Int = 30,
-    txtSize: Int = 10,
-    clickable: Boolean = true,
-    game: Boolean,
-    self: Boolean,
-    navController: NavController
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .padding(10.dp)
-            .clickable {
-                if (clickable){
-                    navController.navigate("profileScreen/${game}/${self}")
-                }else {
-
-                }
-            },
-        verticalArrangement = Arrangement.Center
-    ){
-        Image(
-            painter = painterResource(R.drawable.anonymous),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(imgSize.dp)
-                .clip(CircleShape)
-        )
-        Text(
-            firstName,
-            fontSize = txtSize.sp
-        )
-
-    }
-}
-
-@Composable
-fun UserProfileIcon(
-    chatMember: UserProfile,
-    imgSize: Int = 30,
-    txtSize: Int = 10,
-    game: Boolean,
-    self: Boolean,
-    navController: NavController
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .padding(10.dp)
-            .clickable { navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}") }
-    ){
-        Image(
-            painter = rememberAsyncImagePainter(chatMember.imageUrl),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(imgSize.dp)
-                .clip(CircleShape)
-        )
-        Text(
-            chatMember.fname,
-            fontSize = txtSize.sp
-        )
-
-    }
-}
-
-@Composable
-fun ChatBubbleMock(game: Boolean, isFromMe: Boolean = false) {
-    Row (
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
-        modifier = Modifier
-            .fillMaxWidth()
-    ){
-        if (!isFromMe){
-            Image(
-                painter = painterResource(id = R.drawable.cool_neon),
-                contentDescription =null,
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-            )
-        }
-        Spacer(modifier = Modifier.width(6.dp))
-        Column (
-            modifier = Modifier
-                .width(275.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(
-                    if (isFromMe)
-                        CRAppTheme.colorScheme.primary
-                    else if (game)
-                        CRAppTheme.colorScheme.onGameBackground
-                    else
-                        CRAppTheme.colorScheme.background
-
-                )
-                .border(
-                    width = if (isFromMe) 2.dp else 0.dp,
-                    color = if (isFromMe) CRAppTheme.colorScheme.highlight else Color.Transparent,
-                    shape = RoundedCornerShape(15.dp)
-                )
-                .padding(6.dp)
-        ){
-            Column {
-                if (!isFromMe){
-                    Text("Tim C",
-                        style = CRAppTheme.typography.titleMedium
-                    )
-                }
-                Text(text = "I've been using your app nonstop, and I can't believe how intuitive and visually appealing it is—every detail seems so thoughtfully crafted, making each feature not just functional but also a joy to use, which is rare to find these days!",
-                    style = CRAppTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .padding(start = 10.dp, end = 10.dp))
-            }
-        }
-
-
-    }
-}
-
-@Composable
-fun BottomInputBar() {
-
-    var input by remember { mutableStateOf("")}
-
-    Row (
-        modifier = Modifier.fillMaxWidth()
-    ){
-        OutlinedTextField(
-            value = input,
-            onValueChange = { input = it},
-            modifier = Modifier
-                .weight(1f)
-                .height(50.dp)
-                .background(Color.White)
-        )
-        IconButton(onClick = { /*TODO*/ },
-            modifier = Modifier
-                .background(Color.Blue)
-                .height(50.dp)) {
-            Icon(Icons.Default.Send, contentDescription = "" )
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun EditInfoDialog(
-    edit: String,
-    userData: String,
-    userProfile: UserProfile,
-    game: Boolean,
-    onDismiss: () -> Unit,
-    viewModel: ChatViewModel = viewModel()
-) {
+fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, game: Boolean, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
     val userId = userProfile.userId
     val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
     var editFname by remember { mutableStateOf(userProfile.fname)}
@@ -1935,11 +1733,7 @@ fun EditInfoDialog(
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditFirstNameDialog(
-    userProfile: UserProfile,
-    onDismiss: () -> Unit,
-    viewModel: ChatViewModel = viewModel()
-) {
+fun EditFirstNameDialog(userProfile: UserProfile, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
     val userId = userProfile.userId
     var editfName by remember { mutableStateOf(userProfile.fname) }
 
@@ -1975,28 +1769,8 @@ fun EditFirstNameDialog(
         }
     )
 }
-
-
 @Composable
-fun SettingsInfoRow(
-    game: Boolean = false,
-    amount: Int = 1,
-    icon: ImageVector? = null,
-    contentDescription: String? = null,
-    title: String,
-    body: String = "",
-    secondBody: String = "",
-    arrow: Boolean = false,
-    imagePic: Int? = null,
-    extraChoice: Boolean = false,
-    onClick: () -> Unit,
-    Select: Boolean = false,
-    Bio: Boolean = false,
-    Edit: Boolean = false,
-    editClick: Boolean = true,
-    Image: Boolean = false,
-    viewModel: ChatViewModel = viewModel()
-) {
+fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, imagePic: Int? = null, extraChoice: Boolean = false, onClick: () -> Unit, Select: Boolean = false, Bio: Boolean = false, Edit: Boolean = false, editClick: Boolean = true, Image: Boolean = false, viewModel: ChatViewModel = viewModel()) {
     val context = LocalContext.current
     var ImageUri by remember { mutableStateOf<Uri?>(null) }
     var byteArray by remember { mutableStateOf<ByteArray?>(null)}
@@ -2217,18 +1991,9 @@ fun SettingsInfoRow(
 
 
 }
-
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun DateDropDown(
-    month: Boolean = false,
-    day: Boolean = false,
-    year: Boolean = false,
-    age: Boolean = false,
-    game: Boolean,
-    viewModel: ChatViewModel = viewModel(),
-    onOptionSelected: (String) -> Unit
-) {
+fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = false, age: Boolean = false, game: Boolean, viewModel: ChatViewModel = viewModel(), onOptionSelected: (String) -> Unit) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
 
@@ -2329,7 +2094,6 @@ fun DateDropDown(
         }
     }
 }
-
 @Composable
 fun ExtraChoice(title1: String, onClick: () -> Unit) {
     Row(
@@ -2351,12 +2115,8 @@ fun ExtraChoice(title1: String, onClick: () -> Unit) {
         )
     }
 }
-
-
 @Composable
-fun AnimatedDots(
-    dotCount: Int = 4 // Number of dots to animate
-) {
+fun AnimatedDots(dotCount: Int = 4) {
     var currentDots by remember { mutableStateOf("") }
 
     LaunchedEffect(dotCount) {
@@ -2375,16 +2135,8 @@ fun AnimatedDots(
             .width(70.dp)
     )
 }
-
-
 @Composable
-fun FriendInfoRow(
-    user: UserProfile,
-    onUserSelected: (UserProfile) -> Unit,
-    descriptionText: String = "Jocely Jackson",
-    state: String = RowState.none.string,
-    game: Boolean
-) {
+fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, descriptionText: String = "Jocely Jackson", state: String = RowState.none.string, game: Boolean) {
 
     var isSelected by remember { mutableStateOf(false)}
 
@@ -2458,231 +2210,6 @@ fun FriendInfoRow(
 
     }
 }
-
-@Composable
-fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
-    LazyRow (
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(10.dp)
-    ) {
-        items(chatRoomMembers) { member ->
-            UserProfileIcon(
-                chatMember = member,
-                game = game,
-                self = self,
-                imgSize = 50,
-                txtSize = 20,
-                navController = navController
-            )
-        }
-
-    }
-}
-@Composable
-fun ChatLazyColumn(
-    viewModel: ChatViewModel
-) {
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    val userId = currentUser?.uid ?: ""
-    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
-    val messages by viewModel.messages.collectAsState()
-    val listState = rememberLazyListState()
-
-    val ScrollToBottom = remember {
-        derivedStateOf {
-            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size -1
-        }
-    }
-    if (ScrollToBottom.value){
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()){
-                listState.animateScrollToItem(messages.size -1)
-            }
-
-        }
-    }
-
-    LazyColumn(
-        state = listState,
-        verticalArrangement = Arrangement.Bottom,
-        modifier = Modifier
-            .fillMaxSize()
-    ) {
-        itemsIndexed(messages) { index, message ->
-            val previousMessage = if(index >0) messages[index - 1] else null
-            ChatBubble(
-                image = message.image,
-                message = message,
-                isFromMe = message.senderId == currentUser?.uid,
-                previousMessage = previousMessage
-            )
-        }
-        item {
-            Row (
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ){
-                Text(
-                    "Sending as",
-                    modifier = Modifier.padding(end = 10.dp)
-                )
-                Image(
-                    painter = rememberAsyncImagePainter(personalProfile.imageUrl),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(15.dp)
-                        .clip(CircleShape)
-                )
-                Text(
-                    personalProfile.fname,
-                    modifier = Modifier.padding(start = 10.dp)
-                )
-            }
-        }
-    }
-
-}
-@Composable
-fun ChatBubble(
-    message: ChatMessage,
-    image: String,
-    isFromMe: Boolean,
-    previousMessage: ChatMessage?
-) {
-    val borderRad = 30.dp
-    val showProfileImage = previousMessage?.senderId != message.senderId
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp),
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
-    ) {
-        // ---------------- if left than members picture
-        if (!isFromMe && showProfileImage) {
-            Image(
-                painter = rememberAsyncImagePainter(image),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-        } else{
-            Image(
-                painter = rememberAsyncImagePainter(model = ""),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-        }
-        Column (
-            horizontalAlignment = if(isFromMe)Alignment.End else Alignment.Start
-        ){
-            //----------------- name and time
-            Row(
-                horizontalArrangement = if (!isFromMe) Arrangement.Start else Arrangement.End,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ) {
-                if (!isFromMe && showProfileImage) {
-                    Text(
-                        text = message.senderName,
-                        fontWeight = FontWeight.Light,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                }
-                if (showProfileImage){
-                    Text(formattedDayTimestamp(message.timestamp), fontWeight = FontWeight.Light)
-                }
-
-            }
-            //--------------------------- Text Message
-            Row(
-                horizontalArrangement = Arrangement.End,
-                modifier = Modifier
-                    .widthIn(max = 360.dp)
-                    .clip(
-                        RoundedCornerShape(
-                            topStart = if (!isFromMe) 0.dp else borderRad,
-                            topEnd = if (!isFromMe) borderRad else 0.dp,
-                            bottomStart = borderRad,
-                            bottomEnd = borderRad
-                        )
-                    )
-                    .background(if (!isFromMe) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.onBackground)
-                    .padding(10.dp),
-
-                ) {
-
-                Text(
-                    text = message.message,
-                    color = Color.Black,
-                    lineHeight = 23.sp,
-                    letterSpacing = 1.sp
-                )
-
-            }
-        }
-    }
-
-}
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ChatInput(viewModel: ChatViewModel, roomId: String) {
-    var input by remember { mutableStateOf("") }
-
-    fun send(){
-        if (input.isNotBlank()) {
-            viewModel.sendMessage(roomId = roomId, message = input, game = false)
-            input = ""
-        }
-    }
-
-    Row(
-        verticalAlignment = Alignment.Bottom,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White)
-    ) {
-
-        TextField(
-            value = input,
-            onValueChange = { input = it },
-            modifier = Modifier
-                .weight(1f)
-                .background(Color.White),
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.White,
-                focusedIndicatorColor = Color.White,
-                unfocusedIndicatorColor = Color.White
-            ),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = {
-                send()
-            }),
-        )
-        IconButton(onClick = {
-            send()
-        }) {
-            Icon(Icons.Default.Send, contentDescription = "")
-        }
-
-    }
-
-}
-
 @Preview(name = "Light Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

@@ -40,7 +40,12 @@ data class AppTypography(
     val H2: TextStyle,
     val H3: TextStyle,
     val H4: TextStyle,
-    val H5: TextStyle
+    val H5: TextStyle,
+    val T1: TextStyle,
+    val T2: TextStyle,
+    val T3: TextStyle,
+    val T4: TextStyle,
+    val T5: TextStyle
 
 )
 
@@ -94,7 +99,12 @@ val LocalApptypography = staticCompositionLocalOf {
         H2 = TextStyle.Default,
         H3 = TextStyle.Default,
         H4 = TextStyle.Default,
-        H5 = TextStyle.Default
+        H5 = TextStyle.Default,
+        T1 = TextStyle.Default,
+        T2 = TextStyle.Default,
+        T3 = TextStyle.Default,
+        T4 = TextStyle.Default,
+        T5 = TextStyle.Default
     )
 }
 

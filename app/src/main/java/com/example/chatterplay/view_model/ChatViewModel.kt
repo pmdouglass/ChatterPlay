@@ -47,6 +47,8 @@ class ChatViewModel: ViewModel() {
 
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
+    private val _alternateUserProfile = MutableStateFlow<UserProfile?>(null)
+    val alternateUserProfile: StateFlow<UserProfile?> get() = _alternateUserProfile
     private val _crUserProfile = MutableStateFlow<UserProfile?>(null)
     val crUserProfile: StateFlow<UserProfile?> get() = _crUserProfile
     private val _personalImage = mutableStateOf<String?>(null)
@@ -59,9 +61,10 @@ class ChatViewModel: ViewModel() {
     val isUploading: State<Boolean> = _isUploading
     private val _allUsers = MutableStateFlow<List<UserProfile>>(emptyList())
     val allUsers: StateFlow<List<UserProfile>> get() = _allUsers
-    private val _alternateProfileCompletion = MutableStateFlow(false)
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
+    private val _fetchedMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val fetchedMessages: StateFlow<List<ChatMessage>> = _fetchedMessages
     private val _chatRoomMembers = MutableStateFlow<List<UserProfile>>(emptyList())
     val chatRoomMembers: StateFlow<List<UserProfile>> get() = _chatRoomMembers
     private val _chatRoomMembersCount = MutableStateFlow<Int>(0)
@@ -70,9 +73,20 @@ class ChatViewModel: ViewModel() {
     val allChatRooms: StateFlow<List<ChatRoom>>  = _allChatRooms
     private val _roomInfo = MutableStateFlow<ChatRoom?>(null)
     val roomInfo: StateFlow<ChatRoom?> get() = _roomInfo
+    private val _usersStatus = MutableStateFlow<String?>("Unknown")
+    val usersStatus: StateFlow<String?> = _usersStatus
+
+
+
+
+
+
+
     private var isUnreadMessageCountFetched = false
     private val _unreadMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
     val unreadMessageCount: StateFlow<Map<String, Int>> = _unreadMessageCount
+    private val _unreadCRMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val unreadCRMessageCount: StateFlow<Map<String, Int>> = _unreadCRMessageCount
 
 
 
@@ -83,6 +97,9 @@ class ChatViewModel: ViewModel() {
             getAllUsers()
             //getChatRoomsWithUnreadCount()
             fetchAllChatRooms()
+            //fetchCRUnreadMessageCount()
+            fetchUnreadMessageCount()
+            fetchUsersStatus()
         }
     }
 
@@ -95,7 +112,7 @@ class ChatViewModel: ViewModel() {
               _userProfile.value = userProfile
           }else {
               chatRepository.saveUserProfile(userId = userId, userProfile = userProfile,game = true)
-              _crUserProfile.value = userProfile
+              _alternateUserProfile.value = userProfile
           }
 
       }
@@ -106,7 +123,7 @@ class ChatViewModel: ViewModel() {
             val profile = chatRepository.getUserProfile(userId, false)
             _userProfile.value = profile
             val crProfile = chatRepository.getUserProfile(userId, true)
-            _crUserProfile.value = crProfile
+            _alternateUserProfile.value = crProfile
 
         }
     }
@@ -120,8 +137,8 @@ class ChatViewModel: ViewModel() {
                     saveUserProfile(userId = userId, userProfile = it, game =  false)
                 }
             } else {
-                _crUserProfile.value = _crUserProfile.value?.copy(imageUrl = imageUrl)
-                _crUserProfile.value?.let {
+                _alternateUserProfile.value = _alternateUserProfile.value?.copy(imageUrl = imageUrl)
+                _alternateUserProfile.value?.let {
                     saveUserProfile(userId = userId, userProfile = it, game =  true)
                 }
             }
@@ -144,14 +161,14 @@ class ChatViewModel: ViewModel() {
             val currentUser = FirebaseAuth.getInstance().currentUser ?: return@launch
             val allMemberIds = (memberIds + currentUser.uid).sorted()
 
-            val existingRoomId = chatRepository.checkIfChatRoomExists(crRoomId = CRRoomId, members = allMemberIds)
+            val existingRoomId = chatRepository.checkIfChatRoomExists(CRRoomId = CRRoomId, members = allMemberIds)
 
             if (existingRoomId != null){
                 onRoomCreated(existingRoomId)
             } else {
-                val roomId = chatRepository.createChatRoom(crRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
+                val roomId = chatRepository.createChatRoom(CRRoomId = CRRoomId, members = allMemberIds,roomName = roomName)
                 memberIds.forEach { memberIds ->
-                    chatRepository.addMemberToRoom(crRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
+                    chatRepository.addMemberToRoom(CRRoomId = CRRoomId, roomId = roomId,memberId = memberIds)
                 }
                 onRoomCreated(roomId)
             }
@@ -162,18 +179,36 @@ class ChatViewModel: ViewModel() {
 
 
 
-    fun fetchChatMessages(roomId: String){
+    fun fetchChatMessages(roomId: String, game: Boolean){
         viewModelScope.launch {
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val messages = chatRepository.getChatMessages(roomId, userId)
+            val messages = chatRepository.getChatMessages(roomId = roomId, userId = userId, game = game)
             _messages.value = messages
         }
     }
-    fun fetchChatRoomMembers(roomId: String){
+    fun observeChatMessages(
+        roomId: String,
+        game: Boolean
+    ){
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        chatRepository.observeChatMessages(
+            roomId = roomId,
+            userId = userId,
+            game = game,
+            onMessagesChanged = {messages ->
+                _fetchedMessages.value = messages
+            },
+            onError = {error ->
+                Log.e("ChatViewModel", "Error observing chat messages", error)
+            }
+        )
+    }
+    fun fetchChatRoomMembers(roomId: String, game: Boolean){
         val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
-            val members = chatRepository.getChatRoomMembers(roomId).filter { it.userId != currentUser?.uid }
+            val members = chatRepository.getChatRoomMembers(roomId = roomId, game = game).filter { it.userId != currentUser?.uid }
             _chatRoomMembers.value = members
+            _userState.value = UserState.Success("Success fetching Members")
         }
     }
     fun fetchSingleChatRoomMemberCount(roomId: String) {
@@ -233,24 +268,27 @@ class ChatViewModel: ViewModel() {
     }
     fun getRoomInfo(CRRoomId: String, roomId: String){
         viewModelScope.launch {
-            val roomInfo = chatRepository.getRoomInfo(crRoomId = CRRoomId, roomId = roomId)
+            val roomInfo = chatRepository.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
             _roomInfo.value = roomInfo
         }
     }
     fun sendMessage(roomId: String, message: String, game: Boolean){
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
-            val userProfile = chatRepository.getUserProfile(userId = currentUser.uid, game = game)
-            if (userProfile != null) {
-                val chatMessage = ChatMessage(
-                    senderId = userProfile.userId,
-                    senderName = userProfile.fname,
-                    message = message,
-                    image = userProfile.imageUrl
-                )
-                chatRepository.sendMessage(roomId, chatMessage)
-                fetchChatMessages(roomId)
+            val userProfile = chatRepository.getProfileToSend(userId = currentUser, roomId = roomId, game = game)
+            if (userProfile == null){
+                Log.d("Debug-Message", "Failed to fetch user profile for userId: ${currentUser}")
+                return@launch
             }
+            val chatMessage = ChatMessage(
+                senderId = userProfile.userId,
+                senderName = userProfile.fname,
+                message = message,
+                image = userProfile.imageUrl
+            )
+            Log.d("Debug-Message", "Sending message: $chatMessage")
+            chatRepository.sendMessage(roomId = roomId, chatMessage = chatMessage, game = game)
+            fetchChatMessages(roomId = roomId, game = game)
         }
     }
     fun createBucket(name: String){
@@ -293,6 +331,27 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
+
+    fun fetchUsersStatus(){
+        Log.d("ChatRise ViewModel", " fetching user Status")
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        currentUser?.let { user->
+            viewModelScope.launch {
+                val status = chatRepository.getUsersStatus(user.uid)
+                _usersStatus.value =  status ?: "Unknown"
+            }
+        }
+    }
+    /*fun fetchCRUnreadMessageCount() {
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        viewModelScope.launch {
+            val room = chatRepository.getMainChatRoomForUser(currentUser.uid)
+            room?.let {
+                val unreadCounts = chatRepository.getUnreadMessageCount(it.roomId, currentUser.uid)
+                _unreadCRMessageCount.value = unreadCounts
+            }
+        }
+    }*/
 
 
 

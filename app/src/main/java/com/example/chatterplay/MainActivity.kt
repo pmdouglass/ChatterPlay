@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.Surface
 import androidx.navigation.compose.rememberNavController
+import com.example.chatterplay.navigation.AppNavHost
 import com.example.chatterplay.ui.theme.CRAppTheme
 
 class MainActivity : ComponentActivity() {
