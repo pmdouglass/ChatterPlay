@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -70,32 +71,34 @@ fun ChatLazyColumn(
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
-    LaunchedEffect(roomId){
+    // Fetch chat messages when roomId or game changes
+    LaunchedEffect(roomId, game) {
         viewModel.fetchChatMessages(roomId = roomId, game = game)
     }
 
-    val ScrollToBottom = remember {
+    // Scroll to bottom when new messages arrive
+    val scrollToBottom = remember {
         derivedStateOf {
-            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size -1
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size - 1
         }
     }
-    if (ScrollToBottom.value){
+    if (scrollToBottom.value) {
         LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()){
-                listState.animateScrollToItem(messages.size -1)
+            if (messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.size - 1)
             }
-
         }
     }
 
+    // Chat List UI
     LazyColumn(
         state = listState,
         verticalArrangement = Arrangement.Bottom,
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
+        // Messages
         itemsIndexed(messages) { index, message ->
-            val previousMessage = if(index >0) messages[index - 1] else null
+            val previousMessage = messages.getOrNull(index - 1)
             ChatBubble(
                 image = message.image,
                 message = message,
@@ -103,33 +106,41 @@ fun ChatLazyColumn(
                 previousMessage = previousMessage
             )
         }
+        // Footer
         item {
-            Row (
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ){
-                Text(
-                    "Sending as",
-                    modifier = Modifier.padding(end = 10.dp)
-                )
-                Image(
-                    painter = rememberAsyncImagePainter(profile.imageUrl),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(15.dp)
-                        .clip(CircleShape)
-                )
-                Text(
-                    profile.fname,
-                    modifier = Modifier.padding(start = 10.dp)
-                )
-            }
+            UserInfoFooter(profile)
         }
     }
-
 }
+
+@Composable
+fun UserInfoFooter(profile: UserProfile) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
+    ) {
+        Text(
+            text = "Sending as",
+            modifier = Modifier.padding(end = 8.dp)
+        )
+        Image(
+            painter = rememberAsyncImagePainter(profile.imageUrl),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+        )
+        Text(
+            text = profile.fname,
+            modifier = Modifier.padding(start = 8.dp)
+        )
+    }
+}
+
 @Composable
 fun ChatBubble(
     message: ChatMessage,
