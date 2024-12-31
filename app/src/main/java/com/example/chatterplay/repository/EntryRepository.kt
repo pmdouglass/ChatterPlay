@@ -36,6 +36,20 @@ class RoomCreateRepository {
             return false
         }
     }
+    suspend fun updateUserGameRoomId(userIds: List<String>, roomId: String): Boolean{
+        try {
+            val batch = firestore.batch()
+            userIds.forEach { userId ->
+                val userDocRef = userCollection.document(userId)
+                batch.update(userDocRef, "gameRoomId", roomId)
+            }
+            batch.commit().await()
+            return true
+        }catch (e: Exception){
+            e.printStackTrace()
+            return false
+        }
+    }
 
     // Monitor users in "Pending" state
     suspend fun fetchUsersPendingState(): List<String>{
@@ -144,6 +158,15 @@ class RoomCreateRepository {
         return try {
             val documentSnapshot = userCollection.document(userId).get().await()
             documentSnapshot.getString("selectedProfile")
+        }catch (e: Exception){
+            e.printStackTrace()
+            null
+        }
+    }
+    suspend fun fetchCRroomId(userId: String): String?{
+        return try {
+            val documentSnapshot = userCollection.document(userId).get().await()
+            documentSnapshot.getString("gameRoomId")
         }catch (e: Exception){
             e.printStackTrace()
             null

@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -51,9 +52,11 @@ fun ChattingScreen(
 
     LaunchedEffect(CRRoomId, roomId) {
         viewModel.fetchChatMessages(roomId)
-        viewModel.fetchChatRoomMembers(roomId)
+        viewModel.fetchChatRoomMembers(roomId = roomId, game = false)
         viewModel.fetchSingleChatRoomMemberCount(roomId)
         viewModel.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
+        Log.d("examp", "Chat room members: $chatRoomMembers")
+
     }
 
 

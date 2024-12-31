@@ -11,7 +11,8 @@ data class UserProfile(
     val imageUrl: String = "",
     val about: String = "",
     val pending: String = "NotPending",
-    val selectedProfile: String = "self"
+    val selectedProfile: String = "self",
+    val gameRoomId: String = "0"
 )
 
 data class DateOfBirth(

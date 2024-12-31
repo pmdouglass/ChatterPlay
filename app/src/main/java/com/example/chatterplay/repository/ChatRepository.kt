@@ -51,10 +51,6 @@ class ChatRepository {
                 .get()
                 .await()
             return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
-            /*return usersCollection.document(userId)
-                .get()
-                .await()
-                .toObject(UserProfile::class.java)*/
 
         } else {
             val snapshot = usersCollection
@@ -187,20 +183,18 @@ class ChatRepository {
         }
 
     }
-    suspend fun getChatRoomMembers(roomId: String): List<UserProfile> {
-        val chatRoomSnapshot = chatRoomsCollection.document(roomId).get().await()
+    suspend fun getChatRoomMembers(roomId: String, game: Boolean): List<UserProfile> {
+        val roomCollection = if (game) CRGameRoomsCollection else chatRoomsCollection
+        val usersPath = if (game) roomCollection.document(roomId).collection("Users") else usersCollection
+
+        val chatRoomSnapshot = roomCollection.document(roomId).get().await()
         val chatRoom = chatRoomSnapshot.toObject(ChatRoom::class.java)
 
-        return if (chatRoom != null) {
-            val userProfiles = chatRoom.members.map { memberId ->
-                val userSnapshot = usersCollection.document(memberId).get().await()
-                userSnapshot.toObject(UserProfile::class.java)
-            }
-            userProfiles.filterNotNull()
-        } else {
-            emptyList()
-        }
+        return chatRoom?.members?.mapNotNull { memberId ->
+            usersPath.document(memberId).get().await().toObject(UserProfile::class.java)
+        } ?: emptyList()
     }
+
     suspend fun getSingleChatRoom(roomId: String): ChatRoom? {
         return try {
             val documentSnapshot = chatRoomsCollection.document(roomId).get().await()

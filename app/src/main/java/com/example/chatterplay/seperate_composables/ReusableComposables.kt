@@ -120,6 +120,7 @@ import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.repository.fetchUserProfile
 import com.example.chatterplay.screens.login.calculateAgeToDate
 import com.example.chatterplay.screens.login.calculateBDtoAge
+import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
@@ -134,7 +135,7 @@ enum class RowState (val string: String){
 @Composable
 fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel()): Pair<UserProfile, UserProfile> {
     val personalState by viewModel.userProfile.collectAsState()
-    val alternateState by viewModel.crUserProfile.collectAsState()
+    val alternateState by viewModel.alternateUserProfile.collectAsState()
 
     val personalProfile = personalState ?: UserProfile()
     val alternateProfile = alternateState ?: UserProfile()
@@ -144,6 +145,15 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
     }
     return  Pair(personalProfile, alternateProfile)
 
+}
+@Composable
+fun rememberCRProfile(CRRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
+    val profileState by viewModel.userProfile.collectAsState()
+    val profile = profileState ?: UserProfile()
+    LaunchedEffect(Unit){
+        viewModel.getUserProfile(CRRoomId = CRRoomId)
+    }
+    return profile
 }
 
 @Composable
@@ -163,7 +173,7 @@ fun ChatRiseThumbnail(
 
     val userState by roomCreate.userState.collectAsState()
     val roomReady by roomCreate.roomReady.collectAsState()
-    val CRRoomId by roomCreate.CRRoomId.collectAsState()
+
 
     var hasAlternateProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
 
@@ -475,17 +485,16 @@ fun ChatRiseThumbnail(
                     }
                 }
                 roomReady -> {
-                    /*CRRoomId?.let { roomId ->
-
-                    }*/
+                    val CRRoomId by roomCreate.CRRoomId.collectAsState()
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier
                             .fillMaxSize()
                             .clickable {
-                                navController.navigate("mainScreen")
+                                navController.navigate("mainScreen/${CRRoomId}")
                             }
                     ) {
+                        Text("RoomId is: $CRRoomId")
                         Row (
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.Start,

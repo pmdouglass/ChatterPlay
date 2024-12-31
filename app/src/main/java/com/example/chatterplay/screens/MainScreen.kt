@@ -1,6 +1,6 @@
 package com.example.chatterplay.screens
 
-import android.content.res.Configuration
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowCircleDown
 import androidx.compose.material.icons.filled.HideImage
 import androidx.compose.material.icons.filled.Man
 import androidx.compose.material.icons.filled.Menu
@@ -20,28 +21,26 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.seperate_composables.BottomInputBar
 import com.example.chatterplay.seperate_composables.ChatBubbleMock
 import com.example.chatterplay.seperate_composables.MainTopAppBar
-import com.example.chatterplay.seperate_composables.PersonRow
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
 import com.example.chatterplay.seperate_composables.RightSideModalDrawer
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.navigation.CRNavHost
 import com.example.chatterplay.seperate_composables.AllMembersRow
+import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
@@ -121,11 +120,10 @@ fun MainScreen(navController: NavController, viewModel: ChatViewModel = viewMode
 }
 
 @Composable
-fun ChatRiseScreen(navController: NavController, viewModel: ChatViewModel = viewModel()) {
+fun ChatRiseScreen(CRRoomId: String, navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val contentNavController = rememberNavController()
@@ -151,14 +149,21 @@ fun ChatRiseScreen(navController: NavController, viewModel: ChatViewModel = view
                                 contentDescription = null
                             )
                         }
-                        Text("Motha Fucka", style = CRAppTheme.typography.T3)
-                        IconButton(onClick = { contentNavController.navigate("CRHome")}){
+                        IconButton(onClick = {navController.popBackStack()}){
+                            Icon(
+                                Icons.Default.ArrowCircleDown,
+                                contentDescription = null
+                            )
+                        }
+
+                        Text("Motha Fucka", style = CRAppTheme.typography.H3)
+                        IconButton(onClick = { contentNavController.navigate("CRHome/${CRRoomId}")}){
                             Icon(
                                 Icons.Default.Menu,
                                 contentDescription = null
                             )
                         }
-                        IconButton(onClick = { contentNavController.navigate("game") }){
+                        IconButton(onClick = { contentNavController.navigate("game/${CRRoomId}") }){
                             Icon(
                                 Icons.Default.HideImage,
                                 contentDescription = null
@@ -183,7 +188,7 @@ fun ChatRiseScreen(navController: NavController, viewModel: ChatViewModel = view
                             .background(customPurple)
                             .padding(paddingValues)
                     ){
-                        CRNavHost(navController = contentNavController)
+                        CRNavHost(navController = contentNavController, CRRoomId = CRRoomId)
                     }
                 }
             )
@@ -195,12 +200,63 @@ fun ChatRiseScreen(navController: NavController, viewModel: ChatViewModel = view
 
 }
 @Composable
-fun CRMainChat(){
-    Text("HomeScreen")
+fun CRMainChat(CRRoomId: String){
+    val profile = rememberCRProfile(CRRoomId = CRRoomId)
+
+    if (profile.fname.isNotEmpty()){
+        Column {
+            Text("HomeScreen")
+            Text("First name is ${profile.fname} no last name")
+        }
+    } else {
+        Text("Loading . . . ")
+    }
+
 }
 @Composable
-fun Game(){
-    Text("Game Screen")
+fun Game(CRRoomId: String, viewModel: ChatViewModel = viewModel(), contentNavController: NavController){
+    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
+
+    LaunchedEffect(CRRoomId, chatRoomMembers){
+        viewModel.fetchChatRoomMembers(roomId = CRRoomId, game = true)
+        Log.d("examp", "Chat room members: $chatRoomMembers")
+    }
+
+    Column (
+        verticalArrangement = Arrangement.Top,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(customPurple)
+            .padding(10.dp)
+    ){
+       if (chatRoomMembers.isEmpty()){
+           Text("Loading . . . ", style = CRAppTheme.typography.H2)
+       } else {
+           chatRoomMembers.forEach { member ->
+               Text(
+                   text = member.fname ?: "Unknown",
+                   style = CRAppTheme.typography.H2)
+           }
+       }
+        Spacer(modifier = Modifier.height(100.dp))
+        AllMembersRow(
+            chatRoomMembers = chatRoomMembers,
+            game = true,
+            self = false,
+            navController = contentNavController
+        )
+        Divider()
+        Column (
+            verticalArrangement = Arrangement.Bottom,
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            ChatBubbleMock(true, false)
+            Spacer(modifier = Modifier.height(25.dp))
+            ChatBubbleMock(true, true)
+            Spacer(modifier = Modifier.height(25.dp))
+        }
+    }
 }
 @Composable
 fun Profile(){

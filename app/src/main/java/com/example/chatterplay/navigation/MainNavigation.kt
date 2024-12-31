@@ -112,8 +112,11 @@ fun AppNavHost(navController: NavHostController) {
             composable("roomSelect"){
                 MainRoomSelect(navController = navController)
             }
-            composable("mainScreen"){
-                ChatRiseScreen(navController = navController)
+            composable("mainScreen/{CRRoomId}"){backStackEntry ->
+                val CRRoomId = backStackEntry.arguments?.getString("CRRoomId")
+                if (CRRoomId != null){
+                    ChatRiseScreen(CRRoomId = CRRoomId, navController = navController)
+                }
             }
             composable("inviteScreen/{CRRoomId}/{game}",
                 arguments = listOf(

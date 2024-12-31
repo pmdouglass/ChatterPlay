@@ -38,6 +38,7 @@ class RoomCreationViewModel: ViewModel(){
     init {
         checkUserState()
         checkSelectedProfile()
+        checkCRRoomId()
     }
 
     // Check the user's current state from the backend
@@ -55,6 +56,12 @@ class RoomCreationViewModel: ViewModel(){
         viewModelScope.launch {
             val status = userRepository.fetchUsersSelectedProfileStatus(userId)
             _selectedProfile.value = status ?: "self"
+        }
+    }
+    private fun checkCRRoomId(){
+        viewModelScope.launch {
+            val status = userRepository.fetchCRroomId(userId)
+            _CRRoomId.value = status ?: "0"
         }
     }
 
@@ -87,14 +94,16 @@ class RoomCreationViewModel: ViewModel(){
                         )
                         // Update users
                         if (roomSuccess){
-                            _userState.value = "InGame"
-                            _roomReady.value = true
                             // get roomID
                             val roomId = userRepository.getCRRoomId(userId)
                             if (roomId != null){
-                                _CRRoomId.value = roomId
-                                // add users
+                                val addRoomId = userRepository.updateUserGameRoomId(userIds = usersToUpdate, roomId = roomId)
+                                // add users document
                                 userRepository.createCRSelectedProfileUsers(CRRoomId = roomId, userIds = usersToUpdate)
+                                if (addRoomId){
+                                    _userState.value = "InGame"
+                                    _roomReady.value = true
+                                }
                             }
                             break
                         }
