@@ -138,7 +138,7 @@ fun ChattingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatLazyColumn(roomId = roomId)
+                ChatLazyColumn(roomId = roomId, profile = personalProfile)
 
             }
 

@@ -125,12 +125,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                             modifier = Modifier
                                 .fillMaxSize()
                         ){
-                            LazyChatColumn(
-                                roomId = CRRoomId,
-                                profile = profile,
-                                game = true,
-                                viewModel = viewModel
-                            )
+                            ChatLazyColumn(roomId = CRRoomId, profile = profile)
                         }
                     }
                 }
