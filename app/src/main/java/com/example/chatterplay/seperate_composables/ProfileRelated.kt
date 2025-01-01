@@ -23,7 +23,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.UserProfile
 
 @Composable
-fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
+fun AllMembersRow(onImageClick: () -> Unit, chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
     LazyRow (
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -33,6 +33,7 @@ fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boole
     ) {
         items(chatRoomMembers) { member ->
             UserProfileIcon(
+                onImageClick = onImageClick,
                 chatMember = member,
                 game = game,
                 self = self,
@@ -118,6 +119,7 @@ fun PersonIcon(
 
 @Composable
 fun UserProfileIcon(
+    onImageClick: () -> Unit,
     chatMember: UserProfile,
     imgSize: Int = 30,
     txtSize: Int = 10,
@@ -130,7 +132,10 @@ fun UserProfileIcon(
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .padding(10.dp)
-            .clickable { navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}") }
+            .clickable {
+                onImageClick()
+                //navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}")
+            }
     ){
         Image(
             painter = rememberAsyncImagePainter(chatMember.imageUrl),

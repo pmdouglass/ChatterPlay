@@ -1,55 +1,355 @@
 package com.example.chatterplay.screens
 
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Message
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.R
+import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
-import com.example.chatterplay.view_model.ChatViewModel
+import com.google.android.play.integrity.internal.i
+import com.google.android.play.integrity.internal.k
+
+enum class profileInfo (val string: String){
+    pname("Name"),
+    age("Age"),
+    location("Location"),
+    about("About Me"),
+    gender("Identify As")
+}
 
 @Composable
 fun ProfileScreen2(
-
+    game: Boolean,
+    self: Boolean,
+    isEditable: Boolean
 ){
+
+    var noteInput by remember { mutableStateOf("")}
+    var editProfile by remember { mutableStateOf(false)}
+
+
     Column (
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.Start,
         modifier = Modifier
             .fillMaxSize()
+            .background(if (game) CRAppTheme.colorScheme.onGameBackground else CRAppTheme.colorScheme.onBackground)
             .padding(10.dp)
+            .verticalScroll(rememberScrollState())
     ){
-        Image(
-            painter = painterResource(R.drawable.anonymous),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
-        )
+                .height(200.dp)
+        ){
+            Image(
+                painter = painterResource(R.drawable.anonymous),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .size(75.dp)
+                    .align(Alignment.BottomStart)
+                    .offset(x = 10.dp)
+            ){
+                Image(
+                    painterResource(R.drawable.anonymous),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .border(4.dp, if (game) CRAppTheme.colorScheme.gameBackground else CRAppTheme.colorScheme.background, CircleShape)
+                )
+            }
+            if (editProfile){
+                Button(onClick = {editProfile = false},
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                ){
+                    Text("Save")
+                }
+
+
+                IconButton(onClick = {
+
+                },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.LightGray)
+                ){
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(25.dp)
+                    )
+                }
+            }
+        }
+        Row (
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
+        ){
+            Text("Phillip douglass", style = CRAppTheme.typography.H1, color = if (!game) Color.Black else Color.White)
+            Text("40", style = CRAppTheme.typography.H1, color = if (!game) Color.Black else Color.White, modifier = Modifier.padding(start = 5.dp))
+            Text("Male", style = CRAppTheme.typography.H1, color = if (!game) Color.Black else Color.White, modifier = Modifier.padding(start = 5.dp))
+        }
+        Text("PA", color = if (!game) Color.Black else Color.White, modifier = Modifier.padding(bottom = 20.dp))
+        if (editProfile){
+            EditInfo(title = profileInfo.pname, game = game)
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ){
+                EditInfo(title = profileInfo.age, game = game)
+                Spacer(modifier = Modifier.width(20.dp))
+                EditInfo(title = profileInfo.location, game = game)
+            }
+            EditInfo(title = profileInfo.gender, game = game)
+            EditInfo(title = profileInfo.about, game = game)
+        }else {
+            if (self){
+                if (isEditable){
+                    Button(onClick = {editProfile = true},
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)){
+                        Row {
+                            Icon(
+                                Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text("Edit Profile", modifier = Modifier.padding(start = 4.dp))
+                        }
+                    }
+                }
+            }else {
+                Row (
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
+                ){
+                    IconButton(
+                        onClick = {  },
+                        modifier = Modifier
+                            .size(35.dp)
+                            .clip(CircleShape)
+                            .background(Color.LightGray)
+                    ){
+                        Icon(
+                            Icons.Default.PersonAdd,
+                            contentDescription = null
+                        )
+                    }
+                    IconButton(
+                        onClick = {  },
+                        modifier = Modifier
+                            .size(35.dp)
+                            .clip(CircleShape)
+                            .background(Color.LightGray)
+                    ){
+                        Icon(
+                            Icons.AutoMirrored.Default.Message,
+                            contentDescription = null
+                        )
+                    }
+
+                }
+            }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (game) CRAppTheme.colorScheme.gameBackground else CRAppTheme.colorScheme.background
+                ),
+                elevation = CardDefaults.cardElevation( 8.dp)
+            ){
+                Text("About Me", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
+                Text("blahkd kdfsd skdj dj fksd jdsf jkj k dsfklj sdfjksdjj kkjdfjs fdka dkjasdf dfjkajdfk sd jsdfj  fkldsnvncnkankdsfn ejl,nasdfns dfsdfe", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
+                Text("Friends", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
+                Row (
+                    verticalAlignment = Alignment.CenterVertically
+                ){
+                    Icon(
+                        Icons.Default.People,
+                        contentDescription = null,
+                        tint = if (game) Color.White else Color.Black,
+                        modifier = Modifier
+                            .size(23.dp)
+                            .padding(start = 8.dp)
+                    )
+                    Text("155", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(start = 4.dp))
+                }
+            }
+            Spacer(modifier = Modifier.padding(10.dp))
+            if (!self){
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (game) CRAppTheme.colorScheme.gameBackground else CRAppTheme.colorScheme.background
+                    ),
+                    elevation = CardDefaults.cardElevation( 8.dp)
+                ){
+                    Text("Notes", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
+                    OutlinedTextField(
+                        value = noteInput,
+                        onValueChange = {noteInput = it},
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp)
+                    )
+                }
+            }
+        }
+
     }
 }
 
-@Preview
 @Composable
-fun prevscreen2(){
-    CRAppTheme {
-        Surface{
-            ProfileScreen2()
+fun ProfileSelection(
+
+){
+    
+}
+
+@Composable
+fun EditInfo(
+    title: profileInfo,
+    game: Boolean
+){
+    var editInput by remember { mutableStateOf("")}
+    var editLname by remember { mutableStateOf("")}
+
+    Column(
+        modifier = Modifier
+            //.fillMaxWidth()
+    ){
+        Text(if (title == profileInfo.age)"" else title.string, style = CRAppTheme.typography.T4, color = if (game) Color.White else Color.Black, modifier = Modifier.padding(bottom = 4.dp))
+        when (title){
+            profileInfo.pname, profileInfo.about, profileInfo.location, profileInfo.gender -> {
+                TextField(
+                    value = editInput,
+                    onValueChange = { newValue ->
+                        editInput = when {
+                            title == profileInfo.location -> {
+                                val filteredValue = newValue.filter { it.isLetter() }
+                                if (filteredValue.length <=2) filteredValue.uppercase() else editInput
+                            }
+                            else -> newValue
+                        }
+                    },
+                    keyboardOptions = when (title) {
+                        profileInfo.age -> KeyboardOptions(keyboardType = KeyboardType.Number)
+                        else -> KeyboardOptions.Default
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        focusedTextColor = if (game) Color.White else Color.Black,
+                        unfocusedTextColor = if (game) Color.White else Color.Black
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            width = 2.dp,
+                            color = if (game) Color.LightGray else Color.Black,
+                            shape = if (game) RoundedCornerShape(8.dp) else RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                        )
+                        .clip(
+                            shape = if (game) RoundedCornerShape(8.dp) else RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+                        )
+                )
+
+                if (!game && title == profileInfo.pname){
+                    TextField(
+                        value = editLname,
+                        onValueChange = { editLname = it},
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                2.dp,
+                                if (game) Color.LightGray else Color.Black,
+                                RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
+                            )
+                            .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                    )
+                }
+            }
+            profileInfo.age -> {
+                DateDropDown(age = true, game = game){selected -> editInput = selected}
+            }
+            else -> {}
         }
+
     }
 }

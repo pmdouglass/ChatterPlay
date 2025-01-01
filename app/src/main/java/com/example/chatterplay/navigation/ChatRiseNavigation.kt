@@ -2,9 +2,12 @@ package com.example.chatterplay.navigation
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.example.chatterplay.screens.CRMainChat
 import com.example.chatterplay.screens.Game
 import com.example.chatterplay.screens.Profile
@@ -21,5 +24,11 @@ fun CRNavHost(navController: NavHostController, CRRoomId: String){
         composable("profile"){
             Profile()
         }
+
     }
 }
+
+
+/*
+
+ */

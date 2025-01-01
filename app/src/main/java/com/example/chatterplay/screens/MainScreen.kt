@@ -92,7 +92,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
         "null" to Icons.Default.Menu,
         "null" to Icons.Default.ImageAspectRatio
     )
-    var selectedTabindex by remember { mutableStateOf(1) }
+    var selectedTabindex by remember { mutableStateOf(0) }
 
     LaunchedEffect(CRRoomId){
         viewModel.fetchChatRoomMembers(roomId = CRRoomId, game = true)
@@ -111,6 +111,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
             Scaffold(
                 topBar = {
                     ChatRiseTopBar(
+                        profile = profile,
                         onClick = {showTopBarInfo = !showTopBarInfo},
                         onAction = { coroutineScope.launch { drawerState.open() }},
                         showTopBarInfo = showTopBarInfo,
@@ -148,7 +149,29 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                                 selectedTabindex = index
                             }
                         )
-                        AllMembersRow(
+
+                        when (selectedTabindex){
+                            0 -> {
+                                RiseMainChat(
+                                    onImageClick = {},
+                                    chatRoomMembers = chatRoomMembers,
+                                    roomId = CRRoomId,
+                                    profile = profile,
+                                    navController = navController
+                                )
+                            }
+                            1 -> {
+                                ProfileScreen2(
+                                    game = true,
+                                    self = true,
+                                    isEditable = false
+                                )
+                            }
+                            else -> {}
+                        }
+
+
+                        /*AllMembersRow(
                             chatRoomMembers = chatRoomMembers,
                             game = true,
                             self = false,
@@ -161,7 +184,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                                 .fillMaxSize()
                         ){
                             ChatLazyColumn(roomId = CRRoomId, profile = profile, game = true)
-                        }
+                        }*/
                     }
                 }
             )
@@ -169,7 +192,34 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
         }
 
     )
-
+}
+@Composable
+fun RiseMainChat(
+    onImageClick: () -> Unit,
+    chatRoomMembers: List<UserProfile>,
+    roomId: String,
+    profile: UserProfile,
+    navController: NavController
+){
+    Column(
+        modifier = Modifier.fillMaxSize()
+    ){
+        AllMembersRow(
+            onImageClick = onImageClick,
+            chatRoomMembers = chatRoomMembers,
+            game = true,
+            self = false,
+            navController = navController
+        )
+        Divider()
+        Column (
+            verticalArrangement = Arrangement.Bottom,
+            modifier = Modifier
+                .fillMaxSize()
+        ){
+            ChatLazyColumn(roomId = roomId, profile = profile, game = true)
+        }
+    }
 }
 
 
@@ -375,6 +425,7 @@ fun Game(CRRoomId: String, viewModel: ChatViewModel = viewModel(), contentNavCon
        }
         Spacer(modifier = Modifier.height(100.dp))
         AllMembersRow(
+            onImageClick = {},
             chatRoomMembers = chatRoomMembers,
             game = true,
             self = false,

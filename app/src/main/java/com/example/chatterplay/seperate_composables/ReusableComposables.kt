@@ -1096,6 +1096,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
 @Composable
 fun ChatRiseTopBar(
+    profile: UserProfile,
     onClick: () -> Unit,
     onAction: () -> Unit,
     showTopBarInfo: Boolean,
@@ -1112,7 +1113,7 @@ fun ChatRiseTopBar(
             navController = navController)
 
         if (showTopBarInfo){
-            TopBarInformation()
+            TopBarInformation(profile = profile)
         }
     }
 }
@@ -1162,7 +1163,9 @@ fun TopBar(
     }
 }
 @Composable
-fun TopBarInformation(){
+fun TopBarInformation(
+    profile: UserProfile
+){
     val pad = 15
 
     Column(
@@ -1171,7 +1174,7 @@ fun TopBarInformation(){
             .fillMaxWidth()
     ){
         Image(
-            painter = painterResource(id = R.drawable.anonymous),
+            painter = rememberAsyncImagePainter(profile.imageUrl),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -1183,7 +1186,7 @@ fun TopBarInformation(){
         )
 
         Text(
-            "Phillip Douglass",
+            profile.fname,
             style = CRAppTheme.typography.headingLarge,
             color = Color.White,
             modifier = Modifier
@@ -2181,7 +2184,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
 
 
 }
-@RequiresApi(Build.VERSION_CODES.O)
+
 @Composable
 fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = false, age: Boolean = false, game: Boolean, viewModel: ChatViewModel = viewModel(), onOptionSelected: (String) -> Unit) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -2244,7 +2247,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
                 .padding(6.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.White)
-                .border(1.dp, CRAppTheme.colorScheme.highlight, RoundedCornerShape(20.dp))
+                .border(1.dp, if (game) Color.LightGray else Color.Black, RoundedCornerShape(20.dp))
                 .clickable { expanded = !expanded }
         ){
             Text(
