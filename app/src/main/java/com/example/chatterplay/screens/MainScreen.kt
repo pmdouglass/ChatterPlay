@@ -16,8 +16,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowCircleDown
 import androidx.compose.material.icons.filled.HideImage
@@ -31,6 +34,7 @@ import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
@@ -47,6 +51,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.seperate_composables.BottomInputBar
@@ -81,6 +86,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var showTopBarInfo by remember { mutableStateOf(false)}
+    var showMemberProfile by remember { mutableStateOf(false)}
 
 
     val profile = rememberCRProfile(CRRoomId = CRRoomId)
@@ -153,12 +159,13 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                         when (selectedTabindex){
                             0 -> {
                                 RiseMainChat(
-                                    onImageClick = {},
+                                    onImageClick = {showMemberProfile = true},
                                     chatRoomMembers = chatRoomMembers,
                                     roomId = CRRoomId,
                                     profile = profile,
                                     navController = navController
                                 )
+
                             }
                             1 -> {
                                 ProfileScreen2(
@@ -171,20 +178,14 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                         }
 
 
-                        /*AllMembersRow(
+
+                    }
+                    if (showMemberProfile){
+                        ShowMembersProfile(
+                            onDismiss = {showMemberProfile = false},
                             chatRoomMembers = chatRoomMembers,
-                            game = true,
-                            self = false,
                             navController = navController
                         )
-                        Divider()
-                        Column (
-                            verticalArrangement = Arrangement.Bottom,
-                            modifier = Modifier
-                                .fillMaxSize()
-                        ){
-                            ChatLazyColumn(roomId = CRRoomId, profile = profile, game = true)
-                        }*/
                     }
                 }
             )
@@ -218,6 +219,36 @@ fun RiseMainChat(
                 .fillMaxSize()
         ){
             ChatLazyColumn(roomId = roomId, profile = profile, game = true)
+        }
+    }
+}
+
+@Composable
+fun ShowMembersProfile(
+    onDismiss: () -> Unit,
+    chatRoomMembers: List<UserProfile>,
+    navController: NavController
+){
+    Dialog(onDismissRequest = { onDismiss()}){
+        Surface {
+            Column(
+                modifier = Modifier
+                    .height(600.dp)
+                    .background(CRAppTheme.colorScheme.onGameBackground)
+            ) {
+                AllMembersRow(
+                    onImageClick = { },
+                    chatRoomMembers = chatRoomMembers,
+                    game = true,
+                    self = false,
+                    navController = navController
+                )
+                ProfileScreen2(
+                    game = true,
+                    self = false,
+                    isEditable = false
+                )
+            }
         }
     }
 }

@@ -104,7 +104,7 @@ fun ProfileScreen2(
             )
             Box(
                 modifier = Modifier
-                    .size(75.dp)
+                    .then(if (game && !self) Modifier.size(50.dp) else Modifier.size(75.dp))
                     .align(Alignment.BottomStart)
                     .offset(x = 10.dp)
             ){
@@ -146,11 +146,25 @@ fun ProfileScreen2(
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
         ){
-            Text("Phillip douglass", style = CRAppTheme.typography.H1, color = if (!game) Color.Black else Color.White)
-            Text("40", style = CRAppTheme.typography.H1, color = if (!game) Color.Black else Color.White, modifier = Modifier.padding(start = 5.dp))
-            Text("Male", style = CRAppTheme.typography.H1, color = if (!game) Color.Black else Color.White, modifier = Modifier.padding(start = 5.dp))
+            Text("Phillip douglass",
+                style = if (game && !self) CRAppTheme.typography.T3 else CRAppTheme.typography.T5,
+                color = if (!game) Color.Black else Color.White
+            )
+            Text("40",
+                style = if (game && !self) CRAppTheme.typography.T3 else CRAppTheme.typography.T5,
+                color = if (!game) Color.Black else Color.White,
+                modifier = Modifier.padding(start = 10.dp)
+            )
+            Text("Male",
+                style = if (game && !self) CRAppTheme.typography.T3 else CRAppTheme.typography.T5,
+                color = if (!game) Color.Black else Color.White,
+                modifier = Modifier.padding(start = 10.dp)
+            )
         }
-        Text("PA", color = if (!game) Color.Black else Color.White, modifier = Modifier.padding(bottom = 20.dp))
+        Text("PA",
+            color = if (!game) Color.Black else Color.White,
+            modifier = Modifier.padding(bottom = 20.dp)
+        )
         if (editProfile){
             EditInfo(title = profileInfo.pname, game = game)
             Row(
@@ -185,17 +199,21 @@ fun ProfileScreen2(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
                 ){
-                    IconButton(
-                        onClick = {  },
-                        modifier = Modifier
-                            .size(35.dp)
-                            .clip(CircleShape)
-                            .background(Color.LightGray)
-                    ){
-                        Icon(
-                            Icons.Default.PersonAdd,
-                            contentDescription = null
-                        )
+                    if (game){
+
+                    } else {
+                        IconButton(
+                            onClick = {  },
+                            modifier = Modifier
+                                .size(35.dp)
+                                .clip(CircleShape)
+                                .background(Color.LightGray)
+                        ){
+                            Icon(
+                                Icons.Default.PersonAdd,
+                                contentDescription = null
+                            )
+                        }
                     }
                     IconButton(
                         onClick = {  },
@@ -271,7 +289,7 @@ fun ProfileScreen2(
 fun ProfileSelection(
 
 ){
-    
+
 }
 
 @Composable
