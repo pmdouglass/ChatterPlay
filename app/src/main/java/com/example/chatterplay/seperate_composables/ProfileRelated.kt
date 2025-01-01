@@ -23,7 +23,13 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.UserProfile
 
 @Composable
-fun AllMembersRow(onImageClick: () -> Unit, chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
+fun AllMembersRow(
+    selectedMember: ((UserProfile) -> Unit)? = null,
+    chatRoomMembers: List<UserProfile>,
+    game: Boolean,
+    self: Boolean,
+    navController: NavController
+) {
     LazyRow (
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -33,7 +39,7 @@ fun AllMembersRow(onImageClick: () -> Unit, chatRoomMembers: List<UserProfile>, 
     ) {
         items(chatRoomMembers) { member ->
             UserProfileIcon(
-                onImageClick = onImageClick,
+                selectedMember = {selectedMember?.invoke(member)},
                 chatMember = member,
                 game = game,
                 self = self,
@@ -119,7 +125,7 @@ fun PersonIcon(
 
 @Composable
 fun UserProfileIcon(
-    onImageClick: () -> Unit,
+    selectedMember: ((UserProfile) -> Unit)? = null,
     chatMember: UserProfile,
     imgSize: Int = 30,
     txtSize: Int = 10,
@@ -133,8 +139,15 @@ fun UserProfileIcon(
         modifier = Modifier
             .padding(10.dp)
             .clickable {
-                onImageClick()
-                //navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}")
+                if (!game){
+                    if (!self){
+                        navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}")
+                    }
+                } else {
+                    if (!self){
+                        selectedMember?.invoke(chatMember)
+                    }
+                }
             }
     ){
         Image(

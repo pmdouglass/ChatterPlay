@@ -54,7 +54,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.google.android.play.integrity.internal.i
@@ -70,6 +72,7 @@ enum class profileInfo (val string: String){
 
 @Composable
 fun ProfileScreen2(
+    profile: UserProfile,
     game: Boolean,
     self: Boolean,
     isEditable: Boolean
@@ -95,7 +98,7 @@ fun ProfileScreen2(
                 .height(200.dp)
         ){
             Image(
-                painter = painterResource(R.drawable.anonymous),
+                painter = rememberAsyncImagePainter(profile.imageUrl),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -109,7 +112,7 @@ fun ProfileScreen2(
                     .offset(x = 10.dp)
             ){
                 Image(
-                    painterResource(R.drawable.anonymous),
+                    rememberAsyncImagePainter(profile.imageUrl),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
@@ -146,22 +149,22 @@ fun ProfileScreen2(
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier.fillMaxWidth().padding(top = 20.dp)
         ){
-            Text("Phillip douglass",
+            Text(profile.fname,
                 style = if (game && !self) CRAppTheme.typography.T3 else CRAppTheme.typography.T5,
                 color = if (!game) Color.Black else Color.White
             )
-            Text("40",
+            Text(profile.age,
                 style = if (game && !self) CRAppTheme.typography.T3 else CRAppTheme.typography.T5,
                 color = if (!game) Color.Black else Color.White,
                 modifier = Modifier.padding(start = 10.dp)
             )
-            Text("Male",
+            Text(profile.gender,
                 style = if (game && !self) CRAppTheme.typography.T3 else CRAppTheme.typography.T5,
                 color = if (!game) Color.Black else Color.White,
                 modifier = Modifier.padding(start = 10.dp)
             )
         }
-        Text("PA",
+        Text(profile.location,
             color = if (!game) Color.Black else Color.White,
             modifier = Modifier.padding(bottom = 20.dp)
         )
@@ -239,7 +242,7 @@ fun ProfileScreen2(
                 elevation = CardDefaults.cardElevation( 8.dp)
             ){
                 Text("About Me", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
-                Text("blahkd kdfsd skdj dj fksd jdsf jkj k dsfklj sdfjksdjj kkjdfjs fdka dkjasdf dfjkajdfk sd jsdfj  fkldsnvncnkankdsfn ejl,nasdfns dfsdfe", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
+                Text(profile.about, color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
                 Text("Friends", color = if (game) Color.White else Color.Black, modifier = Modifier.padding(8.dp))
                 Row (
                     verticalAlignment = Alignment.CenterVertically

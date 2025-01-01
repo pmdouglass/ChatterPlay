@@ -87,6 +87,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var showTopBarInfo by remember { mutableStateOf(false)}
     var showMemberProfile by remember { mutableStateOf(false)}
+    var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
 
 
     val profile = rememberCRProfile(CRRoomId = CRRoomId)
@@ -159,7 +160,10 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                         when (selectedTabindex){
                             0 -> {
                                 RiseMainChat(
-                                    onImageClick = {showMemberProfile = true},
+                                    selectedMember = { member ->
+                                        selectedMemberProfile = member
+                                        showMemberProfile = true
+                                    },
                                     chatRoomMembers = chatRoomMembers,
                                     roomId = CRRoomId,
                                     profile = profile,
@@ -169,6 +173,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                             }
                             1 -> {
                                 ProfileScreen2(
+                                    profile = profile,
                                     game = true,
                                     self = true,
                                     isEditable = false
@@ -180,8 +185,9 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
 
 
                     }
-                    if (showMemberProfile){
+                    if (showMemberProfile && selectedMemberProfile != null){
                         ShowMembersProfile(
+                            profile = selectedMemberProfile!!,
                             onDismiss = {showMemberProfile = false},
                             chatRoomMembers = chatRoomMembers,
                             navController = navController
@@ -196,7 +202,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
 }
 @Composable
 fun RiseMainChat(
-    onImageClick: () -> Unit,
+    selectedMember: (UserProfile) -> Unit,
     chatRoomMembers: List<UserProfile>,
     roomId: String,
     profile: UserProfile,
@@ -206,7 +212,7 @@ fun RiseMainChat(
         modifier = Modifier.fillMaxSize()
     ){
         AllMembersRow(
-            onImageClick = onImageClick,
+            selectedMember = selectedMember,
             chatRoomMembers = chatRoomMembers,
             game = true,
             self = false,
@@ -225,6 +231,7 @@ fun RiseMainChat(
 
 @Composable
 fun ShowMembersProfile(
+    profile: UserProfile,
     onDismiss: () -> Unit,
     chatRoomMembers: List<UserProfile>,
     navController: NavController
@@ -236,14 +243,15 @@ fun ShowMembersProfile(
                     .height(600.dp)
                     .background(CRAppTheme.colorScheme.onGameBackground)
             ) {
-                AllMembersRow(
+                /*AllMembersRow(
                     onImageClick = { },
                     chatRoomMembers = chatRoomMembers,
                     game = true,
                     self = false,
                     navController = navController
-                )
+                )*/
                 ProfileScreen2(
+                    profile = profile,
                     game = true,
                     self = false,
                     isEditable = false
@@ -456,7 +464,6 @@ fun Game(CRRoomId: String, viewModel: ChatViewModel = viewModel(), contentNavCon
        }
         Spacer(modifier = Modifier.height(100.dp))
         AllMembersRow(
-            onImageClick = {},
             chatRoomMembers = chatRoomMembers,
             game = true,
             self = false,

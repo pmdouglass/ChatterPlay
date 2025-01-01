@@ -129,7 +129,6 @@ fun ChattingScreen(
                 .padding(paddingValues)
         ){
             AllMembersRow(
-                onImageClick = {},
                 chatRoomMembers = chatRoomMembers,
                 game = game,
                 self = false,
