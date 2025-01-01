@@ -23,7 +23,13 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.UserProfile
 
 @Composable
-fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
+fun AllMembersRow(
+    selectedMember: ((UserProfile) -> Unit)? = null,
+    chatRoomMembers: List<UserProfile>,
+    game: Boolean,
+    self: Boolean,
+    navController: NavController
+) {
     LazyRow (
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -33,6 +39,7 @@ fun AllMembersRow(chatRoomMembers: List<UserProfile>, game: Boolean, self: Boole
     ) {
         items(chatRoomMembers) { member ->
             UserProfileIcon(
+                selectedMember = {selectedMember?.invoke(member)},
                 chatMember = member,
                 game = game,
                 self = self,
@@ -118,6 +125,7 @@ fun PersonIcon(
 
 @Composable
 fun UserProfileIcon(
+    selectedMember: ((UserProfile) -> Unit)? = null,
     chatMember: UserProfile,
     imgSize: Int = 30,
     txtSize: Int = 10,
@@ -130,7 +138,17 @@ fun UserProfileIcon(
         verticalArrangement = Arrangement.Center,
         modifier = Modifier
             .padding(10.dp)
-            .clickable { navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}") }
+            .clickable {
+                if (!game){
+                    if (!self){
+                        navController.navigate("profileScreen/${game}/${self}/${chatMember.userId}")
+                    }
+                } else {
+                    if (!self){
+                        selectedMember?.invoke(chatMember)
+                    }
+                }
+            }
     ){
         Image(
             painter = rememberAsyncImagePainter(chatMember.imageUrl),

@@ -190,7 +190,12 @@ fun SignupScreen1(navController: NavController) {
 }
 
 @Composable
-fun SimplePopupScreen(text: String = "", textfield: Boolean = false, showPopup: Boolean, onDismissRequest: (String) -> Unit) {
+fun SimplePopupScreen(
+    text: String = "",
+    textfield: Boolean = false,
+    showPopup: Boolean,
+    onDismissRequest: (String) -> Unit
+) {
     var input by remember { mutableStateOf("")}
 
     if (showPopup) {

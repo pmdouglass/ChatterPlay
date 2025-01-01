@@ -2,7 +2,6 @@
 
 package com.example.chatterplay.seperate_composables
 
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,16 +25,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
@@ -43,12 +34,13 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.ImageAspectRatio
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QuestionMark
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Visibility
@@ -64,8 +56,11 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -74,7 +69,6 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -92,7 +86,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -112,7 +105,7 @@ import com.example.chatterplay.view_model.ChatViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.chatterplay.data_class.ChatMessage
+import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
@@ -922,6 +915,13 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
     val pad = 15
     var expand by remember { mutableStateOf(false) }
+    val tabs = listOf(
+        "null" to Icons.Default.Home,
+        "null" to Icons.Default.Person,
+        "null" to Icons.Default.Menu,
+        "null" to Icons.Default.ImageAspectRatio
+    )
+    var selectedTabindex by remember { mutableStateOf(1)}
 
     Column(
         verticalArrangement = Arrangement.Top,
@@ -930,15 +930,19 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
             .fillMaxWidth()
             .then(if (!expand) Modifier.height(56.dp) else Modifier)
             .clickable { expand = !expand }
-            .background(darkPurple)
+            .background(CRAppTheme.colorScheme.gameBackground)
     ) {
+        // topbar
+        // inside
+        // navigationrow
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
-                .background(darkPurple)
         ) {
+
+            //               top bar
             IconButton(onClick = {
                 navController.popBackStack()
             }) {
@@ -977,6 +981,12 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
             }
         }
+
+
+
+
+
+        //           Inside Content
         Image(
             painter = painterResource(id = R.drawable.anonymous),
             contentDescription = null,
@@ -1074,8 +1084,191 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
         }
         Spacer(modifier = Modifier.height(pad.dp + 10.dp))
+        NavigationRow(
+            tabs = tabs,
+            selectedTabIndex = selectedTabindex,
+            onTabSelected = {index ->
+                selectedTabindex = index
+            }
+        )
     }
 }
+
+@Composable
+fun ChatRiseTopBar(
+    profile: UserProfile,
+    onClick: () -> Unit,
+    onAction: () -> Unit,
+    showTopBarInfo: Boolean,
+    navController: NavController
+){
+
+    Column (
+        modifier = Modifier
+            .background(CRAppTheme.colorScheme.gameBackground)
+    ) {
+        TopBar(
+            onClick = {onClick()},
+            onAction = {onAction()},
+            navController = navController)
+
+        if (showTopBarInfo){
+            TopBarInformation(profile = profile)
+        }
+    }
+}
+
+@Composable
+fun TopBar(
+    onClick: () -> Unit,
+    onAction: () -> Unit,
+    navController: NavController
+){
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+    ){
+        IconButton(onClick = {
+            navController.popBackStack()
+        }) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(35.dp)
+            )
+        }
+
+        Text(
+            text = "ChatRise",
+            style = CRAppTheme.typography.headingLarge,
+            color = Color.White,
+            modifier = Modifier
+                .clickable { onClick() }
+        )
+
+        IconButton(onClick = {onAction()}){
+            Icon(
+                imageVector = Icons.Default.Menu,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(35.dp)
+            )
+        }
+    }
+}
+@Composable
+fun TopBarInformation(
+    profile: UserProfile
+){
+    val pad = 15
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxWidth()
+    ){
+        Image(
+            painter = rememberAsyncImagePainter(profile.imageUrl),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(100.dp)
+                .clip(CircleShape)
+                .clickable {
+
+                }
+        )
+
+        Text(
+            profile.fname,
+            style = CRAppTheme.typography.headingLarge,
+            color = Color.White,
+            modifier = Modifier
+                .padding(15.dp)
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Text(
+                "Rating: 1",
+                style = CRAppTheme.typography.infoMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
+            )
+            Text(
+                "Chat Info: ",
+                style = CRAppTheme.typography.infoMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
+            )
+            Text(
+                "Chat Info: ",
+                style = CRAppTheme.typography.infoMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
+            )
+
+        }
+    }
+
+}
+@Composable
+fun NavigationRow(
+    tabs: List<Pair<String, ImageVector>>,
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    val selectedColor = Color.White
+    val unselectedColor = Color.Gray
+
+    TabRow(
+        selectedTabIndex = selectedTabIndex,
+        containerColor = CRAppTheme.colorScheme.gameBackground,
+        contentColor = selectedColor,
+        indicator = { tabPositions ->
+            TabRowDefaults.Indicator(
+                Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
+                color = selectedColor
+            )
+        }
+    ) {
+        tabs.forEachIndexed { index, tab ->
+            val (title, icon) = tab
+            Tab(
+                selected = selectedTabIndex == index,
+                onClick = { onTabSelected(index) },
+                icon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = if (selectedTabIndex == index) selectedColor else unselectedColor
+                    )
+                }
+            )
+        }
+    }
+}
+
+
+
+
+
+
+
+
 @Composable
 fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
         DrawerValue.Closed
@@ -1991,7 +2184,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
 
 
 }
-@RequiresApi(Build.VERSION_CODES.O)
+
 @Composable
 fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = false, age: Boolean = false, game: Boolean, viewModel: ChatViewModel = viewModel(), onOptionSelected: (String) -> Unit) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -2054,7 +2247,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
                 .padding(6.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color.White)
-                .border(1.dp, CRAppTheme.colorScheme.highlight, RoundedCornerShape(20.dp))
+                .border(1.dp, if (game) Color.LightGray else Color.Black, RoundedCornerShape(20.dp))
                 .clickable { expanded = !expanded }
         ){
             Text(
@@ -2208,20 +2401,5 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
             }
         }
 
-    }
-}
-@Preview(name = "Light Mode", showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_NO)
-@RequiresApi(Build.VERSION_CODES.O)
-@Composable
-fun TestLightMode() {
-
-    CRAppTheme () {
-        Surface {
-            Column (modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp)){
-
-            }
-        }
     }
 }
