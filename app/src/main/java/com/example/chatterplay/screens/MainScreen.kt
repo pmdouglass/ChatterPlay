@@ -124,15 +124,6 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                         showTopBarInfo = showTopBarInfo,
                         navController = navController
                     )
-                    /*MainTopAppBar(
-                        title = "ChatRise",
-                        action = true,
-                        actionIcon = Icons.Default.Menu,
-                        onAction = {
-                            coroutineScope.launch { drawerState.open() }
-                        },
-                        navController = navController
-                        )*/
                 },
                 bottomBar = {
                     ChatInput(

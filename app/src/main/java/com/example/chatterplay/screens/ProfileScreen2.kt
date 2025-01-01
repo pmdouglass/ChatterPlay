@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +81,8 @@ fun ProfileScreen2(
 
     var noteInput by remember { mutableStateOf("")}
     var editProfile by remember { mutableStateOf(false)}
+    var bigPicture by remember { mutableStateOf(false)}
+    val picSize = if (bigPicture) 800 else 200
 
 
     Column (
@@ -95,7 +98,7 @@ fun ProfileScreen2(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(picSize.dp)
         ){
             Image(
                 painter = rememberAsyncImagePainter(profile.imageUrl),
@@ -103,7 +106,8 @@ fun ProfileScreen2(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp)
+                    .height(picSize.dp - 50.dp)
+                    .clickable { bigPicture = !bigPicture }
             )
             Box(
                 modifier = Modifier
