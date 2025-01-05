@@ -16,22 +16,17 @@ class ChatRepository {
     private val firestore = FirebaseFirestore.getInstance()
     private val usersCollection = firestore.collection("Users")
     private val chatRoomsCollection = firestore.collection("Chat Rooms")
-    private val CRGameRoomsCollection = firestore.collection("ChatriseRooms")
-    val more = "Alternate"
-    val chatrise = "ChatRise"
-    val private = "Private Chats"
+    private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
+    private val more = "Alternate"
+    private val chatrise = "ChatRise"
+    private val private = "Private Chats"
 
 
 
 
     fun getChatRooms() = chatRoomsCollection
-    fun getRiserRoom() = CRGameRoomsCollection
-
-    suspend fun saveUserProfile(
-        userId: String,
-        userProfile: UserProfile,
-        game: Boolean
-    ) {
+    fun getRiserRoom() = crGameRoomsCollection
+    suspend fun saveUserProfile(userId: String, userProfile: UserProfile, game: Boolean) {
         if (!game) {
             usersCollection.document(userId)
                 .set(userProfile)
@@ -44,20 +39,18 @@ class ChatRepository {
                 .await()
         }
     }
-
-    suspend fun getProfileToSend(userId: String, CRRoomId: String, game: Boolean): UserProfile? {
-        if (!game){
+    suspend fun getProfileToSend(userId: String, crRoomId: String, game: Boolean): UserProfile? {
+        return if (!game){
             val snapshot = usersCollection
                 .whereEqualTo("userId", userId).get().await()
-            return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
+            snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
         } else {
-            val snapshot = CRGameRoomsCollection
-                .document(CRRoomId)
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
                 .collection("Users")
                 .whereEqualTo("userId", userId).get().await()
-            return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
+            snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
         }
-        return null
     }
     suspend fun getUserProfile(userId: String, game: Boolean): UserProfile? {
         Log.d("Debug-Message", "Fetching profile for userId: $userId")
@@ -89,7 +82,6 @@ class ChatRepository {
         }
         return null
     }
-
     suspend fun uploadImage(userId: String, uri: Uri, game: Boolean): String {
         val profileType = if (game) "chatrise" else "normal"
         val storagePath = when (profileType){
@@ -107,7 +99,6 @@ class ChatRepository {
             ""
         }
     }
-
     suspend fun getAllUsers(): List<UserProfile> {
         val userDocuments = usersCollection.get().await()
         val userProfiles = mutableListOf<UserProfile>()
@@ -120,8 +111,8 @@ class ChatRepository {
         }
         return userProfiles
     }
-    suspend fun getAllRisers(CRRoomId: String): List<UserProfile> {
-        val userDocuments = CRGameRoomsCollection.document(CRRoomId).collection("Users").get().await()
+    suspend fun getAllRisers(crRoomId: String): List<UserProfile> {
+        val userDocuments = crGameRoomsCollection.document(crRoomId).collection("Users").get().await()
         val userProfiles = mutableListOf<UserProfile>()
 
         for (document in userDocuments.documents){
@@ -132,11 +123,9 @@ class ChatRepository {
         }
         return userProfiles
     }
-
-
-    suspend fun checkIfChatRoomExists(CRRoomId: String, members: List<String>): String? {
+    suspend fun checkIfChatRoomExists(crRoomId: String, members: List<String>): String? {
         val sortedMembers = members.sorted()
-        if (CRRoomId == "0") {
+        if (crRoomId == "0") {
             val querySnapshot = chatRoomsCollection.get().await()
             for (document in querySnapshot.documents) {
                 val chatRoom = document.toObject(ChatRoom::class.java)
@@ -145,8 +134,8 @@ class ChatRepository {
                 }
             }
         }else {
-            val querySnapshot = CRGameRoomsCollection
-                .document(CRRoomId)
+            val querySnapshot = crGameRoomsCollection
+                .document(crRoomId)
                 .collection(private)
                 .get().await()
             for (document in querySnapshot.documents){
@@ -158,8 +147,8 @@ class ChatRepository {
         }
         return null
     }
-    suspend fun checkIfSingleRoomExists(CRRoomId: String, memberId: String): String? {
-        if (CRRoomId == "0") {
+    suspend fun checkIfSingleRoomExists(crRoomId: String, memberId: String): String? {
+        if (crRoomId == "0") {
             val querySnapshot = chatRoomsCollection.get().await()
             for (document in querySnapshot.documents) {
                 val chatRoom = document.toObject(ChatRoom::class.java)
@@ -169,8 +158,8 @@ class ChatRepository {
             }
         }else {
             Log.d("riser", "fetching roomId")
-            val querySnapshot = CRGameRoomsCollection
-                .document(CRRoomId)
+            val querySnapshot = crGameRoomsCollection
+                .document(crRoomId)
                 .collection(private)
                 .get().await()
             for (document in querySnapshot.documents){
@@ -182,59 +171,49 @@ class ChatRepository {
         }
         return null
     }
-    suspend fun createChatRoom(CRRoomId: String, members: List<String>, roomName: String): String {
+    suspend fun createChatRoom(crRoomId: String, members: List<String>, roomName: String): String {
         val sortedMembers = members.sorted()
         val roomId = chatRoomsCollection.document().id
         val chatRoom = ChatRoom(roomId = roomId, members = sortedMembers, roomName = roomName)
 
-        if (CRRoomId == "0"){
+        if (crRoomId == "0"){
             chatRoomsCollection.document(roomId).set(chatRoom).await()
         } else {
-            CRGameRoomsCollection.document(CRRoomId)
+            crGameRoomsCollection.document(crRoomId)
                 .collection(private)
                 .document(roomId)
                 .set(chatRoom).await()
         }
         return roomId
     }
-    suspend fun addMemberToRoom(CRRoomId: String, roomId: String, memberId: String){
-        if (CRRoomId == "0"){
+    suspend fun addMemberToRoom(crRoomId: String, roomId: String, memberId: String){
+        if (crRoomId == "0"){
             val roomRef = chatRoomsCollection.document(roomId)
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         } else {
-            val roomRef = CRGameRoomsCollection
-                .document(CRRoomId)
+            val roomRef = crGameRoomsCollection
+                .document(crRoomId)
                 .collection(private)
                 .document(roomId)
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         }
     }
-
-
-
-
-
-
-
-
-
-
-    suspend fun getChatRoomMembers(CRRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
-        Log.d("riser", "CRRoomId: $CRRoomId, roomId:$roomId, game:$game, mainChat:$mainChat")
+    suspend fun getChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
+        Log.d("riser", "crRoomId: $crRoomId, roomId:$roomId, game:$game, mainChat:$mainChat")
         val roomCollection = if (game) {
             if (mainChat){
-                CRGameRoomsCollection
+                crGameRoomsCollection
             } else {
-                CRGameRoomsCollection.document(CRRoomId).collection(private)
+                crGameRoomsCollection.document(crRoomId).collection(private)
             }
         } else {
             chatRoomsCollection
         }
         val usersPath = if (game) {
             if (mainChat){
-                roomCollection.document(CRRoomId).collection("Users")
+                roomCollection.document(crRoomId).collection("Users")
             } else {
-                CRGameRoomsCollection.document(CRRoomId).collection("Users")
+                crGameRoomsCollection.document(crRoomId).collection("Users")
             }
         } else {
             usersCollection
@@ -247,7 +226,6 @@ class ChatRepository {
             usersPath.document(memberId).get().await().toObject(UserProfile::class.java)
         } ?: emptyList()
     }
-
     suspend fun getSingleChatRoom(roomId: String): ChatRoom? {
         return try {
             val documentSnapshot = chatRoomsCollection.document(roomId).get().await()
@@ -257,10 +235,8 @@ class ChatRepository {
             null
         }
     }
-
-
-    suspend fun getRoomInfo(CRRoomId: String, roomId: String): ChatRoom? {
-        if (CRRoomId == "0"){
+    suspend fun getRoomInfo(crRoomId: String, roomId: String): ChatRoom? {
+        if (crRoomId == "0"){
             return try {
                 val snapshot = chatRoomsCollection.document(roomId)
                     .get()
@@ -271,7 +247,7 @@ class ChatRepository {
             }
         } else {
             return try {
-                val snapshot = CRGameRoomsCollection.document(CRRoomId)
+                val snapshot = crGameRoomsCollection.document(crRoomId)
                     .collection(private)
                     .document(roomId)
                     .get()
@@ -283,7 +259,6 @@ class ChatRepository {
         }
 
     }
-
     suspend fun getUnreadMessageCount(roomId: String, userId: String): Int{
         Log.d("Time", "Inside repository unread Messages")
         val roomRef = chatRoomsCollection.document(roomId)
@@ -299,15 +274,15 @@ class ChatRepository {
 
         return messagesSnapshot.size()
     }
-    suspend fun sendMessage(CRRoomId: String, roomId: String, chatMessage: ChatMessage, game: Boolean, mainChat: Boolean) {
-        val room = if (game) CRGameRoomsCollection else chatRoomsCollection
+    suspend fun sendMessage(crRoomId: String, roomId: String, chatMessage: ChatMessage, game: Boolean, mainChat: Boolean) {
+        val room = if (game) crGameRoomsCollection else chatRoomsCollection
         val roomRef = if (!game){
             room.document(roomId)
         } else {
             if (mainChat){
-                room.document(CRRoomId)
+                room.document(crRoomId)
             } else{
-                room.document(CRRoomId)
+                room.document(crRoomId)
                     .collection(private)
                     .document(roomId)
             }
@@ -325,13 +300,13 @@ class ChatRepository {
         }.await()
         Log.d("Message", "Repository send Message")
     }
-    suspend fun getChatMessages(CRRoomId: String, roomId: String, userId: String, game: Boolean, mainChat: Boolean): List<ChatMessage> {
-        val room = if (game) CRGameRoomsCollection else chatRoomsCollection
+    suspend fun getChatMessages(crRoomId: String, roomId: String, userId: String, game: Boolean, mainChat: Boolean): List<ChatMessage> {
+        val room = if (game) crGameRoomsCollection else chatRoomsCollection
         val queryRoom = if (game) {
             if (mainChat){
-                room.document(CRRoomId)
+                room.document(crRoomId)
             }else {
-                room.document(CRRoomId)
+                room.document(crRoomId)
                     .collection(private)
                     .document(roomId)
             }
@@ -357,10 +332,9 @@ class ChatRepository {
         userId: String,
         roomId: String,
         game: Boolean,
-        onMessagesChanged: (List<ChatMessage>) -> Unit,
-        onError: (Exception) -> Unit
+        onMessagesChanged: (List<ChatMessage>) -> Unit
     ){
-        val room = if (game) CRGameRoomsCollection else chatRoomsCollection
+        val room = if (game) crGameRoomsCollection else chatRoomsCollection
         room.document(roomId)
             .collection("messages")
             .addSnapshotListener { snapshot, error ->
@@ -381,12 +355,6 @@ class ChatRepository {
                 }
             }
     }
-
-
-
-
-
-
     suspend fun getUsersStatus(userId: String): String?{
         return try {
             val documentSnapshot = usersCollection.document(userId).get().await()
@@ -395,25 +363,7 @@ class ChatRepository {
             null
         }
     }
-
-
-
-
-
-
-
-
-
 }
-
-
-
-
-
-
-
-
-
 
 
 

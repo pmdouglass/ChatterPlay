@@ -1,6 +1,5 @@
 package com.example.chatterplay.screens
 
-import android.content.res.Configuration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -21,17 +20,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -45,38 +42,28 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.R
-import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.seperate_composables.FriendInfoRow
-import com.example.chatterplay.seperate_composables.PersonIcon
-import com.example.chatterplay.seperate_composables.RowState
-import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.google.firebase.auth.FirebaseAuth
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
     fun InviteScreen(
-    CRRoomId: String = "",
+    crRoomId: String = "",
     game: Boolean,
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
@@ -123,7 +110,7 @@ import com.google.firebase.auth.FirebaseAuth
                     }
                 ),
                 navigationIcon = {
-                    Icon(Icons.Default.ArrowBack,
+                    Icon(Icons.AutoMirrored.Default.ArrowBack,
                         contentDescription = null,
                         tint = if (game) Color.White else Color.Black,
                         modifier = Modifier
@@ -137,7 +124,7 @@ import com.google.firebase.auth.FirebaseAuth
                         text = "CREATE",
                         style = CRAppTheme.typography.headingSmall,
                         color =
-                        if (selectedUsers.size == 0){
+                        if (selectedUsers.isEmpty()){
                             Color.Gray
                         }else if (game) {
                             Color.White
@@ -146,32 +133,30 @@ import com.google.firebase.auth.FirebaseAuth
                         },
                         modifier = Modifier
                             .clickable {
-                                if (selectedUsers.size == 0){
-
-                                }else if (currentUser != null && selectedUsers.isNotEmpty()){
-                                    val theRoomName = if (roomName.isBlank()) {
-                                        selectedUsers.joinToString(", ") { it.fname}
-                                    } else {
-                                        roomName
-                                    }
-                                    if (game){
-                                        viewModel.createAndInviteToChatRoom(
-                                            CRRoomId = CRRoomId,
-                                            memberIds = selectedUsers.map { it.userId },
-                                            roomName = theRoomName
-                                        ){ roomId ->
-                                            navController.navigate("chatScreen/$CRRoomId/$roomId/true/false"){
-                                                popUpTo("inviteScreen/$CRRoomId/true") {inclusive = true}
-                                            }
+                                if (selectedUsers.isNotEmpty()){
+                                    if (currentUser != null){
+                                        val theRoomName = roomName.ifBlank {
+                                            selectedUsers.joinToString(", ") { it.fname }
                                         }
-                                    } else{
-                                        viewModel.createAndInviteToChatRoom(
-                                            CRRoomId = CRRoomId,
-                                            memberIds = selectedUsers.map { it.userId },
-                                            roomName = theRoomName
-                                        ){ roomId ->
-                                            navController.navigate("chatScreen/$CRRoomId/$roomId/false/false"){
-                                                popUpTo("inviteScreen/$CRRoomId/false") {inclusive = true}
+                                        if (game){
+                                            viewModel.createAndInviteToChatRoom(
+                                                crRoomId = crRoomId,
+                                                memberIds = selectedUsers.map { it.userId },
+                                                roomName = theRoomName
+                                            ){ roomId ->
+                                                navController.navigate("chatScreen/$crRoomId/$roomId/true/false"){
+                                                    popUpTo("inviteScreen/$crRoomId/true") {inclusive = true}
+                                                }
+                                            }
+                                        } else{
+                                            viewModel.createAndInviteToChatRoom(
+                                                crRoomId = crRoomId,
+                                                memberIds = selectedUsers.map { it.userId },
+                                                roomName = theRoomName
+                                            ){ roomId ->
+                                                navController.navigate("chatScreen/$crRoomId/$roomId/false/false"){
+                                                    popUpTo("inviteScreen/$crRoomId/false") {inclusive = true}
+                                                }
                                             }
                                         }
                                     }
@@ -190,7 +175,7 @@ import com.google.firebase.auth.FirebaseAuth
                     )
                     .padding(paddingValues)
             ) {
-                Divider(modifier = Modifier.padding(bottom = 10.dp))
+                HorizontalDivider(modifier = Modifier.padding(bottom = 10.dp))
                 if (isGroup){
                     TextField(
                         value = roomName,
@@ -199,8 +184,9 @@ import com.google.firebase.auth.FirebaseAuth
                             style = CRAppTheme.typography.infoLarge,
                             color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground
                         )},
-                        colors = TextFieldDefaults.textFieldColors(
-                            containerColor = Color.Transparent,
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent
                         ),
@@ -234,8 +220,9 @@ import com.google.firebase.auth.FirebaseAuth
                                        )
                                    }
                     },
-                    colors = TextFieldDefaults.textFieldColors(
-                        containerColor = if (game) CRAppTheme.colorScheme.onGameBackground else CRAppTheme.colorScheme.onBackground,
+                    colors = TextFieldDefaults.colors(
+                        unfocusedContainerColor = if (game) CRAppTheme.colorScheme.onGameBackground else CRAppTheme.colorScheme.onBackground,
+                        focusedContainerColor = if (game) CRAppTheme.colorScheme.onGameBackground else CRAppTheme.colorScheme.onBackground,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent
                     ),
@@ -347,10 +334,9 @@ import com.google.firebase.auth.FirebaseAuth
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InviteSelectScreen(
-    CRRoomId: String = "",
+    crRoomId: String = "",
     game: Boolean,
     onBack: () -> Unit,
     onCreate: () -> Unit,
@@ -368,8 +354,8 @@ fun InviteSelectScreen(
         derivedStateOf { selectedUsers.size > 1 }
     }
 
-    LaunchedEffect(CRRoomId) {
-        viewModel.getAllRisers(CRRoomId)
+    LaunchedEffect(crRoomId) {
+        viewModel.getAllRisers(crRoomId)
     }
 
     val users = if (game) viewModel.allRisers.collectAsState().value else viewModel.allUsers.collectAsState().value
@@ -415,38 +401,36 @@ fun InviteSelectScreen(
                 )
             Text(
                 text = "CREATE",
-                color = if (selectedUsers.size == 0){
+                color = if (selectedUsers.isEmpty()){
                     Color.Gray
                 } else if (game) CRAppTheme.colorScheme.primary else Color.Blue,
                 modifier = Modifier
                     .clickable {
-                        if (selectedUsers.size == 0){
-
-                        } else if (currentUser != null && selectedUsers.isNotEmpty()){
-                            val theRoomname = if (roomName.isBlank()){
-                                selectedUsers.joinToString (", "){ it.fname }
-                            } else {
-                                roomName
-                            }
-                            if (game){
-                                viewModel.createAndInviteToChatRoom(
-                                    CRRoomId = CRRoomId,
-                                    memberIds = selectedUsers.map { it.userId },
-                                    roomName = theRoomname
-                                ){ roomId ->
-                                    // handle navigation to chat screen
-                                    // game = true
-                                    navController.navigate("chatScreen/$CRRoomId/$roomId/true/false")
-                                    onCreate()
+                        if (selectedUsers.isNotEmpty()){
+                            if (currentUser != null){
+                                val theRoomname = roomName.ifBlank {
+                                    selectedUsers.joinToString(", ") { it.fname }
                                 }
-                            } else {
-                                viewModel.createAndInviteToChatRoom(
-                                    CRRoomId = CRRoomId,
-                                    memberIds = selectedUsers.map { it.userId },
-                                    roomName = theRoomname
-                                ){ roomId ->
-                                    // handle navigation to chat screen
-                                    // game = false
+                                if (game){
+                                    viewModel.createAndInviteToChatRoom(
+                                        crRoomId = crRoomId,
+                                        memberIds = selectedUsers.map { it.userId },
+                                        roomName = theRoomname
+                                    ){ roomId ->
+                                        // handle navigation to chat screen
+                                        // game = true
+                                        navController.navigate("chatScreen/$crRoomId/$roomId/true/false")
+                                        onCreate()
+                                    }
+                                } else {
+                                    viewModel.createAndInviteToChatRoom(
+                                        crRoomId = crRoomId,
+                                        memberIds = selectedUsers.map { it.userId },
+                                        roomName = theRoomname
+                                    ){ roomId ->
+                                        // handle navigation to chat screen
+                                        // game = false
+                                    }
                                 }
                             }
                         }
@@ -568,8 +552,8 @@ fun InviteSelectScreen(
                     }
                 }
             }
-            if (selectedUsers.size != 0){
-                Divider(modifier = Modifier.padding(10.dp))
+            if (selectedUsers.isNotEmpty()){
+                HorizontalDivider(modifier = Modifier.padding(10.dp))
             }
 
 

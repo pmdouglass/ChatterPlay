@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -29,7 +28,6 @@ import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.google.firebase.auth.FirebaseAuth
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(navController: NavController) {
 
@@ -74,8 +72,9 @@ fun LoginScreen(navController: NavController) {
             value = email,
             onValueChange =  {email = it},
             placeholder = {Text("Email")},
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.White,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             ),
@@ -88,8 +87,9 @@ fun LoginScreen(navController: NavController) {
             value = password,
             onValueChange =  {password = it},
             placeholder = {Text("Password")},
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.White,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             ),
@@ -152,14 +152,4 @@ fun LoginScreen(navController: NavController) {
 
     }
 
-}
-
-@Preview
-@Composable
-fun PreviewLogin() {
-    CRAppTheme {
-        Surface {
-            LoginScreen(navController = rememberNavController())
-        }
-    }
 }

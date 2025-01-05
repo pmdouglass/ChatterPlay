@@ -22,9 +22,9 @@ class RoomCreationViewModel: ViewModel(){
     private val _roomReady = MutableStateFlow(false)
     val roomReady: StateFlow<Boolean> = _roomReady
 
-    // Get CRRoomId
-    private val _CRRoomId = MutableStateFlow<String?>(null)
-    val CRRoomId: StateFlow<String?> = _CRRoomId
+    // Get crRoomId
+    private val _crRoomId = MutableStateFlow<String?>(null)
+    val crRoomId: StateFlow<String?> = _crRoomId
 
     // selected Profile
     private val _selectedProfile = MutableStateFlow<String?>("self")
@@ -36,7 +36,7 @@ class RoomCreationViewModel: ViewModel(){
     init {
         checkUserState()
         checkSelectedProfile()
-        checkCRRoomId()
+        checkcrRoomId()
     }
 
     // Check the user's current state from the backend
@@ -56,10 +56,10 @@ class RoomCreationViewModel: ViewModel(){
             _selectedProfile.value = status ?: "self"
         }
     }
-    private fun checkCRRoomId(){
+    private fun checkcrRoomId(){
         viewModelScope.launch {
-            val status = userRepository.fetchCRroomId(userId)
-            _CRRoomId.value = status ?: "0"
+            val status = userRepository.fetchcrRoomId(userId)
+            _crRoomId.value = status ?: "0"
         }
     }
 
@@ -93,11 +93,11 @@ class RoomCreationViewModel: ViewModel(){
                         // Update users
                         if (roomSuccess){
                             // get roomID
-                            val roomId = userRepository.getCRRoomId(userId)
+                            val roomId = userRepository.getcrRoomId(userId)
                             if (roomId != null){
                                 val addRoomId = userRepository.updateUserGameRoomId(userIds = usersToUpdate, roomId = roomId)
                                 // add users document
-                                userRepository.createCRSelectedProfileUsers(CRRoomId = roomId, userIds = usersToUpdate)
+                                userRepository.createCRSelectedProfileUsers(crRoomId = roomId, userIds = usersToUpdate)
                                 if (addRoomId){
                                     _userState.value = "InGame"
                                     _roomReady.value = true

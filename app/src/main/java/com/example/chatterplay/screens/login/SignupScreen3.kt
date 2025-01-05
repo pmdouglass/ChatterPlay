@@ -1,7 +1,5 @@
 package com.example.chatterplay.screens.login
 
-import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -26,11 +23,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.ui.theme.CRAppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -90,8 +85,9 @@ fun SignupScreen3(
         TextField(
             value = about,
             onValueChange =  {about = it},
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.White,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             ),
@@ -125,29 +121,4 @@ fun SignupScreen3(
 
 
 
-}
-
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Preview
-@Composable
-fun signupPreview2() {
-    CRAppTheme {
-        Surface {
-           SignupScreen3(
-               email = "Kkasjdfk",
-               password = "Kkasjdfk",
-               fName = "Kkasjdfk",
-               lName = "Kkasjdfk",
-               month = "",
-               day = "",
-               year = "",
-               age = "20",
-               gender = "Kkasjdfk",
-               location = "Kkasjdfk",
-               navController = rememberNavController(),
-               game = false
-           )
-        }
-    }
 }

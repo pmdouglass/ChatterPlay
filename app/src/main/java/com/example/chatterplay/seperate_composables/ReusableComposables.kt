@@ -2,10 +2,7 @@
 
 package com.example.chatterplay.seperate_composables
 
-import android.net.Uri
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
@@ -30,14 +27,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ImageAspectRatio
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -46,25 +42,23 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDrawerState
@@ -72,6 +66,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -84,7 +79,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -96,26 +90,25 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
-import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.ui.theme.CRAppTheme
-import com.example.chatterplay.ui.theme.darkPurple
-import com.example.chatterplay.view_model.ChatViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
-import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.repository.fetchUserProfile
 import com.example.chatterplay.screens.login.calculateAgeToDate
 import com.example.chatterplay.screens.login.calculateBDtoAge
+import com.example.chatterplay.ui.theme.CRAppTheme
+import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatViewModel
 import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 
@@ -140,11 +133,11 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
 
 }
 @Composable
-fun rememberCRProfile(CRRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
+fun rememberCRProfile(crRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
     val profileState by viewModel.userProfile.collectAsState()
     val profile = profileState ?: UserProfile()
     LaunchedEffect(Unit){
-        viewModel.getUserProfile(CRRoomId = CRRoomId)
+        viewModel.getUserProfile(crRoomId = crRoomId)
     }
     return profile
 }
@@ -163,7 +156,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
     val roomReady by roomCreate.roomReady.collectAsState()
 
 
-    var hasAlternateProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
+    val hasAlternateProfile = if (alternateProfile.fname.isBlank()) false else true
 
 
     Column (
@@ -473,16 +466,16 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                     }
                 }
                 roomReady -> {
-                    val CRRoomId by roomCreate.CRRoomId.collectAsState()
+                    val crRoomId by roomCreate.crRoomId.collectAsState()
                     Column(
                         verticalArrangement = Arrangement.Bottom,
                         modifier = Modifier
                             .fillMaxSize()
                             .clickable {
-                                navController.navigate("mainScreen/$CRRoomId")
+                                navController.navigate("mainScreen/$crRoomId")
                             }
                     ) {
-                        Text("RoomId is: $CRRoomId")
+                        Text("RoomId is: $crRoomId")
                         Row (
                             verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.Start,
@@ -577,9 +570,7 @@ fun DynamicCircleBox(number: Int) {
     }
 }
 @Composable
-fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, imageUrls: List<String>) {
-
-
+fun PrivateGroupPicThumbnail(game: Boolean, memberCount: Int, imageUrls: List<String>) {
 
     val displayPics = when {
         memberCount == 2 -> 1
@@ -598,27 +589,6 @@ fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, im
             .padding(6.dp)
             .size(boxWidth)
     ) {
-
-        /*for (i in 0 until displayPics){
-            if (i < imageUrls.size){
-                Image(
-                    rememberAsyncImagePainter(imageUrls[i]),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(imageSize)
-                        .offset(
-                            x = (i * overlapOffset.value).dp, y = if (memberCount >= 3) {
-                                0.dp
-                            } else {
-                                0.dp
-                            }
-                        )
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }*/
-
         imageUrls.take(5).forEachIndexed { index, url ->
             Image(
                 painter = rememberAsyncImagePainter(url),
@@ -655,141 +625,6 @@ fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, im
     }
 }
 @Composable
-fun RoomRow(members: Int, title: String, who: String, message: String, time: String, unread: Int, game: Boolean, navController: NavController) {
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 5.dp, bottom = 5.dp)
-            .clickable {
-                if (game) {
-                    navController.navigate("chatScreen/true/false")
-                } else {
-                    navController.navigate("chatScreen/false/false")
-                }
-            }
-    ){
-        Row (
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-        ){
-            //PrivateGroupPicThumbnail(game, memberCount = members)
-            Spacer(modifier = Modifier.width(3.dp))
-            Column (
-                verticalArrangement = Arrangement.Top,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ){
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                ){
-                    if (members <= 2){
-                        Text(
-                            who,
-                            style = CRAppTheme.typography.titleMedium,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                        )
-                    } else {
-                        Text(
-                            title,
-                            style = CRAppTheme.typography.titleMedium,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                        )
-                    }
-                    if (!game){
-                        Text(
-                            "10/12",
-                            style = CRAppTheme.typography.infoMedium,
-                            color = if (game) Color.White else Color.Black,
-                        )
-                        if (members >= 2){
-                            Text(
-                                time,
-                                style = CRAppTheme.typography.infoMedium,
-                                color = if (game) Color.White else Color.Black,
-                                modifier = Modifier
-                                    .padding(start = 10.dp, end = 5.dp)
-                            )
-                        }
-                    }
-                }
-                if (members >= 2){
-
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 5.dp)
-                    ){
-                        Image(
-                            painter = painterResource(id = R.drawable.cool_neon),
-                            contentDescription =null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(25.dp)
-                                .clip(CircleShape)
-                        )
-
-                        Text(
-                            who,
-                            style = CRAppTheme.typography.bodyLarge,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 5.dp)
-                        )
-                        if (!game){
-                            Text(
-                                "$time",
-                                style = CRAppTheme.typography.infoMedium,
-                                color = if (game) Color.White else Color.Black,
-                                modifier = Modifier
-                                    .padding(end = 5.dp)
-                            )
-                        }
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 5.dp)
-                ){
-                    Text(
-                        "$message",
-                        style = CRAppTheme.typography.bodySmall,
-                        color = if (game) Color.White else Color.Black,
-                        maxLines = 3,
-                        modifier = Modifier
-                            .weight(1f)
-                    )
-                    DynamicCircleBox(number = unread)
-                }
-            }
-        }
-        Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
-    }
-}
-@Composable
 fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCount: Int, onClick: () -> Unit) {
 
     val lastReplyImage = room.lastProfile
@@ -798,10 +633,10 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
     /*val otherUserProfile by produceState<UserProfile?>(initialValue = null, key1 = otherUserIds){
         value = otherUserIds.let { fetchUserProfile(it) }
     }*/
-    val otherUserProfiles by produceState<List<UserProfile>>(initialValue = emptyList(), key1 = otherUserIds) {
+    val otherUserProfiles by produceState(initialValue = emptyList(), key1 = otherUserIds) {
         value = otherUserIds.mapNotNull { fetchUserProfile(it) }
     }
-    val imageUrls = otherUserProfiles.mapNotNull { it.imageUrl }
+    val imageUrls = otherUserProfiles.map { it.imageUrl }
     //val theirImage = otherUserProfile?.imageUrl
     val theirName = if (game) {
         otherUserProfiles.firstOrNull()?.fname ?: ""
@@ -826,7 +661,6 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
         ){
             PrivateGroupPicThumbnail(
                 game = game,
-                room = room,
                 memberCount = membersCount,
                 imageUrls = imageUrls
                 )
@@ -912,7 +746,7 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
                 }
             }
         }
-        Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
+        HorizontalDivider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
     }
 }
 @Composable
@@ -926,7 +760,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
         "null" to Icons.Default.Menu,
         "null" to Icons.Default.ImageAspectRatio
     )
-    var selectedTabindex by remember { mutableStateOf(1)}
+    var selectedTabindex by remember { mutableIntStateOf(1) }
 
     Column(
         verticalArrangement = Arrangement.Top,
@@ -952,7 +786,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 navController.popBackStack()
             }) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Default.ArrowBack,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier
@@ -1081,7 +915,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
             }) {
                 Icon(
-                    imageVector = Icons.Default.List,
+                    imageVector = Icons.AutoMirrored.Default.List,
                     contentDescription = null,
                     tint = Color.White
                 )
@@ -1140,7 +974,7 @@ fun TopBar(
             navController.popBackStack()
         }) {
             Icon(
-                imageVector = Icons.Default.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier
@@ -1244,7 +1078,7 @@ fun NavigationRow(
         containerColor = CRAppTheme.colorScheme.gameBackground,
         contentColor = selectedColor,
         indicator = { tabPositions ->
-            TabRowDefaults.Indicator(
+            SecondaryIndicator(
                 Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                 color = selectedColor
             )
@@ -1287,11 +1121,10 @@ fun RightSideModalDrawer(
     val scope = rememberCoroutineScope()
     val drawerWidth = 350.dp // Adjust the width as needed
     val drawerWidthPx = with(LocalDensity.current) { drawerWidth.toPx() }
-    val closedOffsetX = drawerWidthPx
     val openOffsetX = 0f
 
     val offsetX by animateFloatAsState(
-        targetValue = if (drawerState.isOpen) openOffsetX else closedOffsetX
+        targetValue = if (drawerState.isOpen) openOffsetX else drawerWidthPx
     )
 
     Box(
@@ -1329,28 +1162,23 @@ fun RightSideModalDrawer(
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrivateDrawerRoomList(
-    CRRoomId: String,
+    crRoomId: String,
     onInvite: () -> Unit,
-    onTap: () -> Unit,
-    onLongPress: () -> Unit,
     viewModel: ChatViewModel = viewModel(),
-    navController: NavController,
-    modifier: Modifier = Modifier
+    navController: NavController
 ) {
 
     var searchChats by remember{ mutableStateOf("") }
 
-    LaunchedEffect(CRRoomId){
-        viewModel.fetchAllRiserRooms(CRRoomId = CRRoomId)
+    LaunchedEffect(crRoomId){
+        viewModel.fetchAllRiserRooms(crRoomId = crRoomId)
     }
 
 
     val chatRooms by viewModel.allRiserRooms.collectAsState()
     val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp}
-    val profile = rememberCRProfile(CRRoomId = CRRoomId)
 
 
 
@@ -1368,7 +1196,7 @@ fun PrivateDrawerRoomList(
                     Icons.Default.Add,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = modifier
+                    modifier = Modifier
                         .size(35.dp)
                 )
             }
@@ -1398,8 +1226,9 @@ fun PrivateDrawerRoomList(
 
             )
             },
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = CRAppTheme.colorScheme.onGameBackground,
+            colors = TextFieldDefaults.colors(
+                unfocusedContainerColor = CRAppTheme.colorScheme.onGameBackground,
+                focusedContainerColor = CRAppTheme.colorScheme.onGameBackground,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             ),
@@ -1429,7 +1258,7 @@ fun PrivateDrawerRoomList(
 
 
         }
-        Divider(modifier = Modifier.padding(bottom = 20.dp))
+        HorizontalDivider(modifier = Modifier.padding(bottom = 20.dp))
 
         LazyColumn (
             modifier = Modifier
@@ -1442,7 +1271,7 @@ fun PrivateDrawerRoomList(
                     membersCount = room.members.size,
                     replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
                     onClick = {
-                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/true/false")
+                        navController.navigate("chatScreen/${crRoomId}/${room.roomId}/true/false")
                     }
                 )
             }
@@ -1457,12 +1286,10 @@ fun PrivateDrawerRoomList(
 
 
 
-@OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, game: Boolean, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
     val userId = userProfile.userId
-    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
     var editFname by remember { mutableStateOf(userProfile.fname)}
     var editLname by remember { mutableStateOf(userProfile.lname)}
     var editAbout by remember{ mutableStateOf(userProfile.about)}
@@ -1476,14 +1303,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
     val randomDay = rndDay.random()
     var editAge by remember { mutableStateOf(userProfile.age)}
     var editLocation by remember { mutableStateOf(userProfile.location)}
-    val context = LocalContext.current
-    var ImageUri by remember { mutableStateOf<Uri?>(null) }
-    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        ImageUri = uri
-        byteArray = uri?.uriToByteArray(context)
-    }
     var editInfo by remember { mutableStateOf(userData)}
 
     var currentPassword by remember{ mutableStateOf("")}
@@ -1515,10 +1335,10 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
         }
     }
     if (edit == "Gender"){
-        if (userProfile.gender != "Man" && userProfile.gender != "Woman"){
-            editInfo = userProfile.gender
+        editInfo = if (userProfile.gender != "Man" && userProfile.gender != "Woman"){
+            userProfile.gender
         }else{
-            editInfo = ""
+            ""
         }
     }
 
@@ -1619,22 +1439,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = currentPassword,
                           onValueChange = {currentPassword = it},
                           placeholder = {Text("Current Password")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1645,22 +1464,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = newPassword,
                           onValueChange = {newPassword = it},
                           placeholder = {Text("New password")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1671,22 +1489,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = editInfo,
                           onValueChange = {editInfo = it},
                           placeholder = {Text("Re-type new password")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1705,8 +1522,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = editFname,
                           onValueChange = {editFname = it},
                           placeholder = {Text("First Name")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
@@ -1734,8 +1552,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                               value = editLname,
                               onValueChange = {editLname = it},
                               placeholder = {Text("Last Name")},
-                              colors = TextFieldDefaults.textFieldColors(
-                                  containerColor = Color.White,
+                              colors = TextFieldDefaults.colors(
+                                  unfocusedContainerColor = Color.White,
+                                  focusedContainerColor = Color.White,
                                   focusedIndicatorColor = Color.Transparent,
                                   unfocusedIndicatorColor = Color.Transparent
                               ),
@@ -1770,22 +1589,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                   }
 
                               )},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1802,8 +1620,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                       TextField(
                           value = editAbout,
                           onValueChange = {editAbout = it},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
@@ -1831,8 +1650,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                           }
                           },
                           maxLines = 1,
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
@@ -1870,14 +1690,14 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                   }
                   Button(
                       onClick = {
-                          if (editInfo.isNotEmpty()){
-                              editInfo = when {
+                          editInfo = if (editInfo.isNotEmpty()){
+                              when {
                                   manSelect -> "Man"
                                   womanSelect -> "Woman"
                                   otherSelect -> editInfo
                                   else -> "Non Binary"
                               }
-                          } else editInfo = "Not Specified"
+                          } else "Not Specified"
                           val saveChangedProfile = when (edit) {
                               "Name" -> {
                                   userProfile.copy(fname = editFname, lname = editLname)
@@ -1886,7 +1706,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                   userProfile.copy(about = editAbout)
                               }
                               "Gender" -> {
-                                  if (otherSelect == true){
+                                  if (otherSelect){
                                       if (editInfo == ""){
                                           editInfo = "Non Binary"
                                           userProfile.copy(gender = editInfo)
@@ -1938,54 +1758,24 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditFirstNameDialog(userProfile: UserProfile, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
-    val userId = userProfile.userId
-    var editfName by remember { mutableStateOf(userProfile.fname) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val updatedProfile = userProfile.copy(fname = editfName)
-                    viewModel.saveUserProfile(userId, updatedProfile, false)
-                    onDismiss()
-                }
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        },
-        title = { Text("Edit First Name") },
-        text = {
-            Column {
-                Text("Enter your new first name:")
-                Spacer(modifier = Modifier.height(8.dp))
-                TextField(
-                    value = editfName,
-                    onValueChange = { editfName = it },
-                    placeholder = { Text("First Name") }
-                )
-            }
-        }
-    )
-}
-@Composable
-fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, imagePic: Int? = null, extraChoice: Boolean = false, onClick: () -> Unit, Select: Boolean = false, Bio: Boolean = false, Edit: Boolean = false, editClick: Boolean = true, Image: Boolean = false, viewModel: ChatViewModel = viewModel()) {
-    val context = LocalContext.current
-    var ImageUri by remember { mutableStateOf<Uri?>(null) }
-    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
-
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        ImageUri = uri
-        byteArray = uri?.uriToByteArray(context)
-    }
+fun SettingsInfoRow(
+    game: Boolean = false,
+    amount: Int = 1,
+    icon: ImageVector? = null,
+    contentDescription: String? = null,
+    title: String,
+    body: String = "",
+    secondBody: String = "",
+    arrow: Boolean = false,
+    extraChoice: Boolean = false,
+    onClick: () -> Unit,
+    Select: Boolean = false,
+    Bio: Boolean = false,
+    Edit: Boolean = false,
+    editClick: Boolean = true,
+    Image: Boolean = false
+) {
     when {
         Select -> {
             Column (
@@ -2016,7 +1806,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
                     )
                     if (arrow){
                         Icon(
-                            Icons.Default.ArrowForward,
+                            Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null
                         )
                     }
@@ -2033,7 +1823,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
             }
         }
         Bio -> {
-            Divider()
+            HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 10.dp))
             Column(
                 modifier = Modifier
@@ -2070,7 +1860,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
             }
         }
         Edit -> {
-            Divider()
+            HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 10.dp))
             Column(
                 modifier = Modifier
@@ -2214,7 +2004,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
         else -> "Select"
     }
     val default =
-        if (personalProfile.fname.isNullOrBlank()){
+        if (personalProfile.fname.isBlank()){
             ""
         } else {
             when {
@@ -2225,7 +2015,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
             }
         }
     val ageTitle =
-        if (alternateProfile.fname.isNullOrBlank()){
+        if (alternateProfile.fname.isBlank()){
             "18"
         } else {
             alternateProfile.age
@@ -2300,27 +2090,6 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
                 }
             )
         }
-    }
-}
-@Composable
-fun ExtraChoice(title1: String, onClick: () -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.End,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(10.dp)
-            .clickable { onClick() }
-    ){
-        Text(
-            title1,
-            fontSize = 18.sp,
-            modifier = Modifier
-                .padding(end = 50.dp)
-        )
-        Icon(
-            Icons.Default.ArrowForwardIos,
-            contentDescription = null
-        )
     }
 }
 @Composable

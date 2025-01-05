@@ -1,7 +1,6 @@
 package com.example.chatterplay.repository
 
 import com.example.chatterplay.data_class.ChatRoom
-import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
@@ -13,7 +12,7 @@ class RoomCreateRepository {
     private val firestore = FirebaseFirestore.getInstance()
     // Simulated database (key: userId, value: UserProfile)
     private val userCollection = firestore.collection("Users")
-    private val CRRoomCollection = firestore.collection("ChatriseRooms")
+    private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
 
 
     // Fetch user profile by userId
@@ -28,26 +27,26 @@ class RoomCreateRepository {
 
     // Update the "pending" state of a user profile
     suspend fun updateUserPendingState(userId: String, newState: String): Boolean {
-        try {
+        return try {
             userCollection.document(userId).update("pending", newState).await()
-            return true
+            true
         }catch (e: Exception){
             e.printStackTrace()
-            return false
+            false
         }
     }
     suspend fun updateUserGameRoomId(userIds: List<String>, roomId: String): Boolean{
-        try {
+        return try {
             val batch = firestore.batch()
             userIds.forEach { userId ->
                 val userDocRef = userCollection.document(userId)
                 batch.update(userDocRef, "gameRoomId", roomId)
             }
             batch.commit().await()
-            return true
+            true
         }catch (e: Exception){
             e.printStackTrace()
-            return false
+            false
         }
     }
 
@@ -77,7 +76,7 @@ class RoomCreateRepository {
         }
     }
 
-    suspend fun createCRSelectedProfileUsers(CRRoomId: String, userIds: List<String>): Boolean{
+    suspend fun createCRSelectedProfileUsers(crRoomId: String, userIds: List<String>): Boolean{
         return try {
             val batch = firestore.batch()
 
@@ -98,7 +97,7 @@ class RoomCreateRepository {
 
                 // Step 3: Add to batch operation
                 if (userProfile != null){
-                    val userDocRef = CRRoomCollection.document(CRRoomId)
+                    val userDocRef = crGameRoomsCollection.document(crRoomId)
                         .collection("Users")
                         .document(userId)
                     batch.set(userDocRef, userProfile)
@@ -118,12 +117,12 @@ class RoomCreateRepository {
         return try {
             // create room
             val newRoom = ChatRoom(
-                roomId = CRRoomCollection.document().id,
+                roomId = crGameRoomsCollection.document().id,
                 roomName = roomName,
                 members = members,
                 createdAt = Timestamp.now()
             )
-            CRRoomCollection.document(newRoom.roomId).set(newRoom).await()
+            crGameRoomsCollection.document(newRoom.roomId).set(newRoom).await()
 
 
             //                            ADD Collections
@@ -136,7 +135,7 @@ class RoomCreateRepository {
                 "Mojojojo",
                 "PickAnImage"
             )
-            val gameSubCollection = CRRoomCollection.document(newRoom.roomId).collection("Games")
+            val gameSubCollection = crGameRoomsCollection.document(newRoom.roomId).collection("Games")
             gameDocs.forEach{ gameName ->
                 val gameData = GameData(
                     gameName = gameName,
@@ -163,7 +162,7 @@ class RoomCreateRepository {
             null
         }
     }
-    suspend fun fetchCRroomId(userId: String): String?{
+    suspend fun fetchcrRoomId(userId: String): String?{
         return try {
             val documentSnapshot = userCollection.document(userId).get().await()
             documentSnapshot.getString("gameRoomId")
@@ -172,9 +171,9 @@ class RoomCreateRepository {
             null
         }
     }
-    suspend fun getCRRoomId(userId: String): String? {
+    suspend fun getcrRoomId(userId: String): String? {
         return try {
-            val querySnapshot = CRRoomCollection
+            val querySnapshot = crGameRoomsCollection
                 .whereArrayContains("members", userId)
                 .get().await()
             if (!querySnapshot.isEmpty) {
