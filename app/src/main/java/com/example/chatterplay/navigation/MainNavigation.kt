@@ -138,15 +138,17 @@ fun AppNavHost(navController: NavHostController) {
                 val userId = backStackEntry.arguments?.getString("userId") ?: ""
                 ProfileScreen(userId = userId, game = game, self = self, navController = navController)
             }
-            composable("chatScreen/{CRRoomId}/{roomId}/{game}", arguments = listOf(
-                navArgument("game") {type = NavType.BoolType}
+            composable("chatScreen/{CRRoomId}/{roomId}/{game}/{mainChat}", arguments = listOf(
+                navArgument("game") {type = NavType.BoolType},
+                navArgument("mainChat") {type = NavType.BoolType}
             )){backStackEntry ->
                 val game = backStackEntry.arguments?.getBoolean("game") ?: false
+                val mainChat = backStackEntry.arguments?.getBoolean("mainChat") ?: false
                 val CRRoomId = backStackEntry.arguments?.getString("CRRoomId") ?: "0"
                 val roomId = backStackEntry.arguments?.getString("roomId")
 
                 if (roomId != null){
-                    ChattingScreen(CRRoomId = CRRoomId, roomId = roomId, game = game, navController = navController)
+                    ChattingScreen(CRRoomId = CRRoomId, roomId = roomId, game = game, mainChat = mainChat, navController = navController)
                 }
             }
             composable("settingsScreen") {

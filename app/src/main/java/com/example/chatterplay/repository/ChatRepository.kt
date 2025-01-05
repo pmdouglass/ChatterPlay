@@ -4,10 +4,8 @@ import android.net.Uri
 import android.util.Log
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
-import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -21,11 +19,14 @@ class ChatRepository {
     private val CRGameRoomsCollection = firestore.collection("ChatriseRooms")
     val more = "Alternate"
     val chatrise = "ChatRise"
+    val private = "Private Chats"
+
 
 
 
     fun getChatRooms() = chatRoomsCollection
-    fun getMainChatRoom() = CRGameRoomsCollection
+    fun getRiserRoom() = CRGameRoomsCollection
+
     suspend fun saveUserProfile(
         userId: String,
         userProfile: UserProfile,
@@ -44,21 +45,17 @@ class ChatRepository {
         }
     }
 
-    suspend fun getProfileToSend(userId: String, roomId: String = "0", game: Boolean): UserProfile? {
+    suspend fun getProfileToSend(userId: String, CRRoomId: String, game: Boolean): UserProfile? {
         if (!game){
             val snapshot = usersCollection
                 .whereEqualTo("userId", userId).get().await()
             return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
         } else {
-            if (roomId != "0"){
-                val snapshot = CRGameRoomsCollection
-                    .document(roomId)
-                    .collection("Users")
-                    .whereEqualTo("userId", userId).get().await()
-                return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
-            } else {
-                Log.d("Debug-Message", "No RoomId to fetch UserProfile")
-            }
+            val snapshot = CRGameRoomsCollection
+                .document(CRRoomId)
+                .collection("Users")
+                .whereEqualTo("userId", userId).get().await()
+            return snapshot.documents.firstOrNull()?.toObject(UserProfile::class.java)
         }
         return null
     }
@@ -123,6 +120,18 @@ class ChatRepository {
         }
         return userProfiles
     }
+    suspend fun getAllRisers(CRRoomId: String): List<UserProfile> {
+        val userDocuments = CRGameRoomsCollection.document(CRRoomId).collection("Users").get().await()
+        val userProfiles = mutableListOf<UserProfile>()
+
+        for (document in userDocuments.documents){
+            val user = document.toObject(UserProfile::class.java)
+            if (user != null){
+                userProfiles.add(user)
+            }
+        }
+        return userProfiles
+    }
 
 
     suspend fun checkIfChatRoomExists(CRRoomId: String, members: List<String>): String? {
@@ -136,13 +145,37 @@ class ChatRepository {
                 }
             }
         }else {
-            val querySnapshot = chatRoomsCollection
+            val querySnapshot = CRGameRoomsCollection
                 .document(CRRoomId)
-                .collection("Private Chats")
+                .collection(private)
                 .get().await()
             for (document in querySnapshot.documents){
                 val chatRoom = document.toObject(ChatRoom::class.java)
                 if (chatRoom != null && chatRoom.members.sorted() == sortedMembers) {
+                    return document.id
+                }
+            }
+        }
+        return null
+    }
+    suspend fun checkIfSingleRoomExists(CRRoomId: String, memberId: String): String? {
+        if (CRRoomId == "0") {
+            val querySnapshot = chatRoomsCollection.get().await()
+            for (document in querySnapshot.documents) {
+                val chatRoom = document.toObject(ChatRoom::class.java)
+                if (chatRoom != null && chatRoom.members.size == 2 && chatRoom.members.contains(memberId)) {
+                    return document.id
+                }
+            }
+        }else {
+            Log.d("riser", "fetching roomId")
+            val querySnapshot = CRGameRoomsCollection
+                .document(CRRoomId)
+                .collection(private)
+                .get().await()
+            for (document in querySnapshot.documents){
+                val chatRoom = document.toObject(ChatRoom::class.java)
+                if (chatRoom != null && chatRoom.members.size == 2 && chatRoom.members.contains(memberId)) {
                     return document.id
                 }
             }
@@ -158,7 +191,7 @@ class ChatRepository {
             chatRoomsCollection.document(roomId).set(chatRoom).await()
         } else {
             CRGameRoomsCollection.document(CRRoomId)
-                .collection("Private Chats")
+                .collection(private)
                 .document(roomId)
                 .set(chatRoom).await()
         }
@@ -171,7 +204,7 @@ class ChatRepository {
         } else {
             val roomRef = CRGameRoomsCollection
                 .document(CRRoomId)
-                .collection("Private Chats")
+                .collection(private)
                 .document(roomId)
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         }
@@ -186,9 +219,26 @@ class ChatRepository {
 
 
 
-    suspend fun getChatRoomMembers(roomId: String, game: Boolean): List<UserProfile> {
-        val roomCollection = if (game) CRGameRoomsCollection else chatRoomsCollection
-        val usersPath = if (game) roomCollection.document(roomId).collection("Users") else usersCollection
+    suspend fun getChatRoomMembers(CRRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
+        Log.d("riser", "CRRoomId: $CRRoomId, roomId:$roomId, game:$game, mainChat:$mainChat")
+        val roomCollection = if (game) {
+            if (mainChat){
+                CRGameRoomsCollection
+            } else {
+                CRGameRoomsCollection.document(CRRoomId).collection(private)
+            }
+        } else {
+            chatRoomsCollection
+        }
+        val usersPath = if (game) {
+            if (mainChat){
+                roomCollection.document(CRRoomId).collection("Users")
+            } else {
+                CRGameRoomsCollection.document(CRRoomId).collection("Users")
+            }
+        } else {
+            usersCollection
+        }
 
         val chatRoomSnapshot = roomCollection.document(roomId).get().await()
         val chatRoom = chatRoomSnapshot.toObject(ChatRoom::class.java)
@@ -222,7 +272,7 @@ class ChatRepository {
         } else {
             return try {
                 val snapshot = CRGameRoomsCollection.document(CRRoomId)
-                    .collection("Private Chats")
+                    .collection(private)
                     .document(roomId)
                     .get()
                     .await()
@@ -249,9 +299,19 @@ class ChatRepository {
 
         return messagesSnapshot.size()
     }
-    suspend fun sendMessage(roomId: String, chatMessage: ChatMessage, game: Boolean) {
+    suspend fun sendMessage(CRRoomId: String, roomId: String, chatMessage: ChatMessage, game: Boolean, mainChat: Boolean) {
         val room = if (game) CRGameRoomsCollection else chatRoomsCollection
-        val roomRef = room.document(roomId)
+        val roomRef = if (!game){
+            room.document(roomId)
+        } else {
+            if (mainChat){
+                room.document(CRRoomId)
+            } else{
+                room.document(CRRoomId)
+                    .collection(private)
+                    .document(roomId)
+            }
+        }
         val messageWithTimestamp = chatMessage.copy(timestamp = Timestamp.now())
         firestore.runTransaction { transaction ->
             transaction.set(roomRef.collection("messages").document(), messageWithTimestamp)
@@ -265,14 +325,24 @@ class ChatRepository {
         }.await()
         Log.d("Message", "Repository send Message")
     }
-    suspend fun getChatMessages(roomId: String, userId: String, game: Boolean): List<ChatMessage> {
+    suspend fun getChatMessages(CRRoomId: String, roomId: String, userId: String, game: Boolean, mainChat: Boolean): List<ChatMessage> {
         val room = if (game) CRGameRoomsCollection else chatRoomsCollection
-        val roomSnapshot = room.document(roomId).get().await()
+        val queryRoom = if (game) {
+            if (mainChat){
+                room.document(CRRoomId)
+            }else {
+                room.document(CRRoomId)
+                    .collection(private)
+                    .document(roomId)
+            }
+        } else {
+            room.document(roomId)
+        }
+        val roomSnapshot = queryRoom.get().await()
         val chatRoom = roomSnapshot.toObject(ChatRoom::class.java) ?: return emptyList()
         val hiddenTimestamp = chatRoom.hiddenTimestamp[userId] ?: Timestamp(0,0)
 
-        val querySnapshot = room
-            .document(roomId)
+        val querySnapshot = queryRoom
             .collection("messages")
             .whereGreaterThan("timestamp", hiddenTimestamp)
             .orderBy("timestamp", Query.Direction.ASCENDING)

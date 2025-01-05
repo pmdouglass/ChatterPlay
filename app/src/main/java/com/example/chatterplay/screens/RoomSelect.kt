@@ -65,7 +65,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = viewModel()) {
+fun MainRoomSelect(
+    navController: NavController,
+    viewModel: ChatViewModel = viewModel()
+) {
 
 
     val chatRooms by viewModel.allChatRooms.collectAsState()
@@ -229,7 +232,7 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                                     membersCount = room.members.size,
                                     replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
                                     onClick = {
-                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false")
+                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false/false")
                                     }
                                 )
                             }

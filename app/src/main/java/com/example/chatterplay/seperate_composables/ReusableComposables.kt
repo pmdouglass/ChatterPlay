@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -90,7 +92,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -105,7 +106,6 @@ import com.example.chatterplay.view_model.ChatViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.formattedDayTimestamp
@@ -159,7 +159,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
 
     val width = 100
 
-    val userState by roomCreate.userState.collectAsState()
+    val userStatus by roomCreate.userStatus.collectAsState()
     val roomReady by roomCreate.roomReady.collectAsState()
 
 
@@ -189,10 +189,10 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                     text = "ChatRise",
                     style = CRAppTheme.typography.headingMedium,
                     modifier = Modifier
-                        .then(if (userState == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                        .then(if (userStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
                 )
                 when  {
-                    userState == "NotPending" -> {
+                    userStatus == "NotPending" -> {
                         Box(
                             modifier = Modifier
                                 .size(20.dp)
@@ -207,7 +207,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                             )
                         }
                     }
-                    userState == "Pending" -> {}
+                    userStatus == "Pending" -> {}
                     roomReady -> {
                         Column(
                             verticalArrangement = Arrangement.Center,
@@ -229,7 +229,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
 
             }
             when {
-                userState == "NotPending" -> {
+                userStatus == "NotPending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -406,7 +406,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
 
                     }
                 }
-                userState == "Pending" -> {
+                userStatus == "Pending" -> {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -663,9 +663,9 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
             .padding(top = 5.dp, bottom = 5.dp)
             .clickable {
                 if (game) {
-                    navController.navigate("chatScreen/true")
+                    navController.navigate("chatScreen/true/false")
                 } else {
-                    navController.navigate("chatScreen/false")
+                    navController.navigate("chatScreen/false/false")
                 }
             }
     ){
@@ -803,7 +803,12 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
     }
     val imageUrls = otherUserProfiles.mapNotNull { it.imageUrl }
     //val theirImage = otherUserProfile?.imageUrl
-    val theirName = otherUserProfiles.joinToString(", ") { "${it.fname} ${it.lname}" }
+    val theirName = if (game) {
+        otherUserProfiles.firstOrNull()?.fname ?: ""
+    }else {
+        otherUserProfiles.joinToString (", ") { "${it.fname} ${it.lname}"}
+    }
+    //val theirName = otherUserProfiles.joinToString(", ") { if(game) "$it.fname" else "${it.fname} ${it.lname}" }
 
 
 
@@ -1270,11 +1275,17 @@ fun NavigationRow(
 
 
 @Composable
-fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
+fun RightSideModalDrawer(
+    drawerContent: @Composable () -> Unit,
+    reset: () -> Unit,
+    modifier: Modifier = Modifier,
+    drawerState: DrawerState = rememberDrawerState(
         DrawerValue.Closed
-    ), content: @Composable () -> Unit) {
+    ),
+    content: @Composable () -> Unit
+) {
     val scope = rememberCoroutineScope()
-    val drawerWidth = 285.dp // Adjust the width as needed
+    val drawerWidth = 350.dp // Adjust the width as needed
     val drawerWidthPx = with(LocalDensity.current) { drawerWidth.toPx() }
     val closedOffsetX = drawerWidthPx
     val openOffsetX = 0f
@@ -1296,6 +1307,7 @@ fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifi
                     .clickable {
                         scope.launch {
                             drawerState.close()
+                            reset()
                         }
                     }
             )
@@ -1306,12 +1318,12 @@ fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifi
                 .offset { IntOffset(offsetX.toInt(), 0) }
                 .fillMaxHeight()
                 .width(drawerWidth)
-                .background(darkPurple.copy(alpha = .8f))
+                .background(CRAppTheme.colorScheme.onGameBackground.copy(alpha = .9f))
                 .border(
                     2.dp,
                     if (drawerState.isOpen) CRAppTheme.colorScheme.highlight else Color.Transparent
                 )
-                .padding(8.dp)
+                //.padding(8.dp)
         ) {
             drawerContent()
         }
@@ -1319,8 +1331,26 @@ fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifi
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navController: NavController, modifier: Modifier = Modifier) {
+fun PrivateDrawerRoomList(
+    CRRoomId: String,
+    onInvite: () -> Unit,
+    onTap: () -> Unit,
+    onLongPress: () -> Unit,
+    viewModel: ChatViewModel = viewModel(),
+    navController: NavController,
+    modifier: Modifier = Modifier
+) {
+
     var searchChats by remember{ mutableStateOf("") }
+
+    LaunchedEffect(CRRoomId){
+        viewModel.fetchAllRiserRooms(CRRoomId = CRRoomId)
+    }
+
+
+    val chatRooms by viewModel.allRiserRooms.collectAsState()
+    val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp}
+    val profile = rememberCRProfile(CRRoomId = CRRoomId)
 
 
 
@@ -1333,7 +1363,7 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
             modifier = Modifier
                 .fillMaxWidth()
         ){
-            IconButton(onClick = { navController.navigate("inviteScreen/true")}) {
+            IconButton(onClick = { onInvite()}) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = null,
@@ -1344,7 +1374,7 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
             }
         }
 
-        Spacer(modifier = Modifier.height(200.dp))
+        Spacer(modifier = Modifier.height(50.dp))
 
         Text(
             "Conversations",
@@ -1400,49 +1430,33 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
 
         }
         Divider(modifier = Modifier.padding(bottom = 20.dp))
-        RoomRow(
-            members = 13,
-            title = "Coffee and Conversations",
-            who = "Hunter D",
-            message = "Perfect for early birds and night owls looking for warm vibes and meaningful exchanges.",
-            time = " 6:20pm",
-            unread = 7,
-            game = true,
-            navController = navController
-        )
-        RoomRow(
-            members = 3,
-            title = "Fitness Frenzy",
-            who = "Kayla D",
-            message = "Motivation central for gym-goers, runners, and yoga enthusiasts alike. Get your daily dose of workout tips, recipes, and accountability buddies!",
-            time = " 6:20pm",
-            unread = 2,
-            game = true,
-            navController = navController
-        )
-        RoomRow(
-            members = 2,
-            title = "Movie Buffs",
-            who = "John L",
-            message = "Just saw the latest thriller - the plot twist was insane!",
-            time = " 6:20pm",
-            unread = 1,
-            game = true,
-            navController = navController
-        )
-        RoomRow(
-            members = 4,
-            title = "Tech Talkers",
-            who = "Bill K",
-            message = "A geek's paradise for discussions on the latest gadgets, coding hacks, and tech trends.",
-            time = " 6:20pm",
-            unread = 701,
-            game = true,
-            navController = navController
-        )
+
+        LazyColumn (
+            modifier = Modifier
+                .fillMaxSize()
+        ){
+            items(allRooms){ room ->
+                RoomSelectionView(
+                    game = true,
+                    room = room,
+                    membersCount = room.members.size,
+                    replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
+                    onClick = {
+                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/true/false")
+                    }
+                )
+            }
+        }
 
     }
 }
+
+
+
+
+
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -2185,6 +2199,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
 
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = false, age: Boolean = false, game: Boolean, viewModel: ChatViewModel = viewModel(), onOptionSelected: (String) -> Unit) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
