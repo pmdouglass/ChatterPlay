@@ -232,7 +232,7 @@ fun MainRoomSelect(
                                     membersCount = room.members.size,
                                     replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
                                     onClick = {
-                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false")
+                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false/false")
                                     }
                                 )
                             }

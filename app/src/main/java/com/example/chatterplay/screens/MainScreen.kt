@@ -1,6 +1,8 @@
 package com.example.chatterplay.screens
 
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -79,6 +81,7 @@ import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
@@ -103,7 +106,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
     var invite by remember { mutableStateOf(false)}
 
     LaunchedEffect(CRRoomId){
-        viewModel.fetchChatRoomMembers(roomId = CRRoomId, game = true)
+        viewModel.fetchChatRoomMembers(CRRoomId = CRRoomId, roomId = CRRoomId, game = true, mainChat = true)
     }
 
     RightSideModalDrawer(
@@ -149,8 +152,10 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                 },
                 bottomBar = {
                     ChatInput(
+                        CRRoomId = CRRoomId,
                         roomId = CRRoomId,
-                        game = true
+                        game = true,
+                        mainChat = true
                     )
                 },
                 content = {paddingValues ->
@@ -178,7 +183,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                                         showMemberProfile = true
                                     },
                                     chatRoomMembers = chatRoomMembers,
-                                    roomId = CRRoomId,
+                                    CRRoomId = CRRoomId,
                                     profile = profile,
                                     navController = navController
                                 )
@@ -186,10 +191,12 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                             }
                             1 -> {
                                 ProfileScreen2(
+                                    CRRoomId = CRRoomId,
                                     profile = profile,
                                     game = true,
                                     self = true,
-                                    isEditable = false
+                                    isEditable = false,
+                                    navController = navController
                                 )
                             }
                             2 -> {
@@ -205,6 +212,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                     }
                     if (showMemberProfile && selectedMemberProfile != null){
                         ShowMembersProfile(
+                            CRRoomId = CRRoomId,
                             profile = selectedMemberProfile!!,
                             onDismiss = {showMemberProfile = false},
                             chatRoomMembers = chatRoomMembers,
@@ -222,7 +230,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
 fun RiseMainChat(
     selectedMember: (UserProfile) -> Unit,
     chatRoomMembers: List<UserProfile>,
-    roomId: String,
+    CRRoomId: String,
     profile: UserProfile,
     navController: NavController
 ){
@@ -242,13 +250,21 @@ fun RiseMainChat(
             modifier = Modifier
                 .fillMaxSize()
         ){
-            ChatLazyColumn(roomId = roomId, profile = profile, game = true)
+            ChatLazyColumn(
+                CRRoomId = CRRoomId,
+                roomId = "",
+                profile = profile,
+                game = true,
+                mainChat = true
+            )
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ShowMembersProfile(
+    CRRoomId: String,
     profile: UserProfile,
     onDismiss: () -> Unit,
     chatRoomMembers: List<UserProfile>,
@@ -269,10 +285,12 @@ fun ShowMembersProfile(
                     navController = navController
                 )*/
                 ProfileScreen2(
+                    CRRoomId = CRRoomId,
                     profile = profile,
                     game = true,
                     self = false,
-                    isEditable = false
+                    isEditable = false,
+                    navController = navController
                 )
             }
         }
@@ -287,12 +305,13 @@ fun LazyChatColumn(
     game: Boolean,
     viewModel: ChatViewModel = viewModel()
 ) {
+    val CRRoomId = "0"
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
     LaunchedEffect(roomId){
-        viewModel.fetchChatMessages(roomId = roomId, true)
+        viewModel.fetchChatMessages(CRRoomId = CRRoomId, roomId = roomId, true, mainChat = false)
     }
 
     val ScrollToBottom = remember {
@@ -463,7 +482,7 @@ fun Game(CRRoomId: String, viewModel: ChatViewModel = viewModel(), contentNavCon
     val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
 
     LaunchedEffect(CRRoomId, chatRoomMembers){
-        viewModel.fetchChatRoomMembers(roomId = CRRoomId, game = true)
+        viewModel.fetchChatRoomMembers(CRRoomId = CRRoomId, roomId = CRRoomId, game = true, mainChat = true)
         Log.d("examp", "Chat room members: $chatRoomMembers")
     }
 

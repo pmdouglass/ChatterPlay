@@ -1,13 +1,12 @@
 package com.example.chatterplay.screens
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -27,7 +27,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
@@ -37,11 +36,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,17 +50,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.R
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
-import com.google.android.play.integrity.internal.i
-import com.google.android.play.integrity.internal.k
+import com.example.chatterplay.view_model.ChatViewModel
 
 enum class profileInfo (val string: String){
     pname("Name"),
@@ -71,18 +67,31 @@ enum class profileInfo (val string: String){
     gender("Identify As")
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ProfileScreen2(
+    CRRoomId: String,
     profile: UserProfile,
     game: Boolean,
     self: Boolean,
-    isEditable: Boolean
+    isEditable: Boolean,
+    viewModel: ChatViewModel = viewModel(),
+    navController: NavController
 ){
-
+    var roomId by remember { mutableStateOf<String?>(null)}
     var noteInput by remember { mutableStateOf("")}
     var editProfile by remember { mutableStateOf(false)}
     var bigPicture by remember { mutableStateOf(false)}
     val picSize = if (bigPicture) 800 else 200
+
+    Log.d("riser", "other userId is ${profile.userId}")
+
+    LaunchedEffect(CRRoomId){
+        Log.d("riser", "inside profileScreen2 launched Effect")
+        viewModel.fetchSingleRoom(CRRoomId, profile.userId) { fetchedRoomId ->
+            roomId = fetchedRoomId
+        }
+    }
 
 
     Column (
@@ -223,7 +232,18 @@ fun ProfileScreen2(
                         }
                     }
                     IconButton(
-                        onClick = {  },
+                        onClick = {
+                            if (roomId != null){
+                                navController.navigate("chatScreen/${CRRoomId}/${roomId}/true/false")
+                            } else {
+                                Log.d("riser", "RoomId is null")
+                            }
+
+
+
+
+
+                        },
                         modifier = Modifier
                             .size(35.dp)
                             .clip(CircleShape)
@@ -299,6 +319,7 @@ fun ProfileSelection(
 
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditInfo(
     title: profileInfo,

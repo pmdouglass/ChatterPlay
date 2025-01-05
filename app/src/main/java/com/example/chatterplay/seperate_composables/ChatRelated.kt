@@ -62,9 +62,11 @@ import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun ChatLazyColumn(
+    CRRoomId: String,
     roomId: String,
     profile: UserProfile,
     game: Boolean,
+    mainChat: Boolean,
     viewModel: ChatViewModel = viewModel()
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -73,7 +75,7 @@ fun ChatLazyColumn(
 
     // Fetch chat messages when roomId or game changes
     LaunchedEffect(roomId, game) {
-        viewModel.fetchChatMessages(roomId = roomId, game = game)
+        viewModel.fetchChatMessages(CRRoomId = CRRoomId, roomId = roomId, game = game, mainChat = mainChat)
     }
 
     // Scroll to bottom when new messages arrive
@@ -236,8 +238,10 @@ fun ChatBubble(
 @Composable
 fun ChatInput(
     viewModel: ChatViewModel = viewModel(),
+    CRRoomId: String,
     roomId: String,
-    game: Boolean
+    game: Boolean,
+    mainChat: Boolean
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     Log.d("Debug-Message", "Current user: ${currentUser?.uid}")
@@ -245,7 +249,7 @@ fun ChatInput(
 
     fun send(){
         if (input.isNotBlank()) {
-            viewModel.sendMessage(roomId = roomId, message = input, game = game)
+            viewModel.sendMessage(CRRoomId = CRRoomId, roomId = roomId, message = input, game = game, mainChat = mainChat)
             input = ""
         }
     }

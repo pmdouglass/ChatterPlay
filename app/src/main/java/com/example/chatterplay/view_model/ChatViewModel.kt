@@ -209,10 +209,10 @@ class ChatViewModel: ViewModel() {
 
 
 
-    fun fetchChatMessages(roomId: String, game: Boolean){
+    fun fetchChatMessages(CRRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
         viewModelScope.launch {
             val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val messages = chatRepository.getChatMessages(roomId = roomId, userId = userId, game = game)
+            val messages = chatRepository.getChatMessages(CRRoomId = CRRoomId, roomId = roomId, userId = userId, game = game, mainChat = mainChat)
             _messages.value = messages
         }
     }
@@ -233,11 +233,12 @@ class ChatViewModel: ViewModel() {
             }
         )
     }
-    fun fetchChatRoomMembers(roomId: String, game: Boolean){
+    fun fetchChatRoomMembers(CRRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
         val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
-            val members = chatRepository.getChatRoomMembers(roomId = roomId, game = game).filter { it.userId != currentUser?.uid }
+            val members = chatRepository.getChatRoomMembers(CRRoomId = CRRoomId, roomId = roomId, game = game, mainChat = mainChat).filter { it.userId != currentUser?.uid }
             _chatRoomMembers.value = members
+            Log.d("riser", "members = $members")
             _userState.value = UserState.Success("Success fetching Members")
         }
     }
@@ -297,6 +298,13 @@ class ChatViewModel: ViewModel() {
         }
     }
     private var isListenerAdded = false
+    fun fetchSingleRoom(CRRoomId: String, otherUserId: String, onResult: (String?) -> Unit){
+        viewModelScope.launch {
+            val roomId = chatRepository.checkIfSingleRoomExists(CRRoomId, otherUserId)
+            onResult(roomId)
+            Log.d("riser", "viewmodel roomId is $roomId")
+        }
+    }
     fun fetchAllRiserRooms(CRRoomId: String) {
         if (isListenerAdded) return
         isListenerAdded = true
@@ -341,10 +349,10 @@ class ChatViewModel: ViewModel() {
             _roomInfo.value = roomInfo
         }
     }
-    fun sendMessage(roomId: String, message: String, game: Boolean){
+    fun sendMessage(CRRoomId: String, roomId: String, message: String, game: Boolean, mainChat: Boolean){
         val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
-            val userProfile = chatRepository.getProfileToSend(userId = currentUser, roomId = roomId, game = game)
+            val userProfile = chatRepository.getProfileToSend(userId = currentUser, CRRoomId = CRRoomId, game = game)
             if (userProfile == null){
                 Log.d("Debug-Message", "Failed to fetch user profile for userId: ${currentUser}")
                 return@launch
@@ -356,8 +364,8 @@ class ChatViewModel: ViewModel() {
                 image = userProfile.imageUrl
             )
             Log.d("Debug-Message", "Sending message: $chatMessage")
-            chatRepository.sendMessage(roomId = roomId, chatMessage = chatMessage, game = game)
-            fetchChatMessages(roomId = roomId, game = game)
+            chatRepository.sendMessage(CRRoomId = CRRoomId, roomId = roomId, chatMessage = chatMessage, game = game, mainChat = mainChat)
+            fetchChatMessages(CRRoomId, roomId = roomId, game = game, mainChat = mainChat)
         }
     }
     fun createBucket(name: String){

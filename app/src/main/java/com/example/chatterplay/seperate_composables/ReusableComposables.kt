@@ -663,9 +663,9 @@ fun RoomRow(members: Int, title: String, who: String, message: String, time: Str
             .padding(top = 5.dp, bottom = 5.dp)
             .clickable {
                 if (game) {
-                    navController.navigate("chatScreen/true")
+                    navController.navigate("chatScreen/true/false")
                 } else {
-                    navController.navigate("chatScreen/false")
+                    navController.navigate("chatScreen/false/false")
                 }
             }
     ){
@@ -803,7 +803,12 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
     }
     val imageUrls = otherUserProfiles.mapNotNull { it.imageUrl }
     //val theirImage = otherUserProfile?.imageUrl
-    val theirName = otherUserProfiles.joinToString(", ") { "${it.fname} ${it.lname}" }
+    val theirName = if (game) {
+        otherUserProfiles.firstOrNull()?.fname ?: ""
+    }else {
+        otherUserProfiles.joinToString (", ") { "${it.fname} ${it.lname}"}
+    }
+    //val theirName = otherUserProfiles.joinToString(", ") { if(game) "$it.fname" else "${it.fname} ${it.lname}" }
 
 
 
@@ -1313,7 +1318,7 @@ fun RightSideModalDrawer(
                 .offset { IntOffset(offsetX.toInt(), 0) }
                 .fillMaxHeight()
                 .width(drawerWidth)
-                .background(CRAppTheme.colorScheme.onGameBackground.copy(alpha = .8f))
+                .background(CRAppTheme.colorScheme.onGameBackground.copy(alpha = .9f))
                 .border(
                     2.dp,
                     if (drawerState.isOpen) CRAppTheme.colorScheme.highlight else Color.Transparent
@@ -1437,7 +1442,7 @@ fun PrivateDrawerRoomList(
                     membersCount = room.members.size,
                     replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
                     onClick = {
-                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/true")
+                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/true/false")
                     }
                 )
             }

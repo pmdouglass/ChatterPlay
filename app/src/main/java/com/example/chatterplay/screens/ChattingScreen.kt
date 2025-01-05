@@ -24,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -45,6 +46,7 @@ fun ChattingScreen(
     CRRoomId: String,
     roomId: String,
     game: Boolean,
+    mainChat: Boolean,
     viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ) {
@@ -55,7 +57,7 @@ fun ChattingScreen(
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
 
     LaunchedEffect(CRRoomId, roomId) {
-        viewModel.fetchChatRoomMembers(roomId = roomId, game = false)
+        viewModel.fetchChatRoomMembers(CRRoomId = CRRoomId, roomId = roomId, game = game, mainChat = mainChat)
         viewModel.fetchSingleChatRoomMemberCount(roomId)
         viewModel.getRoomInfo(CRRoomId = CRRoomId, roomId = roomId)
         Log.d("examp", "Chat room members: $chatRoomMembers")
@@ -70,13 +72,37 @@ fun ChattingScreen(
     Scaffold (
         topBar = {
             if (game){
-                MainTopAppBar(
-                    title = "Private Room Name",
-                    action = true,
-                    actionIcon = Icons.Default.Menu,
-                    onAction = { /*TODO*/ },
-                    navController = navController
-                )
+                chatRoom?.let { room ->
+                    /*MainTopAppBar(
+                        title = "${room.roomName}",
+                        action = true,
+                        actionIcon = Icons.Default.Menu,
+                        onAction = { /*TODO*/ },
+                        navController = navController
+                    )*/
+                    CenterAlignedTopAppBar(
+                        title = {
+                            Text(
+                                room.roomName,
+                                style = CRAppTheme.typography.headingLarge,
+                                color = Color.White
+                            )},
+                        navigationIcon = {
+                            IconButton(onClick = {navController.popBackStack()}) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null,
+                                    Modifier
+                                        .size(35.dp)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = CRAppTheme.colorScheme.gameBackground
+                        )
+
+                    )
+                }
             } else {
                 CenterAlignedTopAppBar(
                     title = {
@@ -115,8 +141,10 @@ fun ChattingScreen(
         },
         bottomBar = {
             ChatInput(
+                CRRoomId = CRRoomId,
                 roomId = roomId,
-                game = false
+                game = game,
+                mainChat = false
             )
         }
     ){paddingValues ->
@@ -141,7 +169,7 @@ fun ChattingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ChatLazyColumn(roomId = roomId, profile = personalProfile, game = false)
+                ChatLazyColumn(CRRoomId = CRRoomId, roomId = roomId, profile = personalProfile, game = game, mainChat = false)
 
             }
 

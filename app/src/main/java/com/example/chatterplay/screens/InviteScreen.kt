@@ -160,7 +160,7 @@ import com.google.firebase.auth.FirebaseAuth
                                             memberIds = selectedUsers.map { it.userId },
                                             roomName = theRoomName
                                         ){ roomId ->
-                                            navController.navigate("chatScreen/$CRRoomId/$roomId/true"){
+                                            navController.navigate("chatScreen/$CRRoomId/$roomId/true/false"){
                                                 popUpTo("inviteScreen/$CRRoomId/true") {inclusive = true}
                                             }
                                         }
@@ -170,7 +170,7 @@ import com.google.firebase.auth.FirebaseAuth
                                             memberIds = selectedUsers.map { it.userId },
                                             roomName = theRoomName
                                         ){ roomId ->
-                                            navController.navigate("chatScreen/$CRRoomId/$roomId/false"){
+                                            navController.navigate("chatScreen/$CRRoomId/$roomId/false/false"){
                                                 popUpTo("inviteScreen/$CRRoomId/false") {inclusive = true}
                                             }
                                         }
@@ -436,7 +436,7 @@ fun InviteSelectScreen(
                                 ){ roomId ->
                                     // handle navigation to chat screen
                                     // game = true
-                                    navController.navigate("chatScreen/$CRRoomId/$roomId/true")
+                                    navController.navigate("chatScreen/$CRRoomId/$roomId/true/false")
                                     onCreate()
                                 }
                             } else {
