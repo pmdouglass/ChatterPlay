@@ -23,13 +23,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.UserProfile
 
 @Composable
-fun AllMembersRow(
-    selectedMember: ((UserProfile) -> Unit)? = null,
-    chatRoomMembers: List<UserProfile>,
-    game: Boolean,
-    self: Boolean,
-    navController: NavController
-) {
+fun AllMembersRow(selectedMember: ((UserProfile) -> Unit)? = null, chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
     LazyRow (
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -51,88 +45,8 @@ fun AllMembersRow(
 
     }
 }
-
 @Composable
-fun PersonRow(userProfile: UserProfile, PicSize: Int, txtSize: Int, modifier: Modifier, game: Boolean, self: Boolean, navController: NavController, chatRoomMembers: List<UserProfile>) {
-    /*Row (
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        modifier = modifier
-    ){
-        PersonIcon(imgSize = PicSize, firstName = "Tim", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Clay", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Jason", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Alexandria", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Mammoa", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Daddy", txtSize = txtSize, game = game, self = self, navController = navController)
-        PersonIcon(imgSize = PicSize, firstName = "Timothy", txtSize = txtSize, game = game, self = self, navController = navController)
-
-    }*/
-    LazyRow(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(10.dp)
-    ) {
-        items(chatRoomMembers){ member ->
-            PersonIcon(
-                member = member,
-                clickable = true,
-                game = false,
-                self = false,
-                navController = navController
-            )
-        }
-    }
-}
-
-@Composable
-fun PersonIcon(
-    member: UserProfile,
-    imgSize: Int = 30,
-    txtSize: Int = 10,
-    clickable: Boolean = true,
-    game: Boolean,
-    self: Boolean,
-    navController: NavController
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .padding(10.dp)
-            .clickable {
-                if (clickable){
-                    navController.navigate("profileScreen/${game}/${self}/${member.userId}")
-                }else {
-
-                }
-            },
-        verticalArrangement = Arrangement.Center
-    ){
-        Image(
-            painter = rememberAsyncImagePainter(member.imageUrl),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(imgSize.dp)
-                .clip(CircleShape)
-        )
-        Text(
-            member.fname,
-            fontSize = txtSize.sp
-        )
-
-    }
-}
-
-@Composable
-fun UserProfileIcon(
-    selectedMember: ((UserProfile) -> Unit)? = null,
-    chatMember: UserProfile,
-    imgSize: Int = 30,
-    txtSize: Int = 10,
-    game: Boolean,
-    self: Boolean,
-    navController: NavController
-) {
+fun UserProfileIcon(selectedMember: ((UserProfile) -> Unit)? = null, chatMember: UserProfile, imgSize: Int = 30, txtSize: Int = 10, game: Boolean, self: Boolean, navController: NavController) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

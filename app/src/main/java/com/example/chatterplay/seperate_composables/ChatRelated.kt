@@ -3,14 +3,12 @@ package com.example.chatterplay.seperate_composables
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,12 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -45,14 +40,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.R
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
@@ -61,21 +54,14 @@ import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun ChatLazyColumn(
-    CRRoomId: String,
-    roomId: String,
-    profile: UserProfile,
-    game: Boolean,
-    mainChat: Boolean,
-    viewModel: ChatViewModel = viewModel()
-) {
+fun ChatLazyColumn(crRoomId: String, roomId: String, profile: UserProfile, game: Boolean, mainChat: Boolean, viewModel: ChatViewModel = viewModel()) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
     // Fetch chat messages when roomId or game changes
     LaunchedEffect(roomId, game) {
-        viewModel.fetchChatMessages(CRRoomId = CRRoomId, roomId = roomId, game = game, mainChat = mainChat)
+        viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
     }
 
     // Scroll to bottom when new messages arrive
@@ -114,7 +100,6 @@ fun ChatLazyColumn(
         }
     }
 }
-
 @Composable
 fun UserInfoFooter(profile: UserProfile) {
     Row(
@@ -142,14 +127,8 @@ fun UserInfoFooter(profile: UserProfile) {
         )
     }
 }
-
 @Composable
-fun ChatBubble(
-    message: ChatMessage,
-    image: String,
-    isFromMe: Boolean,
-    previousMessage: ChatMessage?
-) {
+fun ChatBubble(message: ChatMessage, image: String, isFromMe: Boolean, previousMessage: ChatMessage?) {
     val borderRad = 30.dp
     val showProfileImage = previousMessage?.senderId != message.senderId
 
@@ -234,22 +213,15 @@ fun ChatBubble(
     }
 
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatInput(
-    viewModel: ChatViewModel = viewModel(),
-    CRRoomId: String,
-    roomId: String,
-    game: Boolean,
-    mainChat: Boolean
-) {
+fun ChatInput(viewModel: ChatViewModel = viewModel(), crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     Log.d("Debug-Message", "Current user: ${currentUser?.uid}")
     var input by remember { mutableStateOf("") }
 
     fun send(){
         if (input.isNotBlank()) {
-            viewModel.sendMessage(CRRoomId = CRRoomId, roomId = roomId, message = input, game = game, mainChat = mainChat)
+            viewModel.sendMessage(crRoomId = crRoomId, roomId = roomId, message = input, game = game, mainChat = mainChat)
             input = ""
         }
     }
@@ -267,8 +239,9 @@ fun ChatInput(
             modifier = Modifier
                 .weight(1f)
                 .background(Color.White),
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.White,
+            colors = TextFieldDefaults.colors(
+                unfocusedContainerColor = Color.White,
+                focusedContainerColor = Color.White,
                 focusedIndicatorColor = Color.White,
                 unfocusedIndicatorColor = Color.White
             ),
@@ -280,90 +253,10 @@ fun ChatInput(
         IconButton(onClick = {
             send()
         }) {
-            Icon(Icons.Default.Send, contentDescription = "")
+            Icon(Icons.AutoMirrored.Default.Send, contentDescription = "")
         }
 
     }
 
-}
-
-@Composable
-fun ChatBubbleMock(game: Boolean, isFromMe: Boolean = false) {
-    Row (
-        verticalAlignment = Alignment.Top,
-        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
-        modifier = Modifier
-            .fillMaxWidth()
-    ){
-        if (!isFromMe){
-            Image(
-                painter = painterResource(id = R.drawable.cool_neon),
-                contentDescription =null,
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(CircleShape)
-            )
-        }
-        Spacer(modifier = Modifier.width(6.dp))
-        Column (
-            modifier = Modifier
-                .width(275.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(
-                    if (isFromMe)
-                        CRAppTheme.colorScheme.primary
-                    else if (game)
-                        CRAppTheme.colorScheme.onGameBackground
-                    else
-                        CRAppTheme.colorScheme.background
-
-                )
-                .border(
-                    width = if (isFromMe) 2.dp else 0.dp,
-                    color = if (isFromMe) CRAppTheme.colorScheme.highlight else Color.Transparent,
-                    shape = RoundedCornerShape(15.dp)
-                )
-                .padding(6.dp)
-        ){
-            Column {
-                if (!isFromMe){
-                    Text("Tim C",
-                        style = CRAppTheme.typography.titleMedium
-                    )
-                }
-                Text(text = "I've been using your app nonstop, and I can't believe how intuitive and visually appealing it is—every detail seems so thoughtfully crafted, making each feature not just functional but also a joy to use, which is rare to find these days!",
-                    style = CRAppTheme.typography.bodyLarge,
-                    modifier = Modifier
-                        .padding(start = 10.dp, end = 10.dp))
-            }
-        }
-
-
-    }
-}
-
-@Composable
-fun BottomInputBar() {
-
-    var input by remember { mutableStateOf("")}
-
-    Row (
-        modifier = Modifier.fillMaxWidth()
-    ){
-        OutlinedTextField(
-            value = input,
-            onValueChange = { input = it},
-            modifier = Modifier
-                .weight(1f)
-                .height(50.dp)
-                .background(Color.White)
-        )
-        IconButton(onClick = { /*TODO*/ },
-            modifier = Modifier
-                .background(Color.Blue)
-                .height(50.dp)) {
-            Icon(Icons.Default.Send, contentDescription = "" )
-        }
-    }
 }
 

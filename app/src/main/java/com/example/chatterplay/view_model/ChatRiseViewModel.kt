@@ -21,9 +21,9 @@ class ChatRiseViewModel: ViewModel() {
 
 
 
-    suspend fun getUserProfile(CRRoomId: String){
+    suspend fun getUserProfile(crRoomId: String){
         viewModelScope.launch {
-            val profile = chatRepository.getUserProfile(CRRoomId, userId)
+            val profile = chatRepository.getUserProfile(crRoomId, userId)
             _userProfile.value = profile
         }
     }

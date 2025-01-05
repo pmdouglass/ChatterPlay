@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -50,8 +49,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.UserProfile
@@ -70,7 +69,7 @@ enum class profileInfo (val string: String){
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ProfileScreen2(
-    CRRoomId: String,
+    crRoomId: String,
     profile: UserProfile,
     game: Boolean,
     self: Boolean,
@@ -86,9 +85,9 @@ fun ProfileScreen2(
 
     Log.d("riser", "other userId is ${profile.userId}")
 
-    LaunchedEffect(CRRoomId){
+    LaunchedEffect(crRoomId){
         Log.d("riser", "inside profileScreen2 launched Effect")
-        viewModel.fetchSingleRoom(CRRoomId, profile.userId) { fetchedRoomId ->
+        viewModel.fetchSingleRoom(crRoomId, profile.userId) { fetchedRoomId ->
             roomId = fetchedRoomId
         }
     }
@@ -215,9 +214,7 @@ fun ProfileScreen2(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
                 ){
-                    if (game){
-
-                    } else {
+                    if (!game){
                         IconButton(
                             onClick = {  },
                             modifier = Modifier
@@ -234,7 +231,7 @@ fun ProfileScreen2(
                     IconButton(
                         onClick = {
                             if (roomId != null){
-                                navController.navigate("chatScreen/${CRRoomId}/${roomId}/true/false")
+                                navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
                             } else {
                                 Log.d("riser", "RoomId is null")
                             }
@@ -312,13 +309,6 @@ fun ProfileScreen2(
     }
 }
 
-@Composable
-fun ProfileSelection(
-
-){
-
-}
-
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditInfo(
@@ -346,10 +336,7 @@ fun EditInfo(
                             else -> newValue
                         }
                     },
-                    keyboardOptions = when (title) {
-                        profileInfo.age -> KeyboardOptions(keyboardType = KeyboardType.Number)
-                        else -> KeyboardOptions.Default
-                    },
+                    keyboardOptions = KeyboardOptions.Default,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
@@ -384,7 +371,7 @@ fun EditInfo(
                             .fillMaxWidth()
                             .border(
                                 2.dp,
-                                if (game) Color.LightGray else Color.Black,
+                                Color.Black,
                                 RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
                             )
                             .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
@@ -394,7 +381,6 @@ fun EditInfo(
             profileInfo.age -> {
                 DateDropDown(age = true, game = game){selected -> editInput = selected}
             }
-            else -> {}
         }
 
     }
