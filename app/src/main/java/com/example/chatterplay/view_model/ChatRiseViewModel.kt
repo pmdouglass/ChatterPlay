@@ -7,9 +7,7 @@ import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
-import java.lang.IllegalStateException
 
 class ChatRiseViewModel: ViewModel() {
     private val chatRepository = ChatRiseRepository()
