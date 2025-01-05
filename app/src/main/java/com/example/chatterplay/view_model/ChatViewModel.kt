@@ -61,6 +61,8 @@ class ChatViewModel: ViewModel() {
     val isUploading: State<Boolean> = _isUploading
     private val _allUsers = MutableStateFlow<List<UserProfile>>(emptyList())
     val allUsers: StateFlow<List<UserProfile>> get() = _allUsers
+    private val _allRisers = MutableStateFlow<List<UserProfile>>(emptyList())
+    val allRisers: StateFlow<List<UserProfile>> get() = _allRisers
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages
     private val _fetchedMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
@@ -71,6 +73,8 @@ class ChatViewModel: ViewModel() {
     val chatRoomMembersCount: StateFlow<Int> get() = _chatRoomMembersCount
     private val _allChatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
     val allChatRooms: StateFlow<List<ChatRoom>>  = _allChatRooms
+    private val _allRiserRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
+    val allRiserRooms: StateFlow<List<ChatRoom>>  = _allRiserRooms
     private val _roomInfo = MutableStateFlow<ChatRoom?>(null)
     val roomInfo: StateFlow<ChatRoom?> get() = _roomInfo
     private val _usersStatus = MutableStateFlow<String?>("Unknown")
@@ -155,6 +159,22 @@ class ChatViewModel: ViewModel() {
             Log.d("ProfileViewModel", "Fetched ${filterUsers.size} users")
         }
     }
+    suspend fun getAllRisers(CRRoomId: String) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        viewModelScope.launch {
+            _userState.value = UserState.Loading
+            try {
+                val users = chatRepository.getAllRisers(CRRoomId = CRRoomId)
+                val filterUsers = users.filter { it.userId != currentUser?.uid }
+                _allRisers.value = filterUsers
+                Log.d("Risers", "Fetched ${filterUsers.size} users")
+            }catch (e: Exception){
+                _userState.value = UserState.Error("Error fetching ${e.message}")
+            }
+
+        }
+    }
+
 
     fun createAndInviteToChatRoom(CRRoomId: String, memberIds: List<String>, roomName: String, onRoomCreated: (String) -> Unit){
         viewModelScope.launch {
@@ -174,6 +194,16 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -265,6 +295,45 @@ class ChatViewModel: ViewModel() {
                     }
                 }
         }
+    }
+    private var isListenerAdded = false
+    fun fetchAllRiserRooms(CRRoomId: String) {
+        if (isListenerAdded) return
+        isListenerAdded = true
+
+        Log.d("Riser", "Attempting - fet all riser rooms")
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        currentUser?.let { user ->
+            chatRepository.getRiserRoom().document(CRRoomId).collection("Private Chats")
+                .whereArrayContains("members", user.uid)
+                .addSnapshotListener { snapshot, e ->
+                    if (e != null) {
+                        Log.w("ChatViewModel", "listen failed.", e)
+                        return@addSnapshotListener
+                    }
+
+                    if (snapshot != null) {
+                        Log.d("Riser", "snapshot is not null")
+                        val rooms = snapshot.documents.map { document ->
+                            document.toObject(ChatRoom::class.java)!!
+                        }.filter { room ->
+                            !room.hiddenFor.contains(user.uid)
+                        }.sortedBy { it.lastMessageTimestamp }  // Sort in descending order
+                        _allRiserRooms.value = rooms
+                        Log.d("Riser", "Success - fetchallchatrooms")
+                        Log.d("Riser", "Rooms found ${allRiserRooms.value.size}")
+
+                        /*if (!isUnreadMessageCountFetched) {
+                            fetchUnreadMessageCount()
+                            isUnreadMessageCountFetched = true
+                            Log.d("Test Message", "Success - !isunreadmessagecountfetched")
+
+                        }*/
+                    }
+                }
+        }
+
+
     }
     fun getRoomInfo(CRRoomId: String, roomId: String){
         viewModelScope.launch {

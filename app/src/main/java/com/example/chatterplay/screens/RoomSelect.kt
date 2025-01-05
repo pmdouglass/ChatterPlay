@@ -65,7 +65,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = viewModel()) {
+fun MainRoomSelect(
+    navController: NavController,
+    viewModel: ChatViewModel = viewModel()
+) {
 
 
     val chatRooms by viewModel.allChatRooms.collectAsState()

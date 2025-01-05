@@ -25,7 +25,8 @@ class ChatRepository {
 
 
     fun getChatRooms() = chatRoomsCollection
-    fun getMainChatRoom() = CRGameRoomsCollection
+    fun getRiserRoom() = CRGameRoomsCollection
+
     suspend fun saveUserProfile(
         userId: String,
         userProfile: UserProfile,
@@ -123,6 +124,18 @@ class ChatRepository {
         }
         return userProfiles
     }
+    suspend fun getAllRisers(CRRoomId: String): List<UserProfile> {
+        val userDocuments = CRGameRoomsCollection.document(CRRoomId).collection("Users").get().await()
+        val userProfiles = mutableListOf<UserProfile>()
+
+        for (document in userDocuments.documents){
+            val user = document.toObject(UserProfile::class.java)
+            if (user != null){
+                userProfiles.add(user)
+            }
+        }
+        return userProfiles
+    }
 
 
     suspend fun checkIfChatRoomExists(CRRoomId: String, members: List<String>): String? {
@@ -136,7 +149,7 @@ class ChatRepository {
                 }
             }
         }else {
-            val querySnapshot = chatRoomsCollection
+            val querySnapshot = CRGameRoomsCollection
                 .document(CRRoomId)
                 .collection("Private Chats")
                 .get().await()

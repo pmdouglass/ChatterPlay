@@ -2,8 +2,6 @@ package com.example.chatterplay.view_model
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +16,7 @@ class RoomCreationViewModel: ViewModel(){
     private val userRepository = RoomCreateRepository()
     // User state flow ("NotPending", "Pending", "InGame")
     private val _userState = MutableStateFlow<String?>("NotPending")
-    val userState: StateFlow<String?> = _userState
+    val userStatus: StateFlow<String?> = _userState
 
     // Room readiness flow
     private val _roomReady = MutableStateFlow(false)

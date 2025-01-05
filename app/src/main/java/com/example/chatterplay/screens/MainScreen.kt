@@ -100,6 +100,7 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
         "null" to Icons.Default.ImageAspectRatio
     )
     var selectedTabindex by remember { mutableStateOf(0) }
+    var invite by remember { mutableStateOf(false)}
 
     LaunchedEffect(CRRoomId){
         viewModel.fetchChatRoomMembers(roomId = CRRoomId, game = true)
@@ -108,12 +109,33 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
     RightSideModalDrawer(
         drawerState  = drawerState,
         drawerContent = {
-                        PrivateDrawerRoomList(
-                            onTap = { coroutineScope.launch { drawerState.close() } },
-                            onLongPress = { /*TODO*/ },
-                            navController = navController
-                        )
+            when {
+                invite -> {
+                    InviteSelectScreen(
+                        CRRoomId = CRRoomId,
+                        game = true,
+                        onBack = {invite = false},
+                        onCreate = {
+                            coroutineScope.launch { drawerState.close() }
+                            invite = false
+                                   },
+                        viewModel = ChatViewModel(),
+                        navController = navController
+                    )
+                }
+                else -> {
+                    PrivateDrawerRoomList(
+                        CRRoomId = CRRoomId,
+                        onInvite = {invite = true},
+                        onTap = { coroutineScope.launch { drawerState.close() } },
+                        onLongPress = { /*TODO*/ },
+                        navController = navController
+                    )
+                }
+            }
+
         },
+        reset = {invite = false},
         content = {
             Scaffold(
                 topBar = {
@@ -170,6 +192,11 @@ fun MainScreen(CRRoomId: String, navController: NavController, viewModel: ChatVi
                                     isEditable = false
                                 )
                             }
+                            2 -> {
+
+                            }
+                            3 -> {
+                                                            }
                             else -> {}
                         }
 
@@ -347,11 +374,14 @@ fun ChatRiseScreen(CRRoomId: String, navController: NavController, viewModel: Ch
         drawerState  = drawerState,
         drawerContent = {
             PrivateDrawerRoomList(
+                CRRoomId = CRRoomId,
+                onInvite = {},
                 onTap = { coroutineScope.launch { drawerState.close() } },
                 onLongPress = { /*TODO*/ },
                 navController = navController
             )
         },
+        reset = {},
         content = {
             Scaffold(
                 topBar = {
