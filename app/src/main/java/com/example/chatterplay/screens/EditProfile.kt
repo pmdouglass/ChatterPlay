@@ -446,15 +446,3 @@ fun EditImageDialog(
         }
     }
 }
-
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Preview
-@Composable
-fun testeditscreen() {
-    CRAppTheme {
-        Surface {
-            EditProfileScreen(navController = rememberNavController())
-        }
-    }
-}
