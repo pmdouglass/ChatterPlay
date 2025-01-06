@@ -21,13 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -45,7 +46,36 @@ import com.example.chatterplay.R
 import com.example.chatterplay.ui.theme.CRAppTheme
 
 @Composable
-fun RankingScreen(memberCount: Int) {
+fun RankingScreen(
+    rankMode: Boolean,
+    members: Int,
+){
+    Column(
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.DarkGray)
+    ) {
+        val memberCount = if (rankMode) members else members+1
+        Text("Here is where you will rank everyone, do this nmbvvhjvbhgfxhgjb mn jb jh bkjbkjhjbhgc hjjh vhj and that slide here tap there",
+            style = CRAppTheme.typography.T4,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .padding(20.dp))
+        HorizontalDivider()
+        Ranking(
+            rankMode = rankMode,
+            memberCount = memberCount
+        )
+    }
+}
+@Composable
+fun Ranking(
+    memberCount: Int,
+    rankMode: Boolean
+) {
     val imageResources = listOf(
         R.drawable.anonymous,
         R.drawable.account_select_person,
@@ -83,7 +113,8 @@ fun RankingScreen(memberCount: Int) {
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            LeftRankSelectRow(
+            CurrentPlace(
+                rankMode = rankMode,
                 memberCount = memberCount,
                 selectedRiser = selectedRisers,
                 selectedImage = selectedImage,
@@ -93,20 +124,21 @@ fun RankingScreen(memberCount: Int) {
                 swapWithLeftIndex = swapWithLeftIndex,
                 isSwapWithRightMode = isSwapWithRightMode
             )
-            Spacer(modifier = Modifier.width(100.dp))
-
-            RightRankSelectRow(
-                memberCount = memberCount,
-                selectedRiser = selectedRisers,
-                selectedAction = selectedAction,
-                selectedImage = selectedImage,
-                visibleState = visibleState,
-                leftImages = leftImages,
-                isSwapWithRightMode = isSwapWithRightMode,
-                swapWithRightIndex = swapWithRightIndex,
-                isSwapWithLeftMode = isSwapWithLeftMode,
-                swapWithLeftIndex = swapWithLeftIndex
-            )
+            if (rankMode){
+                Spacer(modifier = Modifier.width(50.dp))
+                NewPlace(
+                    memberCount = memberCount,
+                    selectedRiser = selectedRisers,
+                    selectedAction = selectedAction,
+                    selectedImage = selectedImage,
+                    visibleState = visibleState,
+                    leftImages = leftImages,
+                    isSwapWithRightMode = isSwapWithRightMode,
+                    swapWithRightIndex = swapWithRightIndex,
+                    isSwapWithLeftMode = isSwapWithLeftMode,
+                    swapWithLeftIndex = swapWithLeftIndex
+                )
+            }
         }
         Box(
             modifier = Modifier
@@ -183,8 +215,9 @@ fun RankingScreen(memberCount: Int) {
 }
 
 @Composable
-fun LeftRankSelectRow(
+fun CurrentPlace(
     memberCount: Int,
+    rankMode: Boolean,
     selectedRiser: MutableList<Int?>,
     selectedImage: MutableState<Int?>,
     leftImages: MutableList<Int?>,
@@ -212,22 +245,56 @@ fun LeftRankSelectRow(
         modifier = Modifier
             .fillMaxHeight()
     ) {
+        Text(
+            "Current",
+            style = CRAppTheme.typography.H2,
+            color = Color.White
+        )
         repeat(memberCount) { index ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ){
-                if (visibleState[index] && leftImages[index] != null) {
-                    Image(
-                        painter = painterResource(leftImages[index]!!),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                            .clickable(
+            Row (
+                /*modifier = Modifier
+                    .then(if (rankMode){
+                        Modifier.clickable(
+                            enabled = !isSwapWithRightMode.value
+                        ){
+                            if (isSwapWithLeftMode.value && swapWithLeftIndex.value != null){
+                                val rightIndex = swapWithLeftIndex.value!!
+                                val temp = leftImages[index]
+                                leftImages[index] = selectedRiser[rightIndex]
+                                selectedRiser[rightIndex] = temp
+
+                                isSwapWithLeftMode.value = false
+                                swapWithLeftIndex.value = null
+                                selectedImage.value = null
+                                return@clickable
+                            }
+
+                            val emptySlotIndex = selectedRiser.indexOfFirst { it == null }
+                            visibleState[index] = false
+                            if (emptySlotIndex != -1){
+                                selectedRiser[emptySlotIndex] = leftImages[index]
+                                leftImages[index] = null
+                            }
+                        }
+                    } else {
+                        Modifier
+                    })
+                    .then(if (!rankMode){
+                        if (index == 0 || index == 1){
+                            Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                        } else {
+                            Modifier
+                        }
+                    } else {
+                        Modifier
+                    })*/
+                modifier = Modifier
+                    .let { baseModifier ->
+                        if (rankMode) {
+                            baseModifier.clickable(
                                 enabled = !isSwapWithRightMode.value
-                            ){
-                                if (isSwapWithLeftMode.value && swapWithLeftIndex.value != null){
+                            ) {
+                                if (isSwapWithLeftMode.value && swapWithLeftIndex.value != null) {
                                     val rightIndex = swapWithLeftIndex.value!!
                                     val temp = leftImages[index]
                                     leftImages[index] = selectedRiser[rightIndex]
@@ -241,21 +308,48 @@ fun LeftRankSelectRow(
 
                                 val emptySlotIndex = selectedRiser.indexOfFirst { it == null }
                                 visibleState[index] = false
-                                if (emptySlotIndex != -1){
+                                if (emptySlotIndex != -1) {
                                     selectedRiser[emptySlotIndex] = leftImages[index]
                                     leftImages[index] = null
                                 }
                             }
-                    )
-                    Text(names[index], color = Color.White)
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, Color.Gray, CircleShape)
-                    )
-                    Text("")
+                        } else {
+                            baseModifier
+                        }
+                    }
+                    .let { baseModifier ->
+                        if (!rankMode && (index == 0 || index == 1)) {
+                            baseModifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                        } else {
+                            baseModifier
+                        }
+                    }
+
+            ){
+                Text(getOrdinal(index + 1),
+                    color = Color.White)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ){
+                    if (visibleState[index] && leftImages[index] != null) {
+                        Image(
+                            painter = painterResource(leftImages[index]!!),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                        )
+                        Text(names[index], color = Color.White)
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Gray, CircleShape)
+                        )
+                        Text("")
+                    }
                 }
             }
         }
@@ -263,7 +357,7 @@ fun LeftRankSelectRow(
 }
 
 @Composable
-fun RightRankSelectRow(
+fun NewPlace(
     memberCount: Int,
     selectedRiser: MutableList<Int?>,
     selectedAction: MutableState<Int?>,
@@ -281,11 +375,20 @@ fun RightRankSelectRow(
         modifier = Modifier
             .fillMaxHeight()
     ) {
+        Text(
+            "New",
+            style = CRAppTheme.typography.H2,
+            color = Color.White
+        )
         repeat(memberCount) { index ->
             val imageRes = selectedRiser.getOrNull(index)
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Row (
                 modifier = Modifier
+                    .then(if (index == 0 || index == 1){
+                        Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                    } else {
+                        Modifier
+                    })
                     .clickable (
                         enabled = !isSwapWithLeftMode.value
                     ) {
@@ -303,26 +406,32 @@ fun RightRankSelectRow(
                             selectedImage.value = imageRes
                         }
                     }
-            ) {
+            ){
                 Text(getOrdinal(index + 1), color = Color.White, modifier = Modifier.padding(8.dp))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
 
-                if (imageRes != null){
-                    Image(
-                        painter = painterResource(imageRes),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, Color.Black, CircleShape)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(60.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, Color.Black, CircleShape)
-                    )
+                ) {
+                    if (imageRes != null){
+                        Image(
+                            painter = painterResource(imageRes),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Black, CircleShape)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Black, CircleShape)
+                        )
+                    }
+                    Text("")
                 }
             }
         }
@@ -447,13 +556,10 @@ fun getOrdinal(number: Int): String {
 fun testRank(){
     CRAppTheme{
         Surface {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.DarkGray)
-            ){
-                RankingScreen(memberCount = 7)
-            }
+            RankingScreen(
+                rankMode = false,
+                members = 7
+            )
         }
     }
 }
