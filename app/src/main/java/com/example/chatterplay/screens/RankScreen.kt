@@ -119,7 +119,7 @@ fun RankScreen() {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .offset(y = -100.dp)
+                        .offset(y = (-100).dp)
                         .size(70.dp)
                         .clip(CircleShape)
                         .background(Color.White)
