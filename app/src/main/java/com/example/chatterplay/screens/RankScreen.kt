@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -43,7 +44,7 @@ import com.example.chatterplay.R
 import com.example.chatterplay.ui.theme.CRAppTheme
 
 @Composable
-fun RankScreen() {
+fun RankScreen(memberCount: Int) {
     val imageResources = listOf(
         R.drawable.anonymous,
         R.drawable.account_select_person,
@@ -51,18 +52,23 @@ fun RankScreen() {
         R.drawable.account_select_person2,
         R.drawable.cool_purple,
         R.drawable.person_sillouette,
-        R.drawable.pic4
+        R.drawable.pic4,
+        R.drawable.ic_launcher_background,
+        R.drawable.blue_purple,
+        R.drawable.waiting
     )
-    val selectedRisers = remember { mutableStateListOf<Int?>().apply { repeat(7) {add(null)} }}
-    val leftImages = remember { mutableStateListOf<Int?>().apply { repeat(7) {addAll(imageResources)} }}
+    val selectedRisers = remember { mutableStateListOf<Int?>().apply { repeat(memberCount) {add(null)} }}
+    val leftImages = remember { mutableStateListOf<Int?>().apply { repeat(memberCount) {addAll(imageResources)} }}
     val selectedAction = remember { mutableStateOf<Int?>(null)}
-    val visibleState = remember { mutableStateListOf(*Array(7) {true}) }
-    val isSwapWithRightMode = remember { mutableStateOf(false) } // Track swap mode
-    val swapWithRightIndex = remember { mutableStateOf<Int?>(null) } // Store index of first selected image
+    val visibleState = remember { mutableStateListOf(*Array(memberCount) {true}) }
+    val isSwapWithRightMode = remember { mutableStateOf(false) }
+    val swapWithRightIndex = remember { mutableStateOf<Int?>(null) }
     val isSwapWithLeftMode = remember { mutableStateOf(false) }
     val swapWithLeftIndex = remember { mutableStateOf<Int?>(null) }
+    val isRightSideComplete = remember { mutableStateOf(false)}
 
 
+    isRightSideComplete.value = selectedRisers.all { it != null }
 
 
     Box(
@@ -76,6 +82,7 @@ fun RankScreen() {
                 .fillMaxSize()
         ) {
             LeftRankSelectRow(
+                memberCount = memberCount,
                 selectedRiser = selectedRisers,
                 leftImages = leftImages,
                 visibleState = visibleState,
@@ -86,6 +93,7 @@ fun RankScreen() {
             Spacer(modifier = Modifier.width(100.dp))
 
             RightRankSelectRow(
+                memberCount = memberCount,
                 selectedRiser = selectedRisers,
                 selectedAction = selectedAction,
                 visibleState = visibleState,
@@ -119,7 +127,7 @@ fun RankScreen() {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .offset(y = (-100).dp)
+                        .offset(y = (-200).dp)
                         .size(70.dp)
                         .clip(CircleShape)
                         .background(Color.White)
@@ -140,6 +148,17 @@ fun RankScreen() {
                     )
                 }
             }
+            if (isRightSideComplete.value) {
+                Button(
+                    onClick = {},
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .offset(y = (-75).dp)
+                    ){
+                    Text("Finalize",
+                        style = CRAppTheme.typography.H3)
+                }
+            }
         }
 
     }
@@ -147,6 +166,7 @@ fun RankScreen() {
 
 @Composable
 fun LeftRankSelectRow(
+    memberCount: Int,
     selectedRiser: MutableList<Int?>,
     leftImages: MutableList<Int?>,
     visibleState: MutableList<Boolean>,
@@ -161,7 +181,10 @@ fun LeftRankSelectRow(
         "Robert",
         "Tom",
         "Dave",
-        "Hillary"
+        "Hillary",
+        "Duff",
+        "Macguire",
+        "Timothy"
     )
 
     Column(
@@ -170,7 +193,7 @@ fun LeftRankSelectRow(
         modifier = Modifier
             .fillMaxHeight()
     ) {
-        repeat(7) { index ->
+        repeat(memberCount) { index ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ){
@@ -221,6 +244,7 @@ fun LeftRankSelectRow(
 
 @Composable
 fun RightRankSelectRow(
+    memberCount: Int,
     selectedRiser: MutableList<Int?>,
     selectedAction: MutableState<Int?>,
     visibleState: MutableList<Boolean>,
@@ -236,7 +260,7 @@ fun RightRankSelectRow(
         modifier = Modifier
             .fillMaxHeight()
     ) {
-        repeat(7) { index ->
+        repeat(memberCount) { index ->
             val imageRes = selectedRiser.getOrNull(index)
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -381,7 +405,7 @@ fun <T> MutableList<T>.swap(index1: Int, index2: Int){
 fun testRank(){
     CRAppTheme{
         Surface {
-            RankScreen()
+            RankScreen(memberCount = 7)
         }
     }
 }
