@@ -167,7 +167,10 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
 
                             }
                             3 -> {
-                                                            }
+                                RankingScreen(
+                                    memberCount = 7
+                                )
+                            }
                             else -> {}
                         }
 

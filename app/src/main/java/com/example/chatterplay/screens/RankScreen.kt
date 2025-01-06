@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,7 +45,7 @@ import com.example.chatterplay.R
 import com.example.chatterplay.ui.theme.CRAppTheme
 
 @Composable
-fun RankScreen(memberCount: Int) {
+fun RankingScreen(memberCount: Int) {
     val imageResources = listOf(
         R.drawable.anonymous,
         R.drawable.account_select_person,
@@ -66,6 +67,7 @@ fun RankScreen(memberCount: Int) {
     val isSwapWithLeftMode = remember { mutableStateOf(false) }
     val swapWithLeftIndex = remember { mutableStateOf<Int?>(null) }
     val isRightSideComplete = remember { mutableStateOf(false)}
+    val selectedImage = remember { mutableStateOf<Int?>(null)}
 
 
     isRightSideComplete.value = selectedRisers.all { it != null }
@@ -84,6 +86,7 @@ fun RankScreen(memberCount: Int) {
             LeftRankSelectRow(
                 memberCount = memberCount,
                 selectedRiser = selectedRisers,
+                selectedImage = selectedImage,
                 leftImages = leftImages,
                 visibleState = visibleState,
                 isSwapWithLeftMode = isSwapWithLeftMode,
@@ -96,6 +99,7 @@ fun RankScreen(memberCount: Int) {
                 memberCount = memberCount,
                 selectedRiser = selectedRisers,
                 selectedAction = selectedAction,
+                selectedImage = selectedImage,
                 visibleState = visibleState,
                 leftImages = leftImages,
                 isSwapWithRightMode = isSwapWithRightMode,
@@ -137,6 +141,7 @@ fun RankScreen(memberCount: Int) {
                             isSwapWithRightMode.value = false
                             swapWithLeftIndex.value = null
                             swapWithRightIndex.value = null
+                            selectedImage.value = null
                         }
                 ){
                     Icon(
@@ -159,6 +164,19 @@ fun RankScreen(memberCount: Int) {
                         style = CRAppTheme.typography.H3)
                 }
             }
+            if (selectedImage.value != null /*&& (isSwapWithLeftMode.value || isSwapWithRightMode.value)*/){
+                // display Selected Image until choice is made
+                Image(
+                    painter = painterResource(selectedImage.value!!),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(125.dp)
+                        .clip(CircleShape)
+                        .border(2.dp, Color.Black, CircleShape)
+                )
+            }
         }
 
     }
@@ -168,6 +186,7 @@ fun RankScreen(memberCount: Int) {
 fun LeftRankSelectRow(
     memberCount: Int,
     selectedRiser: MutableList<Int?>,
+    selectedImage: MutableState<Int?>,
     leftImages: MutableList<Int?>,
     visibleState: MutableList<Boolean>,
     isSwapWithLeftMode: MutableState<Boolean>,
@@ -216,6 +235,7 @@ fun LeftRankSelectRow(
 
                                     isSwapWithLeftMode.value = false
                                     swapWithLeftIndex.value = null
+                                    selectedImage.value = null
                                     return@clickable
                                 }
 
@@ -227,7 +247,7 @@ fun LeftRankSelectRow(
                                 }
                             }
                     )
-                    Text(names[index])
+                    Text(names[index], color = Color.White)
                 } else {
                     Box(
                         modifier = Modifier
@@ -247,6 +267,7 @@ fun RightRankSelectRow(
     memberCount: Int,
     selectedRiser: MutableList<Int?>,
     selectedAction: MutableState<Int?>,
+    selectedImage: MutableState<Int?>,
     visibleState: MutableList<Boolean>,
     leftImages: MutableList<Int?>,
     isSwapWithRightMode: MutableState<Boolean>,
@@ -273,15 +294,17 @@ fun RightRankSelectRow(
                                 selectedRiser.swap(swapWithRightIndex.value!!, index)
                                 isSwapWithRightMode.value = false
                                 swapWithRightIndex.value = null
+                                selectedImage.value = null
                             }
                         } else if (isSwapWithLeftMode.value && swapWithLeftIndex.value == null){
                             swapWithLeftIndex.value = index
                         } else if (imageRes != null) {
                             selectedAction.value = index
+                            selectedImage.value = imageRes
                         }
                     }
             ) {
-                Text("Rank ${index + 1}", modifier = Modifier.padding(8.dp))
+                Text(getOrdinal(index + 1), color = Color.White, modifier = Modifier.padding(8.dp))
 
                 if (imageRes != null){
                     Image(
@@ -308,7 +331,9 @@ fun RightRankSelectRow(
     // Show selection dialog when an image is clicked
     selectedAction.value?.let { index ->
         ActionDialog(
-            onDismiss = { selectedAction.value = null},
+            onDismiss = {
+                        selectedAction.value = null
+            },
             onChoiceSelected = { choice ->
                 // handle choice action here
                 when (choice) {
@@ -319,6 +344,7 @@ fun RightRankSelectRow(
                             visibleState,
                             leftImages = leftImages
                         )
+                        selectedImage.value = null
                     }
                     2 -> {
                         isSwapWithRightMode.value = true
@@ -328,6 +354,7 @@ fun RightRankSelectRow(
                         isSwapWithLeftMode.value = true
                         swapWithLeftIndex.value = index
                     }
+
                 }
                 selectedAction.value = null
             }
@@ -361,7 +388,9 @@ fun ActionDialog(
                     color = Color.White,
                     modifier = Modifier
                         .padding(10.dp)
-                        .clickable { onChoiceSelected(2) }
+                        .clickable {
+                            onChoiceSelected(2)
+                        }
                 )
                 Spacer(modifier = Modifier.height(100.dp))
                 Text(
@@ -369,7 +398,9 @@ fun ActionDialog(
                     color = Color.White,
                     modifier = Modifier
                         .padding(10.dp)
-                        .clickable { onChoiceSelected(3) }
+                        .clickable {
+                            onChoiceSelected(3)
+                        }
                 )
             }
         }
@@ -400,12 +431,29 @@ fun <T> MutableList<T>.swap(index1: Int, index2: Int){
     this[index1] = this[index2]
     this[index2] = temp
 }
+
+fun getOrdinal(number: Int): String {
+    return when {
+        number % 100 in 11..13 -> "${number}th" // Handle special case for 11th, 12th, 13th
+        number % 10 == 1 -> "${number}st"
+        number % 10 == 2 -> "${number}nd"
+        number % 10 == 3 -> "${number}rd"
+        else -> "${number}th"
+    }
+}
+
 @Preview
 @Composable
 fun testRank(){
     CRAppTheme{
         Surface {
-            RankScreen(memberCount = 7)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.DarkGray)
+            ){
+                RankingScreen(memberCount = 7)
+            }
         }
     }
 }
