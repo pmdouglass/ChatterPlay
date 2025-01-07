@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -48,10 +49,8 @@ import com.example.chatterplay.ui.theme.CRAppTheme
 fun RankingScreen(
     rankMode: Boolean,
     chatRoomMembers: List<UserProfile>,
-    memdfbers: Int,
+    members: Int,
 ){
-    val members = chatRoomMembers.size
-
     Column(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -69,33 +68,21 @@ fun RankingScreen(
         HorizontalDivider()
         Ranking(
             rankMode = rankMode,
-            memberCount = members,
-            chatRoomMembers = chatRoomMembers
+            chatRoomMembers = chatRoomMembers,
+            memberCount = memberCount
+
         )
     }
 }
 @Composable
 fun Ranking(
     memberCount: Int,
-    rankMode: Boolean,
-    chatRoomMembers: List<UserProfile>
+    chatRoomMembers: List<UserProfile>,
+    rankMode: Boolean
 ) {
-    val imageResources = listOf(
-        R.drawable.anonymous,
-        R.drawable.account_select_person,
-        R.drawable.cool_neon,
-        R.drawable.account_select_person2,
-        R.drawable.cool_purple,
-        R.drawable.person_sillouette,
-        R.drawable.pic4,
-        R.drawable.ic_launcher_background,
-        R.drawable.blue_purple,
-        R.drawable.waiting
-    )
-    val rightRisers = remember { mutableStateListOf<UserProfile?>().apply { repeat(chatRoomMembers.size) {add(null)} }}
-    val leftRiser = remember { mutableStateListOf<UserProfile?>().apply {addAll(chatRoomMembers)} }
+    val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(chatRoomMembers.size) {add(null)} }}
+    val leftRiser = remember { mutableStateListOf<UserProfile?>().apply  {addAll(chatRoomMembers)} }
     val selectedAction = remember { mutableStateOf<Int?>(null)}
-    val visibleState = remember { mutableStateListOf(*Array(memberCount) {true}) }
     val isSwapWithRightMode = remember { mutableStateOf(false) }
     val swapWithRightIndex = remember { mutableStateOf<Int?>(null) }
     val isSwapWithLeftMode = remember { mutableStateOf(false) }
@@ -104,7 +91,7 @@ fun Ranking(
     val selectedImage = remember { mutableStateOf<UserProfile?>(null)}
 
 
-    isRightSideComplete.value = rightRisers.all { it != null }
+    isRightSideComplete.value = rightRiser.all { it != null }
 
 
     Box(
@@ -119,11 +106,10 @@ fun Ranking(
         ) {
             CurrentPlace(
                 rankMode = rankMode,
-                chatRoomMembers = chatRoomMembers,
-                leftRiser = leftRiser,
-                rightRiser = rightRisers,
+                memberCount = memberCount,
+                rightRiser = rightRiser,
                 selectedImage = selectedImage,
-                visibleState = visibleState,
+                leftRiser = leftRiser,
                 isSwapWithLeftMode = isSwapWithLeftMode,
                 swapWithLeftIndex = swapWithLeftIndex,
                 isSwapWithRightMode = isSwapWithRightMode
@@ -131,11 +117,11 @@ fun Ranking(
             if (rankMode){
                 Spacer(modifier = Modifier.width(50.dp))
                 NewPlace(
-                    leftRiser = leftRiser,
-                    rightRiser = rightRisers,
+                    memberCount = memberCount,
+                    rightRiser = rightRiser,
                     selectedAction = selectedAction,
                     selectedImage = selectedImage,
-                    visibleState = visibleState,
+                    leftRiser = leftRiser,
                     isSwapWithRightMode = isSwapWithRightMode,
                     swapWithRightIndex = swapWithRightIndex,
                     isSwapWithLeftMode = isSwapWithLeftMode,
@@ -194,12 +180,12 @@ fun Ranking(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .offset(y = (-75).dp)
-                    ){
+                ){
                     Text("Finalize",
                         style = CRAppTheme.typography.H3)
                 }
             }
-            if (selectedImage.value != null /*&& (isSwapWithLeftMode.value || isSwapWithRightMode.value)*/){
+            if (selectedImage.value != null){
                 // display Selected Image until choice is made
                 Image(
                     painter = rememberAsyncImagePainter(selectedImage.value?.imageUrl),
@@ -219,12 +205,11 @@ fun Ranking(
 
 @Composable
 fun CurrentPlace(
-    chatRoomMembers: List<UserProfile>,
-    leftRiser: MutableList<UserProfile?>,
+    memberCount: Int,
     rankMode: Boolean,
     rightRiser: MutableList<UserProfile?>,
     selectedImage: MutableState<UserProfile?>,
-    visibleState: MutableList<Boolean>,
+    leftRiser: MutableList<UserProfile?>,
     isSwapWithLeftMode: MutableState<Boolean>,
     swapWithLeftIndex: MutableState<Int?>,
     isSwapWithRightMode: MutableState<Boolean>
@@ -241,7 +226,7 @@ fun CurrentPlace(
             style = CRAppTheme.typography.H2,
             color = Color.White
         )
-        leftRiser.forEachIndexed() { index, member ->
+        leftRiser.forEachIndexed { index, member ->
             Row (
                 modifier = Modifier
                     .let { baseModifier ->
@@ -251,8 +236,9 @@ fun CurrentPlace(
                             ) {
                                 if (isSwapWithLeftMode.value && swapWithLeftIndex.value != null) {
                                     val rightIndex = swapWithLeftIndex.value!!
-                                    rightRiser[rightIndex] = member
-                                    visibleState[index] = true
+                                    val temp = leftRiser[index]
+                                    leftRiser[index] = rightRiser[rightIndex]
+                                    rightRiser[rightIndex] = temp
 
                                     isSwapWithLeftMode.value = false
                                     swapWithLeftIndex.value = null
@@ -261,10 +247,9 @@ fun CurrentPlace(
                                 }
 
                                 val emptySlotIndex = rightRiser.indexOfFirst { it == null }
-                                visibleState[index] = false
                                 if (emptySlotIndex != -1) {
-                                    rightRiser[emptySlotIndex] = member
-                                    visibleState[index] = false
+                                    rightRiser[emptySlotIndex] = leftRiser[index]
+                                    leftRiser[index] = null
                                 }
                             }
                         } else {
@@ -278,15 +263,14 @@ fun CurrentPlace(
                             baseModifier
                         }
                     }
+
             ){
-                if (!rankMode){
-                    Text(getOrdinal(index + 1),
-                        color = Color.White)
-                }
+                Text(getOrdinal(index + 1),
+                    color = Color.White)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ){
-                    if (visibleState[index] && member != null) {
+                    if (leftRiser[index] != null && member != null) {
                         Image(
                             painter = rememberAsyncImagePainter(member.imageUrl),
                             contentDescription = null,
@@ -313,16 +297,16 @@ fun CurrentPlace(
 
 @Composable
 fun NewPlace(
-    leftRiser: MutableList<UserProfile?>,
+    memberCount: Int,
     rightRiser: MutableList<UserProfile?>,
     selectedAction: MutableState<Int?>,
     selectedImage: MutableState<UserProfile?>,
-    visibleState: MutableList<Boolean>,
+    leftRiser: MutableList<UserProfile?>,
     isSwapWithRightMode: MutableState<Boolean>,
     swapWithRightIndex: MutableState<Int?>,
     isSwapWithLeftMode: MutableState<Boolean>,
     swapWithLeftIndex: MutableState<Int?>
-    ) {
+) {
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -335,7 +319,7 @@ fun NewPlace(
             color = Color.White
         )
         rightRiser.forEachIndexed { index, member ->
-            val imageRes = rightRiser.getOrNull(index)
+            //val imageRes = rightRiser.getOrNull(index)
             Row (
                 modifier = Modifier
                     .then(if (index == 0 || index == 1){
@@ -346,18 +330,20 @@ fun NewPlace(
                     .clickable (
                         enabled = !isSwapWithLeftMode.value
                     ) {
-                        if (isSwapWithRightMode.value){
-                            if (swapWithRightIndex.value != null && swapWithRightIndex.value != index){
-                                rightRiser.swap(swapWithRightIndex.value!!, index)
-                                isSwapWithRightMode.value = false
-                                swapWithRightIndex.value = null
-                                selectedImage.value = null
+                        if (member != null){
+                            if (isSwapWithRightMode.value){
+                                if (swapWithRightIndex.value != null && swapWithRightIndex.value != index){
+                                    rightRiser.swap(swapWithRightIndex.value!!, index)
+                                    isSwapWithRightMode.value = false
+                                    swapWithRightIndex.value = null
+                                    selectedImage.value = null
+                                }
+                            } else if (isSwapWithLeftMode.value && swapWithLeftIndex.value == null){
+                                swapWithLeftIndex.value = index
+                            } else {
+                                selectedAction.value = index
+                                selectedImage.value = member
                             }
-                        } else if (isSwapWithLeftMode.value && swapWithLeftIndex.value == null){
-                            swapWithLeftIndex.value = index
-                        } else if (imageRes != null) {
-                            selectedAction.value = index
-                            selectedImage.value = imageRes
                         }
                     }
             ){
@@ -367,7 +353,7 @@ fun NewPlace(
                     modifier = Modifier
 
                 ) {
-                    if (member != null){
+                    if (member != null) {
                         Image(
                             painter = rememberAsyncImagePainter(member.imageUrl),
                             contentDescription = null,
@@ -396,7 +382,6 @@ fun NewPlace(
         ActionDialog(
             onDismiss = {
                 selectedAction.value = null
-                selectedImage.value = null
             },
             onChoiceSelected = { choice ->
                 // handle choice action here
@@ -405,8 +390,7 @@ fun NewPlace(
                         moveToLeftColumn(
                             index,
                             rightRiser,
-                            leftRiser,
-                            visibleState
+                            leftRiser
                         )
                         selectedImage.value = null
                     }
@@ -448,7 +432,7 @@ fun ActionDialog(
                 }
                 Spacer(modifier = Modifier.height(100.dp))
                 Text(
-                    "Switch Places",
+                    "Switch Ranks",
                     color = Color.White,
                     modifier = Modifier
                         .padding(10.dp)
@@ -473,21 +457,20 @@ fun ActionDialog(
 
 fun moveToLeftColumn(
     index: Int,
-    rightRisers: MutableList<UserProfile?>,
-    leftRiser: MutableList<UserProfile?>,
-    visibleState: MutableList<Boolean>
+    rightRiser: MutableList<UserProfile?>,
+    leftRiser: MutableList<UserProfile?>
 ){
-    val member = rightRisers[index]
+    val member = rightRiser[index]
     if (member != null){
         // find first available empty slot on left side
-        val emptySlotIndex = visibleState.indexOfFirst { !it }
+        val emptySlotIndex = leftRiser.indexOfFirst { it == null }
         if (emptySlotIndex != -1){
             // add image to left side
             leftRiser[emptySlotIndex] = member
-            visibleState[emptySlotIndex] = true
+            // remove member from right side
+            rightRiser[index] = null
         }
-        // remove image from right side
-        rightRisers[index] = null
+        return
     }
 }
 fun <T> MutableList<T>.swap(index1: Int, index2: Int){
