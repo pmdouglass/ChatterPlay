@@ -169,7 +169,8 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                             3 -> {
                                 Ranking(
                                     rankMode = true,
-                                    memberCount = 7
+                                    memberCount = 7,
+                                    chatRoomMembers = chatRoomMembers
                                 )
                             }
                             else -> {}
