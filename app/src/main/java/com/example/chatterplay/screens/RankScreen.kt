@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,180 +35,257 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.R
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
+import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.google.firebase.auth.FirebaseAuth
+
+
+sealed class Mode {
+    object ViewMode : Mode()
+    object RankingMode : Mode()
+    object YourRanking: Mode()
+    //object NewRankingMode : Mode()
+}
+
+
 
 @Composable
 fun RankingScreen(
-    rankMode: Boolean,
-    chatRoomMembers: List<UserProfile>,
-    members: Int,
+    crRoomId: String,
+    allChatRoomMembers: List<UserProfile>,
+    crViewModel: ChatRiseViewModel = viewModel()
 ){
-    Column(
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.DarkGray)
-    ) {
-        val memberCount = if (rankMode) members else members+1
-        Text("Here is where you will rank everyone, do this nmbvvhjvbhgfxhgjb mn jb jh bkjbkjhjbhgc hjjh vhj and that slide here tap there",
-            style = CRAppTheme.typography.T4,
-            color = Color.White,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .padding(20.dp))
-        HorizontalDivider()
-        Ranking(
-            rankMode = rankMode,
-            chatRoomMembers = chatRoomMembers,
-            memberCount = memberCount
 
-        )
-    }
-}
-@Composable
-fun Ranking(
-    memberCount: Int,
-    chatRoomMembers: List<UserProfile>,
-    rankMode: Boolean
-) {
+    val currentMode = remember { mutableStateOf(Mode.ViewMode as Mode)}
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(chatRoomMembers.size) {add(null)} }}
-    val leftRiser = remember { mutableStateListOf<UserProfile?>().apply  {addAll(chatRoomMembers)} }
+    val allRisers = remember {
+        mutableStateListOf<UserProfile?>().apply {
+            addAll(allChatRoomMembers)
+        }
+    }
+    val leftRiser = remember {
+        mutableStateListOf<UserProfile?>().apply {
+            addAll(chatRoomMembers)
+        }
+    }
     val selectedAction = remember { mutableStateOf<Int?>(null)}
     val isSwapWithRightMode = remember { mutableStateOf(false) }
     val swapWithRightIndex = remember { mutableStateOf<Int?>(null) }
     val isSwapWithLeftMode = remember { mutableStateOf(false) }
     val swapWithLeftIndex = remember { mutableStateOf<Int?>(null) }
     val isRightSideComplete = remember { mutableStateOf(false)}
+    val isRightSideClickable = remember { mutableStateOf(true)}
     val selectedImage = remember { mutableStateOf<UserProfile?>(null)}
-
 
     isRightSideComplete.value = rightRiser.all { it != null }
 
-
-    Box(
+    Column(
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxSize()
-    ){
-        Row(
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
+            .background(CRAppTheme.colorScheme.onGameBackground)
+    ) {
+        Text(
+            when (currentMode.value){
+                Mode.ViewMode -> {
+                    "Player Ranks"
+                }
+                Mode.RankingMode -> {
+                    "Vote your players"
+                }
+                Mode.YourRanking -> {
+                    "Waiting on Others"
+                }
+                /*Mode.NewRankingMode -> {
+                    "Final Rankings"
+                }*/
+            },
+            style = CRAppTheme.typography.T4,
+            color = Color.White,
+            textAlign = TextAlign.Center,
             modifier = Modifier
-                .fillMaxSize()
-        ) {
-            CurrentPlace(
-                rankMode = rankMode,
-                memberCount = memberCount,
-                rightRiser = rightRiser,
-                selectedImage = selectedImage,
-                leftRiser = leftRiser,
-                isSwapWithLeftMode = isSwapWithLeftMode,
-                swapWithLeftIndex = swapWithLeftIndex,
-                isSwapWithRightMode = isSwapWithRightMode
-            )
-            if (rankMode){
-                Spacer(modifier = Modifier.width(50.dp))
-                NewPlace(
-                    memberCount = memberCount,
-                    rightRiser = rightRiser,
-                    selectedAction = selectedAction,
-                    selectedImage = selectedImage,
-                    leftRiser = leftRiser,
-                    isSwapWithRightMode = isSwapWithRightMode,
-                    swapWithRightIndex = swapWithRightIndex,
-                    isSwapWithLeftMode = isSwapWithLeftMode,
-                    swapWithLeftIndex = swapWithLeftIndex
-                )
-            }
-        }
+                .padding(20.dp))
+        Button(onClick = {currentMode.value = Mode.RankingMode}){Text("Go to Ranking")}
+        HorizontalDivider()
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .then(if (!isSwapWithLeftMode.value && !isSwapWithRightMode.value){
-                    Modifier.background(Color.Transparent)
-                } else {
-                    Modifier.background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                if (isSwapWithLeftMode.value) Color.Transparent else Color.Gray.copy(alpha = 0.8f),
-                                if (isSwapWithRightMode.value) Color.Transparent else Color.Gray.copy(alpha = 0.8f)
-                            ),
-                            startX = 450f,
-                            endX = 850f
-                        )
-                    )
-                }
-                )
         ){
-            if (isSwapWithLeftMode.value || isSwapWithRightMode.value){
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .offset(y = (-200).dp)
-                        .size(70.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                        .border(2.dp, Color.Black, CircleShape)
-                        .clickable {
-                            isSwapWithLeftMode.value = false
-                            isSwapWithRightMode.value = false
-                            swapWithLeftIndex.value = null
-                            swapWithRightIndex.value = null
-                            selectedImage.value = null
-                        }
-                ){
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .size(70.dp)
-                    )
-                }
-            }
-            if (isRightSideComplete.value) {
-                Button(
-                    onClick = {},
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .offset(y = (-75).dp)
-                ){
-                    Text("Finalize",
-                        style = CRAppTheme.typography.H3)
-                }
-            }
-            if (selectedImage.value != null){
-                // display Selected Image until choice is made
-                Image(
-                    painter = rememberAsyncImagePainter(selectedImage.value?.imageUrl),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(125.dp)
-                        .clip(CircleShape)
-                        .border(2.dp, Color.Black, CircleShape)
-                )
-            }
-        }
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                when (currentMode.value) {
+                    Mode.ViewMode -> {
+                        CurrentPlace(
+                            currentMode = currentMode.value,
+                            rightRiser = rightRiser,
+                            selectedImage = selectedImage,
+                            leftRiser = allRisers,
+                            isSwapWithLeftMode = isSwapWithLeftMode,
+                            swapWithLeftIndex = swapWithLeftIndex,
+                            isSwapWithRightMode = isSwapWithRightMode
+                        )
+                    }
 
+
+                    Mode.RankingMode -> {
+                        CurrentPlace(
+                            currentMode = currentMode.value,
+                            rightRiser = rightRiser,
+                            selectedImage = selectedImage,
+                            leftRiser = leftRiser,
+                            isSwapWithLeftMode = isSwapWithLeftMode,
+                            swapWithLeftIndex = swapWithLeftIndex,
+                            isSwapWithRightMode = isSwapWithRightMode
+                        )
+
+                        NewPlace(
+                            rightRiser = rightRiser,
+                            selectedAction = selectedAction,
+                            selectedImage = selectedImage,
+                            leftRiser = leftRiser,
+                            isSwapWithRightMode = isSwapWithRightMode,
+                            swapWithRightIndex = swapWithRightIndex,
+                            isSwapWithLeftMode = isSwapWithLeftMode,
+                            swapWithLeftIndex = swapWithLeftIndex,
+                            isRightSideClickable = isRightSideClickable
+                        )
+                    }
+
+
+                    Mode.YourRanking -> {
+                        NewPlace(
+                            rightRiser = rightRiser,
+                            selectedAction = selectedAction,
+                            selectedImage = selectedImage,
+                            leftRiser = leftRiser,
+                            isSwapWithRightMode = isSwapWithRightMode,
+                            swapWithRightIndex = swapWithRightIndex,
+                            isSwapWithLeftMode = isSwapWithLeftMode,
+                            swapWithLeftIndex = swapWithLeftIndex,
+                            isRightSideClickable = isRightSideClickable
+                        )
+                    }
+                }
+
+
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (!isSwapWithLeftMode.value && !isSwapWithRightMode.value){
+                        Modifier.background(Color.Transparent)
+                    } else {
+                        Modifier.background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    if (isSwapWithLeftMode.value) Color.Transparent else Color.Gray.copy(alpha = 0.8f),
+                                    if (isSwapWithRightMode.value) Color.Transparent else Color.Gray.copy(alpha = 0.8f)
+                                ),
+                                startX = 450f,
+                                endX = 850f
+                            )
+                        )
+                    }
+                    )
+            ){
+                if (isSwapWithLeftMode.value || isSwapWithRightMode.value){
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .offset(y = (-200).dp)
+                            .size(70.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .border(2.dp, Color.Black, CircleShape)
+                            .clickable {
+                                isSwapWithLeftMode.value = false
+                                isSwapWithRightMode.value = false
+                                swapWithLeftIndex.value = null
+                                swapWithRightIndex.value = null
+                                selectedImage.value = null
+                            }
+                    ){
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(70.dp)
+                        )
+                    }
+                }
+
+
+
+
+                if (isRightSideComplete.value && isRightSideClickable.value) {
+                    Button(
+                        onClick = {
+                            finalizeRanking(
+                                crRoomId = crRoomId,
+                                rightRiser = rightRiser,
+                                userId = currentUser?.uid ?: "",
+                                crViewModel = crViewModel
+                            )
+                            isRightSideComplete.value = false
+                            isRightSideClickable.value = false
+                            currentMode.value = Mode.YourRanking
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .offset(y = (-75).dp)
+                    ){
+                        Text("Finalize",
+                            style = CRAppTheme.typography.H3)
+                    }
+                }
+
+
+                if (selectedImage.value != null){
+                    // display Selected Image until choice is made
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .size(125.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, Color.Black, CircleShape)
+                    ){
+                        Image(
+                            painter = rememberAsyncImagePainter(selectedImage.value?.imageUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .fillMaxSize()
+                        )
+                    }
+                }
+            }
+
+        }
     }
 }
 
 @Composable
 fun CurrentPlace(
-    memberCount: Int,
-    rankMode: Boolean,
+    currentMode: Mode,
+    leftRiser: MutableList<UserProfile?>,
     rightRiser: MutableList<UserProfile?>,
     selectedImage: MutableState<UserProfile?>,
-    leftRiser: MutableList<UserProfile?>,
     isSwapWithLeftMode: MutableState<Boolean>,
     swapWithLeftIndex: MutableState<Int?>,
     isSwapWithRightMode: MutableState<Boolean>
@@ -222,7 +298,17 @@ fun CurrentPlace(
             .fillMaxHeight()
     ) {
         Text(
-            "Current",
+            when (currentMode){
+                Mode.ViewMode -> {
+                    "Current"
+                }
+                Mode.RankingMode -> {
+                    "Players"
+                }
+                Mode.YourRanking -> {
+                    "Waiting..."
+                }
+            },
             style = CRAppTheme.typography.H2,
             color = Color.White
         )
@@ -230,7 +316,7 @@ fun CurrentPlace(
             Row (
                 modifier = Modifier
                     .let { baseModifier ->
-                        if (rankMode) {
+                        if (currentMode == Mode.RankingMode) {
                             baseModifier.clickable(
                                 enabled = !isSwapWithRightMode.value
                             ) {
@@ -257,16 +343,19 @@ fun CurrentPlace(
                         }
                     }
                     .let { baseModifier ->
-                        if (!rankMode && (index == 0 || index == 1)) {
+                        if (currentMode == Mode.RankingMode && (index == 0 || index == 1)) {
                             baseModifier.border(2.dp, CRAppTheme.colorScheme.highlight)
                         } else {
                             baseModifier
                         }
                     }
+                    .padding(2.dp)
 
             ){
-                Text(getOrdinal(index + 1),
-                    color = Color.White)
+                if (currentMode == Mode.RankingMode){
+                    Text(getOrdinal(index + 1),
+                        color = Color.White)
+                }
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ){
@@ -297,15 +386,15 @@ fun CurrentPlace(
 
 @Composable
 fun NewPlace(
-    memberCount: Int,
+    leftRiser: MutableList<UserProfile?>,
     rightRiser: MutableList<UserProfile?>,
     selectedAction: MutableState<Int?>,
     selectedImage: MutableState<UserProfile?>,
-    leftRiser: MutableList<UserProfile?>,
     isSwapWithRightMode: MutableState<Boolean>,
     swapWithRightIndex: MutableState<Int?>,
     isSwapWithLeftMode: MutableState<Boolean>,
-    swapWithLeftIndex: MutableState<Int?>
+    swapWithLeftIndex: MutableState<Int?>,
+    isRightSideClickable: MutableState<Boolean>
 ) {
     Column(
         verticalArrangement = Arrangement.SpaceEvenly,
@@ -314,7 +403,7 @@ fun NewPlace(
             .fillMaxHeight()
     ) {
         Text(
-            "New",
+            if (isRightSideClickable.value) "New" else "Your Placement",
             style = CRAppTheme.typography.H2,
             color = Color.White
         )
@@ -328,7 +417,7 @@ fun NewPlace(
                         Modifier
                     })
                     .clickable (
-                        enabled = !isSwapWithLeftMode.value
+                        enabled = !isSwapWithLeftMode.value && isRightSideClickable.value
                     ) {
                         if (member != null){
                             if (isSwapWithRightMode.value){
@@ -382,6 +471,7 @@ fun NewPlace(
         ActionDialog(
             onDismiss = {
                 selectedAction.value = null
+                selectedImage.value = null
             },
             onChoiceSelected = { choice ->
                 // handle choice action here
@@ -486,5 +576,26 @@ fun getOrdinal(number: Int): String {
         number % 10 == 2 -> "${number}nd"
         number % 10 == 3 -> "${number}rd"
         else -> "${number}th"
+    }
+}
+
+
+fun finalizeRanking(
+    crRoomId: String,
+    rightRiser: List<UserProfile?>,
+    userId: String,
+    crViewModel: ChatRiseViewModel
+){
+    val sortedMembers = rightRiser.filterNotNull().reversed()
+    var points = 5 // increments of 5
+
+    sortedMembers.forEachIndexed { index, member ->
+        crViewModel.saveRanking(
+            crRoomId = crRoomId,
+            memberId = member.userId,
+            userId = userId,
+            newPoints = points
+        )
+        points += 5
     }
 }

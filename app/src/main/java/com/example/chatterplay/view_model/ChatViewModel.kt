@@ -67,8 +67,8 @@ class ChatViewModel: ViewModel() {
     val messages: StateFlow<List<ChatMessage>> = _messages
     private val _fetchedMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val fetchedMessages: StateFlow<List<ChatMessage>> = _fetchedMessages
-    private val _chatRoomMembers = MutableStateFlow<List<UserProfile>>(emptyList())
-    val chatRoomMembers: StateFlow<List<UserProfile>> get() = _chatRoomMembers
+    private val _allChatRoomMembers = MutableStateFlow<List<UserProfile>>(emptyList())
+    val allChatRoomMembers: StateFlow<List<UserProfile>> get() = _allChatRoomMembers
     private val _chatRoomMembersCount = MutableStateFlow<Int>(0)
     val chatRoomMembersCount: StateFlow<Int> get() = _chatRoomMembersCount
     private val _allChatRooms = MutableStateFlow<List<ChatRoom>>(emptyList())
@@ -232,8 +232,8 @@ class ChatViewModel: ViewModel() {
     fun fetchChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
         val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
-            val members = chatRepository.getChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat).filter { it.userId != currentUser?.uid }
-            _chatRoomMembers.value = members
+            val members = chatRepository.getChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
+            _allChatRoomMembers.value = members
             Log.d("riser", "members = $members")
             _userState.value = UserState.Success("Success fetching Members")
         }

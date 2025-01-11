@@ -47,7 +47,7 @@ fun ChattingScreen(
 ) {
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val chatRoom by viewModel.roomInfo.collectAsState()
-    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
+    val chatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val membersCount by viewModel.chatRoomMembersCount.collectAsState()
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
 

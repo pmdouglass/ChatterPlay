@@ -1,5 +1,6 @@
 package com.example.chatterplay.view_model
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.data_class.UserProfile
@@ -23,6 +24,12 @@ class ChatRiseViewModel: ViewModel() {
         viewModelScope.launch {
             val profile = chatRepository.getUserProfile(crRoomId, userId)
             _userProfile.value = profile
+        }
+    }
+    fun saveRanking(crRoomId: String, memberId: String, userId: String, newPoints: Int){
+        viewModelScope.launch {
+            Log.d("ViewModel", "Saving ranking system")
+            chatRepository.saveRanking(crRoomId, memberId, userId, newPoints)
         }
     }
 }

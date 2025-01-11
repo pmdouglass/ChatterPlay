@@ -98,7 +98,11 @@ fun ProfileScreen2(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier
             .fillMaxSize()
-            .background(if (game) CRAppTheme.colorScheme.onGameBackground else CRAppTheme.colorScheme.onBackground)
+            .background(
+                if (game)
+                    CRAppTheme.colorScheme.onGameBackground
+                else CRAppTheme
+                    .colorScheme.onBackground)
             .padding(10.dp)
             .verticalScroll(rememberScrollState())
     ){
