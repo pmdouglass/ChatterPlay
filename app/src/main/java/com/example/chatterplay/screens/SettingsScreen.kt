@@ -101,7 +101,7 @@ fun SettingsScreen(game: Boolean, navController: NavController) {
                     elevation = CardDefaults.cardElevation(8.dp)
                 ){
                     SettingsInfoRow(
-                        Select = true,
+                        select = true,
                         icon = Icons.Default.Person,
                         contentDescription = null,
                         arrow = true,
@@ -109,7 +109,7 @@ fun SettingsScreen(game: Boolean, navController: NavController) {
                         onClick = { navController.navigate("editPersonalInfo") }
                     )
                     SettingsInfoRow(
-                        Select = true,
+                        select = true,
                         icon = Icons.Default.ManageAccounts,
                         contentDescription = null,
                         arrow = true,
@@ -134,7 +134,7 @@ fun SettingsScreen(game: Boolean, navController: NavController) {
                     elevation = CardDefaults.cardElevation(8.dp)
                 ){
                     SettingsInfoRow(
-                        Select = true,
+                        select = true,
                         icon = Icons.Default.Info,
                         contentDescription = null,
                         title = "Terms of Service",
@@ -156,7 +156,7 @@ fun SettingsScreen(game: Boolean, navController: NavController) {
                     elevation = CardDefaults.cardElevation(8.dp)
                 ){
                     SettingsInfoRow(
-                        Select = true,
+                        select = true,
                         icon = Icons.AutoMirrored.Default.Logout,
                         contentDescription = null,
                         title = "Log out",

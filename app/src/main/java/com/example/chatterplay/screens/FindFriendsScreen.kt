@@ -108,19 +108,19 @@ fun FindFriends(navController: NavController) {
                     // Following
                     0 -> {
                         friends.forEach { friend ->
-                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.none.string)
+                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.None.string)
                         }
                     }
                     // Followers
                     1 -> {
                         friends.forEach { friend ->
-                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.follow.string)
+                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.Follow.string)
                         }
                     }
                     // Friends
                     2 -> {
                         friends.forEach { friend ->
-                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.check.string)
+                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.Check.string)
                         }
                     }
                     else -> {

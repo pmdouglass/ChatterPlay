@@ -25,7 +25,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,15 +49,6 @@ import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 
-sealed class Mode {
-    object ViewMode : Mode()
-    object RankingMode : Mode()
-    object YourRanking: Mode()
-    //object NewRankingMode : Mode()
-}
-
-
-
 @Composable
 fun RankingScreen(
     crRoomId: String,
@@ -62,15 +56,12 @@ fun RankingScreen(
     crViewModel: ChatRiseViewModel = viewModel()
 ){
 
-    val currentMode = remember { mutableStateOf(Mode.ViewMode as Mode)}
+    val currentMode by crViewModel.rankingStatus.collectAsState()
+
     val currentUser = FirebaseAuth.getInstance().currentUser
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
+    val rankedMembers by crViewModel.rankedUsers.collectAsState()
     val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(chatRoomMembers.size) {add(null)} }}
-    val allRisers = remember {
-        mutableStateListOf<UserProfile?>().apply {
-            addAll(allChatRoomMembers)
-        }
-    }
     val leftRiser = remember {
         mutableStateListOf<UserProfile?>().apply {
             addAll(chatRoomMembers)
@@ -87,6 +78,11 @@ fun RankingScreen(
 
     isRightSideComplete.value = rightRiser.all { it != null }
 
+    LaunchedEffect(crRoomId, currentMode){
+        crViewModel.checkUserRankingStatus(crRoomId = crRoomId, userId = currentUser?.uid ?: "")
+        crViewModel.fetchAndSortRankings(crRoomId)
+    }
+
     Column(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -95,15 +91,18 @@ fun RankingScreen(
             .background(CRAppTheme.colorScheme.onGameBackground)
     ) {
         Text(
-            when (currentMode.value){
-                Mode.ViewMode -> {
+            when (currentMode){
+                "View" -> {
                     "Player Ranks"
                 }
-                Mode.RankingMode -> {
+                "Ranking" -> {
                     "Vote your players"
                 }
-                Mode.YourRanking -> {
+                "Done" -> {
                     "Waiting on Others"
+                }
+                else -> {
+                    "Other"
                 }
                 /*Mode.NewRankingMode -> {
                     "Final Rankings"
@@ -114,7 +113,27 @@ fun RankingScreen(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .padding(20.dp))
-        Button(onClick = {currentMode.value = Mode.RankingMode}){Text("Go to Ranking")}
+        when (currentMode) {
+            "View" -> {
+                Button(onClick = {
+                    crViewModel.updateToRanking(crRoomId, currentUser?.uid ?: "")
+                }){Text("Go to Ranking")}
+            }
+            "Ranking" -> {
+            }
+            "Done" -> {
+                Button(onClick = {
+                    crViewModel.setAllToDone(crRoomId)
+                    crViewModel.checkUserRankingStatus(crRoomId, currentUser?.uid ?: "")
+                }){
+                    Text("Final Final Rankings Do Not Press")
+                }
+
+            }
+            else -> {
+
+            }
+        }
         HorizontalDivider()
 
         Box(
@@ -127,23 +146,15 @@ fun RankingScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                when (currentMode.value) {
-                    Mode.ViewMode -> {
-                        CurrentPlace(
-                            currentMode = currentMode.value,
-                            rightRiser = rightRiser,
-                            selectedImage = selectedImage,
-                            leftRiser = allRisers,
-                            isSwapWithLeftMode = isSwapWithLeftMode,
-                            swapWithLeftIndex = swapWithLeftIndex,
-                            isSwapWithRightMode = isSwapWithRightMode
-                        )
+                when (currentMode) {
+                    "View" -> {
+                        CurrentRanks(memberRanks = rankedMembers)
                     }
 
 
-                    Mode.RankingMode -> {
-                        CurrentPlace(
-                            currentMode = currentMode.value,
+                    "Ranking" -> {
+                        LeftList(
+                            currentMode = "Ranking",
                             rightRiser = rightRiser,
                             selectedImage = selectedImage,
                             leftRiser = leftRiser,
@@ -166,7 +177,7 @@ fun RankingScreen(
                     }
 
 
-                    Mode.YourRanking -> {
+                    "Done" -> {
                         NewPlace(
                             rightRiser = rightRiser,
                             selectedAction = selectedAction,
@@ -243,7 +254,6 @@ fun RankingScreen(
                             )
                             isRightSideComplete.value = false
                             isRightSideClickable.value = false
-                            currentMode.value = Mode.YourRanking
                         },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -279,10 +289,50 @@ fun RankingScreen(
         }
     }
 }
+@Composable
+fun CurrentRanks(memberRanks: List<Pair<UserProfile, Int>>){
+
+
+        Column(
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxHeight()
+        ){
+            memberRanks.forEachIndexed { index, (member) ->
+                Row (
+                    modifier = Modifier
+                        .then(if (index == 0 || index == 1){
+                            Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                        } else {
+                            Modifier
+                        })
+                        .padding(2.dp)
+                ){
+                    Text(getOrdinal(index + 1),
+                        color = Color.White)
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ){
+                        Image(
+                            painter = rememberAsyncImagePainter(member.imageUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                        )
+                        Text(member.fname, color = Color.White)
+                    }
+                }
+        }
+    }
+
+}
 
 @Composable
-fun CurrentPlace(
-    currentMode: Mode,
+fun LeftList(
+    currentMode: String,
     leftRiser: MutableList<UserProfile?>,
     rightRiser: MutableList<UserProfile?>,
     selectedImage: MutableState<UserProfile?>,
@@ -299,14 +349,17 @@ fun CurrentPlace(
     ) {
         Text(
             when (currentMode){
-                Mode.ViewMode -> {
+                "View" -> {
                     "Current"
                 }
-                Mode.RankingMode -> {
+                "Ranking" -> {
                     "Players"
                 }
-                Mode.YourRanking -> {
+                "Done" -> {
                     "Waiting..."
+                }
+                else -> {
+                    "Other"
                 }
             },
             style = CRAppTheme.typography.H2,
@@ -316,7 +369,7 @@ fun CurrentPlace(
             Row (
                 modifier = Modifier
                     .let { baseModifier ->
-                        if (currentMode == Mode.RankingMode) {
+                        if (currentMode == "Ranking") {
                             baseModifier.clickable(
                                 enabled = !isSwapWithRightMode.value
                             ) {
@@ -343,7 +396,7 @@ fun CurrentPlace(
                         }
                     }
                     .let { baseModifier ->
-                        if (currentMode == Mode.RankingMode && (index == 0 || index == 1)) {
+                        if (currentMode == "Ranking" && (index == 0 || index == 1)) {
                             baseModifier.border(2.dp, CRAppTheme.colorScheme.highlight)
                         } else {
                             baseModifier
@@ -352,7 +405,7 @@ fun CurrentPlace(
                     .padding(2.dp)
 
             ){
-                if (currentMode == Mode.RankingMode){
+                if (currentMode == "Ranking"){
                     Text(getOrdinal(index + 1),
                         color = Color.White)
                 }
@@ -589,7 +642,7 @@ fun finalizeRanking(
     val sortedMembers = rightRiser.filterNotNull().reversed()
     var points = 5 // increments of 5
 
-    sortedMembers.forEachIndexed { index, member ->
+    sortedMembers.forEachIndexed { _, member ->
         crViewModel.saveRanking(
             crRoomId = crRoomId,
             memberId = member.userId,

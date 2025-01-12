@@ -120,12 +120,19 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                     )
                 },
                 bottomBar = {
-                    ChatInput(
-                        crRoomId = crRoomId,
-                        roomId = crRoomId,
-                        game = true,
-                        mainChat = true
-                    )
+                    when(selectedTabindex){
+                        0 -> {
+                            ChatInput(
+                                crRoomId = crRoomId,
+                                roomId = crRoomId,
+                                game = true,
+                                mainChat = true
+                            )
+                        }
+                        else -> {
+                            
+                        }
+                    }
                 },
                 content = {paddingValues ->
                     Column (
