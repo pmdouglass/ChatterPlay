@@ -113,9 +113,9 @@ import java.time.LocalDate
 
 
 enum class RowState (val string: String){
-    none("nothing"),
-    follow("follow"),
-    check("check")
+    None("nothing"),
+    Follow("follow"),
+    Check("check")
 }
 
 @Composable
@@ -156,7 +156,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
     val roomReady by roomCreate.roomReady.collectAsState()
 
 
-    val hasAlternateProfile = if (alternateProfile.fname.isBlank()) false else true
+    val hasAlternateProfile = alternateProfile.fname.isNotBlank()
 
 
     Column (
@@ -1124,7 +1124,7 @@ fun RightSideModalDrawer(
     val openOffsetX = 0f
 
     val offsetX by animateFloatAsState(
-        targetValue = if (drawerState.isOpen) openOffsetX else drawerWidthPx
+        targetValue = if (drawerState.isOpen) openOffsetX else drawerWidthPx, label = ""
     )
 
     Box(
@@ -1736,10 +1736,10 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                       editAge = "18"
                                   }
                                   val pickedYear = calculateAgeToDate(editAge.toInt())
-                                  val Dob = DateOfBirth(month = randomMonth, day = randomDay, year = pickedYear)
+                                  val dob = DateOfBirth(month = randomMonth, day = randomDay, year = pickedYear)
                                   userProfile.copy(
                                       age = editAge,
-                                      dob = Dob
+                                      dob = dob
                                   )
                               }
                               else -> { userProfile }
@@ -1770,14 +1770,14 @@ fun SettingsInfoRow(
     arrow: Boolean = false,
     extraChoice: Boolean = false,
     onClick: () -> Unit,
-    Select: Boolean = false,
-    Bio: Boolean = false,
-    Edit: Boolean = false,
+    select: Boolean = false,
+    bio: Boolean = false,
+    edit: Boolean = false,
     editClick: Boolean = true,
-    Image: Boolean = false
+    image: Boolean = false
 ) {
     when {
-        Select -> {
+        select -> {
             Column (
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1822,7 +1822,7 @@ fun SettingsInfoRow(
                 }
             }
         }
-        Bio -> {
+        bio -> {
             HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 10.dp))
             Column(
@@ -1859,7 +1859,7 @@ fun SettingsInfoRow(
                 )
             }
         }
-        Edit -> {
+        edit -> {
             HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 10.dp))
             Column(
@@ -1931,7 +1931,7 @@ fun SettingsInfoRow(
 
 
 
-        Image -> {
+        image -> {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
@@ -2113,7 +2113,7 @@ fun AnimatedDots(dotCount: Int = 4) {
     )
 }
 @Composable
-fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, descriptionText: String = "Jocely Jackson", state: String = RowState.none.string, game: Boolean) {
+fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, descriptionText: String = "Jocely Jackson", state: String = RowState.None.string, game: Boolean) {
 
     var isSelected by remember { mutableStateOf(false)}
 
@@ -2123,7 +2123,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
             .fillMaxWidth()
             .padding(10.dp)
             .clickable {
-                if (state == RowState.check.string) {
+                if (state == RowState.Check.string) {
                     onUserSelected(user)
                     isSelected = !isSelected
                 }
@@ -2149,7 +2149,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
                 modifier = Modifier
                     .padding(start = 10.dp)
             )
-            if (state == RowState.follow.string){
+            if (state == RowState.Follow.string){
                 Text(
                     descriptionText,
                     modifier = Modifier
@@ -2158,7 +2158,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
             }
         }
         when (state){
-            RowState.follow.string -> {
+            RowState.Follow.string -> {
                 Text(
                     "Follow back",
                     modifier = Modifier
@@ -2173,7 +2173,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
                         .padding(start = 10.dp)
                 )
             }
-            RowState.check.string -> {
+            RowState.Check.string -> {
                 Checkbox(
                     checked = isSelected,
                     onCheckedChange = { isSelected = it},

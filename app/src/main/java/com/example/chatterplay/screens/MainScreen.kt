@@ -45,6 +45,7 @@ import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
@@ -52,6 +53,7 @@ import kotlinx.coroutines.launch
 fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatViewModel = viewModel()) {
 
 
+    val currentUser = FirebaseAuth.getInstance().currentUser
     val coroutineScope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     var showTopBarInfo by remember { mutableStateOf(false)}
@@ -60,8 +62,11 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
 
 
     val profile = rememberCRProfile(crRoomId = crRoomId)
-    val chatRoomMembers by viewModel.chatRoomMembers.collectAsState()
+    val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+    val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
 
+
+    // Navigation tab Icons 'Description to Icon'
     val tabs = listOf(
         "null" to Icons.Default.Home,
         "null" to Icons.Default.Person,
@@ -115,19 +120,25 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                     )
                 },
                 bottomBar = {
-                    ChatInput(
-                        crRoomId = crRoomId,
-                        roomId = crRoomId,
-                        game = true,
-                        mainChat = true
-                    )
+                    when(selectedTabindex){
+                        0 -> {
+                            ChatInput(
+                                crRoomId = crRoomId,
+                                roomId = crRoomId,
+                                game = true,
+                                mainChat = true
+                            )
+                        }
+                        else -> {
+                            
+                        }
+                    }
                 },
                 content = {paddingValues ->
                     Column (
                         verticalArrangement = Arrangement.Top,
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(customPurple)
                             .padding(paddingValues)
                             .clickable { showTopBarInfo = false }
                     ){
@@ -167,7 +178,11 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
 
                             }
                             3 -> {
-                                                            }
+                                RankingScreen(
+                                    crRoomId = crRoomId,
+                                    allChatRoomMembers = allChatRoomMembers
+                                )
+                            }
                             else -> {}
                         }
 
@@ -192,7 +207,9 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
 @Composable
 fun RiseMainChat(selectedMember: (UserProfile) -> Unit, chatRoomMembers: List<UserProfile>, crRoomId: String, profile: UserProfile, navController: NavController){
     Column(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .background(customPurple)
     ){
         AllMembersRow(
             selectedMember = selectedMember,
