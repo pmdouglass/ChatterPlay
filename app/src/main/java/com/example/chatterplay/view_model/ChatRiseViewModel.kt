@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.BuildConfig
 import com.example.chatterplay.data_class.Question
+import com.example.chatterplay.data_class.RecordedAnswer
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.example.chatterplay.view_model.SupabaseClient.client
@@ -223,6 +224,25 @@ class ChatRiseViewModel: ViewModel() {
                 _gameQuestions.value = query
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to fetch questions ${e.message}")
+            }
+        }
+    }
+    fun savePairAnswers(answers: List<RecordedAnswer>, titleId: Int){
+        viewModelScope.launch {
+            try {
+                answers.forEach { answer ->
+                    val answerInsert = RecordedAnswer(
+                        userId = answer.userId,
+                        titleId = answer.titleId,
+                        questionId = answer.questionId,
+                        question = answer.question,
+                        answerPair = answer.answerPair
+                    )
+                    client.postgrest["answers"].insert(answerInsert)
+                    Log.d("ViewModel", "Saving answer: ${answer.question} -> ${answer.answerPair}")
+                }
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to save answers ${e.message}")
             }
         }
     }

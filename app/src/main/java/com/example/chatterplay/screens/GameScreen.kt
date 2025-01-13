@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -28,8 +29,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.data_class.RecordedAnswer
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 //               basic question an answer
 //             OR   statement from game
@@ -75,8 +78,10 @@ answer selection of other players
 
 @Composable
 fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val questions by crViewModel.gameQuestion.collectAsState()
     val currentQuestionIndex = remember { mutableStateOf(0) }
+    val recordedAnswers = remember { mutableStateListOf<RecordedAnswer>()}
 
     LaunchedEffect(true){
         crViewModel.fetchQuestions(2)
@@ -98,19 +103,32 @@ fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
             )
         } else {
             if (currentQuestionIndex.value < questions.size){
+                val currentQuestion = questions[currentQuestionIndex.value]
                 PairQuestion(
-                    questions[currentQuestionIndex.value].Question,
-                    onAnswer = {
+                    currentQuestion.Question,
+                    onAnswer = { answer ->
+                        recordedAnswers.add(
+                            RecordedAnswer(
+                                userId = userId,
+                                titleId = currentQuestion.TitleId,
+                                questionId = currentQuestion.id,
+                                question = currentQuestion.Question,
+                                answerPair = answer
+                            )
+                        )
                         currentQuestionIndex.value += 1 // next question
                     }
                 )
             } else {
+                // all finished operations
                 Text(
                     "Done!",
                     color = Color.Black,
                     style = CRAppTheme.typography.H1,
                     modifier = Modifier.padding(20.dp)
                 )
+
+                crViewModel.savePairAnswers(recordedAnswers, titleId = 2)
             }
         }
     }
@@ -120,7 +138,7 @@ fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
 @Composable
 fun PairQuestion(
     question: String,
-    onAnswer: () -> Unit
+    onAnswer: (Boolean) -> Unit
 ){
     Column (
     ) {
@@ -151,7 +169,7 @@ fun PairQuestion(
                     .background(CRAppTheme.colorScheme.gameBackground)
                     .padding(15.dp) // inside
                     .clickable {
-                        onAnswer()
+                        onAnswer(true)
                     }
             )
             Text(
@@ -164,7 +182,7 @@ fun PairQuestion(
                     .background(CRAppTheme.colorScheme.gameBackground)
                     .padding(15.dp) // inside
                     .clickable {
-                        onAnswer()
+                        onAnswer(false)
                     }
             )
         }

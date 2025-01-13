@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.BuildConfig
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
+import com.example.chatterplay.data_class.RecordedAnswer
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.UserState
 import com.example.chatterplay.repository.ChatRepository
