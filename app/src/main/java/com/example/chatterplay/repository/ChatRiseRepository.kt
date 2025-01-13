@@ -1,10 +1,15 @@
 package com.example.chatterplay.repository
 
 import android.util.Log
+import com.example.chatterplay.data_class.Question
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.view_model.SupabaseClient
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.tasks.await
+
 
 class ChatRiseRepository {
     private val firestore = FirebaseFirestore.getInstance()
@@ -155,6 +160,23 @@ class ChatRiseRepository {
         }
     }
 
+    suspend fun getQuestions(titleId: Int): List<Question> {
+        val response = SupabaseClient.client.postgrest["game"]
+            .select(
+                filter = {
+                    filter("TitleId", FilterOperator.EQ, titleId)
+                }
+            )
+        Log.d("Repository", "Raw response: ${response.body}")
+
+        return response.decodeList()
+
+    }
+    suspend fun getAllQuestions(): List<Question>{
+        val response = SupabaseClient.client.postgrest["game"]
+            .select()
+        return response.decodeList()
+    }
 
 
 }

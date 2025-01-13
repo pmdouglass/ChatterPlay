@@ -3,12 +3,22 @@ package com.example.chatterplay.view_model
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chatterplay.BuildConfig
+import com.example.chatterplay.data_class.Question
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRiseRepository
+import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.gotrue.GoTrue
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.FilterOperator
+import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+
 
 class ChatRiseViewModel: ViewModel() {
     private val chatRepository = ChatRiseRepository()
@@ -200,6 +210,19 @@ class ChatRiseViewModel: ViewModel() {
                 _rankedUsers.value = sortedUserPointsList
             }catch (e: Exception){
                 Log.d("ViewModel", "Error fetching and sorting")
+            }
+        }
+    }
+    private val _gameQuestions = MutableStateFlow<List<Question>>(emptyList())
+    val gameQuestion: StateFlow<List<Question>> = _gameQuestions
+    fun fetchQuestions(titleId: Int){
+        viewModelScope.launch {
+            try {
+                val query = chatRepository.getAllQuestions()
+                Log.d("ViewModel", "Fetched ${query.size} questions")
+                _gameQuestions.value = query
+            }catch (e: Exception){
+                Log.d("ViewModel", "failed to fetch questions ${e.message}")
             }
         }
     }

@@ -175,7 +175,7 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                                 )
                             }
                             2 -> {
-
+                                GameScreen()
                             }
                             3 -> {
                                 RankingScreen(
