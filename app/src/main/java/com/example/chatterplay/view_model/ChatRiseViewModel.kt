@@ -1,20 +1,17 @@
 package com.example.chatterplay.view_model
 
+import android.annotation.SuppressLint
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.BuildConfig
-import com.example.chatterplay.data_class.Question
-import com.example.chatterplay.data_class.RecordedAnswer
+import com.example.chatterplay.data_class.Questions
+import com.example.chatterplay.data_class.Answers
+import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRiseRepository
-import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.gotrue.GoTrue
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
-import io.github.jan.supabase.storage.Storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -214,8 +211,8 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    private val _gameQuestions = MutableStateFlow<List<Question>>(emptyList())
-    val gameQuestion: StateFlow<List<Question>> = _gameQuestions
+    private val _gameQuestions = MutableStateFlow<List<Questions>>(emptyList())
+    val gameQuestion: StateFlow<List<Questions>> = _gameQuestions
     fun fetchQuestions(titleId: Int){
         viewModelScope.launch {
             try {
@@ -227,11 +224,11 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun savePairAnswers(answers: List<RecordedAnswer>, titleId: Int){
+    fun savePairAnswers(answers: List<Answers>, titleId: Int){
         viewModelScope.launch {
             try {
                 answers.forEach { answer ->
-                    val answerInsert = RecordedAnswer(
+                    val answerInsert = Answers(
                         userId = answer.userId,
                         titleId = answer.titleId,
                         questionId = answer.questionId,
@@ -243,6 +240,26 @@ class ChatRiseViewModel: ViewModel() {
                 }
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to save answers ${e.message}")
+            }
+        }
+    }
+    @SuppressLint("SuspiciousIndentation")
+    fun fetchPairAnswers(titleId: Int, onComplete: (List<Answers>) -> Unit){
+        viewModelScope.launch {
+            try {
+            val response = client.postgrest["answers"]
+                .select(
+                    filter = {
+                        filter("titleId", FilterOperator.EQ, titleId)
+                    }
+                )
+                .decodeList<Answers>()
+
+                Log.d("ViewModel", "Fetched ${response.size}")
+                onComplete(response)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching answers ${e.message}")
+                onComplete(emptyList())
             }
         }
     }

@@ -2,7 +2,6 @@ package com.example.chatterplay.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,9 +28,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.chatterplay.data_class.RecordedAnswer
+import com.example.chatterplay.data_class.Answers
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 //               basic question an answer
@@ -81,7 +82,7 @@ fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val questions by crViewModel.gameQuestion.collectAsState()
     val currentQuestionIndex = remember { mutableStateOf(0) }
-    val recordedAnswers = remember { mutableStateListOf<RecordedAnswer>()}
+    val recordedAnswers = remember { mutableStateListOf<Answers>()}
 
     LaunchedEffect(true){
         crViewModel.fetchQuestions(2)
@@ -108,7 +109,7 @@ fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
                     currentQuestion.Question,
                     onAnswer = { answer ->
                         recordedAnswers.add(
-                            RecordedAnswer(
+                            Answers(
                                 userId = userId,
                                 titleId = currentQuestion.TitleId,
                                 questionId = currentQuestion.id,
@@ -186,5 +187,142 @@ fun PairQuestion(
                     }
             )
         }
+    }
+}
+
+@Composable
+fun AnswerScreen(
+    allChatRoomMembers: List<UserProfile>,
+    crViewModel: ChatRiseViewModel = viewModel()
+){
+    val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
+    val userProfiles = remember { mutableStateOf<Map<String, UserProfile>>(emptyMap())}
+
+
+    LaunchedEffect(true){
+        crViewModel.fetchPairAnswers(titleId = 2) {retrievedAnswers ->
+            answers.value = retrievedAnswers
+        }
+
+        val members = allChatRoomMembers
+        userProfiles.value = members.associateBy { it.userId }
+    }
+
+    Column(
+        verticalArrangement = Arrangement.Top,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .background(CRAppTheme.colorScheme.onGameBackground)
+            .padding(16.dp)
+    ){
+        if (answers.value.isEmpty()){
+            Text(
+                "No answers found",
+                color = Color.Gray,
+                style = CRAppTheme.typography.H1
+            )
+        }else {
+            Text(
+                "Answer History",
+                color = Color.White,
+                style = CRAppTheme.typography.H1,
+                modifier = Modifier
+                    .padding(bottom = 16.dp)
+            )
+            // display answers for each question individually
+            answers.value.distinctBy { it.questionId }.forEach { userAnswer ->
+                val yesUsers = answers.value.filter { it.questionId == userAnswer.questionId && it.answerPair }
+                    .mapNotNull { userProfiles.value[it.userId]?.fname }
+                val noUsers = answers.value.filter { it.questionId == userAnswer.questionId && !it.answerPair }
+                    .mapNotNull { userProfiles.value[it.userId]?.fname }
+
+                UsersPairAnswers(
+                    userAnswer.question,
+                    yesUser = yesUsers,
+                    noUsers = noUsers
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun UsersPairAnswers(
+    question: String,
+    yesUser: List<String>,
+    noUsers: List<String>
+){
+    Column(
+        modifier = Modifier
+            .padding(top = 10.dp, bottom = 10.dp)
+    ){
+        val answers by remember { mutableStateOf(Answers)}
+
+        Text(
+            question,
+            textAlign = TextAlign.Center,
+            color = Color.White,
+            fontSize = 20.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp)
+                .background(CRAppTheme.colorScheme.gameBackground)
+                .padding(10.dp)
+        )
+
+        // yes row
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 15.dp, end = 15.dp)
+                .padding(5.dp)
+                .background(CRAppTheme.colorScheme.gameBackground)
+                .padding(10.dp)
+        ){
+            Text(
+                "Yes",
+                color = Color.White,
+                modifier = Modifier
+                    .weight(1f)
+            )
+            yesUser.forEach { firstName ->
+                Text(
+                    // for each userId that answered yes
+                    firstName,
+                    color = Color.White
+                )
+            }
+        }
+
+        // No row
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 15.dp, end = 15.dp)
+                .padding(5.dp)
+                .background(CRAppTheme.colorScheme.gameBackground)
+                .padding(10.dp)
+        ){
+            Text(
+                "No",
+                color = Color.White,
+                modifier = Modifier
+                    .weight(1f)
+            )
+            noUsers.forEach { firstName ->
+                Text(
+                    // for each userId that answered no
+                    firstName,
+                    color = Color.White
+                )
+            }
+        }
+
     }
 }

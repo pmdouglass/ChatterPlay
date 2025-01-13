@@ -6,35 +6,17 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.BuildConfig
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
-import com.example.chatterplay.data_class.RecordedAnswer
+import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.UserState
 import com.example.chatterplay.repository.ChatRepository
-import com.example.chatterplay.view_model.SupabaseClient.client
 import com.google.firebase.auth.FirebaseAuth
-import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.gotrue.GoTrue
-import io.github.jan.supabase.postgrest.Postgrest
-import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
-
-object SupabaseClient {
-    val client = createSupabaseClient(
-        supabaseUrl = BuildConfig.SUPABASE_URL,
-        supabaseKey = BuildConfig.SUPABASE_KEY
-    ) {
-        install(GoTrue)
-        install(Postgrest)
-        install(Storage)
-    }
-}
 
 
 class ChatViewModel: ViewModel() {
@@ -233,7 +215,6 @@ class ChatViewModel: ViewModel() {
         }
     }
     fun fetchChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
-        val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
             val members = chatRepository.getChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
             _allChatRoomMembers.value = members

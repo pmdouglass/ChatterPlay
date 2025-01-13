@@ -1,9 +1,9 @@
 package com.example.chatterplay.repository
 
 import android.util.Log
-import com.example.chatterplay.data_class.Question
+import com.example.chatterplay.data_class.Questions
+import com.example.chatterplay.data_class.SupabaseClient
 import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.view_model.SupabaseClient
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
@@ -160,7 +160,7 @@ class ChatRiseRepository {
         }
     }
 
-    suspend fun getQuestions(titleId: Int): List<Question> {
+    suspend fun getQuestions(titleId: Int): List<Questions> {
         val response = SupabaseClient.client.postgrest["game"]
             .select(
                 filter = {
@@ -172,7 +172,7 @@ class ChatRiseRepository {
         return response.decodeList()
 
     }
-    suspend fun getAllQuestions(): List<Question>{
+    suspend fun getAllQuestions(): List<Questions>{
         val response = SupabaseClient.client.postgrest["game"]
             .select()
         return response.decodeList()

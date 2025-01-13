@@ -44,6 +44,7 @@ import com.example.chatterplay.seperate_composables.RightSideModalDrawer
 import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
+import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -175,7 +176,10 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                                 )
                             }
                             2 -> {
-                                GameScreen()
+                                //GameScreen()
+                                AnswerScreen(
+                                    allChatRoomMembers = allChatRoomMembers
+                                )
                             }
                             3 -> {
                                 RankingScreen(
