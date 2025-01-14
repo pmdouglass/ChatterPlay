@@ -1,6 +1,7 @@
 package com.example.chatterplay.repository
 
 import android.util.Log
+import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient
 import com.example.chatterplay.data_class.UserProfile
@@ -51,6 +52,21 @@ class ChatRiseRepository {
             documentSnapshot.getString("rankingStatus")
         }catch (e: Exception){
             null
+        }
+    }
+    suspend fun fetchAllUsersGameStatus(crRoomId: String): List<Boolean>{
+        return try {
+            val documentSnapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .get().await()
+
+            val statuses = documentSnapshot.documents.mapNotNull { it.getBoolean("gameStatus") }
+            Log.d("Repository", "Fetched game statuses: $statuses")
+            statuses
+        }catch (e: Exception){
+            Log.d("Repository", "Error fetching users game status ${e.message}")
+            emptyList()
         }
     }
     fun updateUserRankingStatus(crRoomId: String, userId: String, updatedStatus: String){
@@ -159,9 +175,87 @@ class ChatRiseRepository {
             Log.e("Repository", "Failed to deduct points from $userId", e)
         }
     }
+    suspend fun addOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, gamePlayed: Boolean? = null, doneStatus: Boolean? = null): Boolean{
+        return try {
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            // check if document exists
+            val gameSnapshot = gameDocRef.get().await()
+            if (gameSnapshot.exists()){
+                val updates = mutableMapOf<String, Any>()
+                gamePlayed?.let { updates["gamePlayed"] = it }
+                doneStatus?.let { updates["doneStatus"] = it }
+
+                if (updates.isNotEmpty()){
+                    gameDocRef.update(updates).await()
+                    Log.d("Repository", "Game updated successfully")
+                }else {
+                    Log.d("Repository", "no fields to update")
+                }
+            } else {
+                // if not create one
+                val gameData = GameData(
+                    gameName = gameName,
+                    gamePlayed = false,
+                    doneStatus = false
+                )
+
+                gameDocRef.set(gameData).await()
+
+                // update UserProfile
+                if (userId != null){
+                    val collection = crGameRoomsCollection
+                        .document(crRoomId)
+                        .collection("Users")
+                        .document(userId)
+
+                    val userSnapshot = collection.get().await()
+                    if (userSnapshot.exists()){
+                        collection.update("gameName", gameName).await()
+                        Log.d("Repository", "user profile updated with gamename: $gameName")
+                    }else {
+                        collection.set(mapOf("gameName" to gameName)).await()
+                        Log.d("Repository", "user profile created and gameName: $gameName added")
+                    }
+                }
+            }
+
+            true
+        }catch (e: Exception){
+            Log.d("Repository", "Failed to add game ${e.message}")
+            false
+        }
+    }
+    suspend fun updateGameStatus(crRoomId: String, userId: String, questionsComplete: Boolean): Boolean{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Users")
+                .document(userId)
+
+            collection.set(mapOf("gameStatus" to questionsComplete), SetOptions.merge()).await()
+            Log.d("Repository", "user profile updated/created with gameStatus: $questionsComplete")
+            true
+        }catch (e: Exception){
+            Log.d("Repository", "Error updating game status ${e.message}")
+            false
+        }
+    }
+    /*suspend fun checkGameStatus(crRoomId: String){
+        try {
+            val snpashot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("")
+        }catch (e: Exception){
+            Log.d("Repository", "Error checking game status ${e.message}")
+        }
+    }*/
 
     suspend fun getQuestions(titleId: Int): List<Questions> {
-        val response = SupabaseClient.client.postgrest["game"]
+        val response = SupabaseClient.client.postgrest["questions"]
             .select(
                 filter = {
                     filter("TitleId", FilterOperator.EQ, titleId)
@@ -173,7 +267,7 @@ class ChatRiseRepository {
 
     }
     suspend fun getAllQuestions(): List<Questions>{
-        val response = SupabaseClient.client.postgrest["game"]
+        val response = SupabaseClient.client.postgrest["questions"]
             .select()
         return response.decodeList()
     }

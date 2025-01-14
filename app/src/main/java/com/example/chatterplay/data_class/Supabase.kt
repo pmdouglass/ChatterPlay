@@ -44,3 +44,8 @@ data class Answers(
     val question: String,
     val answerPair: Boolean
 )
+@Serializable
+data class GameTitle(
+    val id: Int,
+    val title: String
+)

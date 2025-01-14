@@ -1,17 +1,22 @@
 package com.example.chatterplay.screens
 
+
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -22,71 +27,130 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.Answers
+import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
-import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
-//               basic question an answer
+
+fun notes(){
+    //               basic question an answer
 //             OR   statement from game
-/*
-who ask's question? game or player?
-question can be public/anonymous and/or answers can be public/anonymous
-questions can be game targeted or to anyone
- */
+    /*
+    who ask's question? game or player?
+    question can be public/anonymous and/or answers can be public/anonymous
+    questions can be game targeted or to anyone
+     */
 
 
 //                  multiple choice
-/*
-questions asked by game
-answers a,b,c,d recorded and shows who answered what
- */
+    /*
+    questions asked by game
+    answers a,b,c,d recorded and shows who answered what
+     */
 
 
 //               yes/no agree/disagree
-/*
-questions are created by game
-answers are 2 choice options
-answers recorded ans shows who answered what
- */
+    /*
+    questions are created by game
+    answers are 2 choice options
+    answers recorded ans shows who answered what
+     */
 
 
 //                     which player
-/*
-game question = which player most likely
-answer selection of other players
- */
+    /*
+    game question = which player most likely
+    answer selection of other players
+     */
 
 
 // abc and yes/no can be combined, multiple choice is either 2 or 4. questions reflect which mode multiple/pair
 
-/*
-                                game phases
- questions asked
- wait for all to complete
- show results
- */
-
+    /*
+                                    game phases
+     questions asked
+     wait for all to complete
+     show results
+     */
+}
 
 
 @Composable
-fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
+fun PairGameScreen(
+    crRoomId: String,
+    allChatRoomMembers: List<UserProfile>,
+    crViewModel: ChatRiseViewModel = viewModel()
+){
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val hasAnswered by crViewModel.isDoneAnswering
+    val isDone by crViewModel.isDoneWithGame
+    val gameTitle = remember { mutableStateOf("")}
     val questions by crViewModel.gameQuestion.collectAsState()
+
+
+    LaunchedEffect(isDone, crRoomId){
+        crViewModel.fetchGameTitle(2){ fetchedTitle ->
+            gameTitle.value = fetchedTitle ?: "Unknown Game"
+        }
+
+        crViewModel.checkForAnswers(2, userId)
+        crViewModel.monitorUntilAllUsersDoneWithCurrentGame(crRoomId)
+
+
+        crViewModel.fetchQuestions(2)
+
+        crViewModel.addOrUpdateGame(
+            crRoomId = crRoomId,
+            userIdToUpdate = userId,
+            gameName = gameTitle.value
+        )
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CRAppTheme.colorScheme.onGameBackground)
+    ){
+        if (!isDone){
+            PairQuestions(
+                crRoomId = crRoomId,
+                hasAnswered = hasAnswered,
+                gameTitle = gameTitle.value,
+                questions = questions
+            )
+        } else {
+            PairAnswerScreen(
+                gameTitle = gameTitle.value,
+                allChatRoomMembers = allChatRoomMembers
+            )
+        }
+
+    }
+
+
+}
+@Composable
+fun PairQuestions(
+    crRoomId: String,
+    hasAnswered: Boolean,
+    gameTitle: String,
+    questions: List<Questions>,
+    crViewModel: ChatRiseViewModel = viewModel()
+){
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val currentQuestionIndex = remember { mutableStateOf(0) }
     val recordedAnswers = remember { mutableStateListOf<Answers>()}
 
-    LaunchedEffect(true){
-        crViewModel.fetchQuestions(2)
-    }
 
     Column(
         verticalArrangement = Arrangement.Top,
@@ -94,7 +158,6 @@ fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .background(CRAppTheme.colorScheme.onGameBackground)
     ){
         if(questions.isEmpty()){
             Text(
@@ -103,41 +166,52 @@ fun GameScreen(crViewModel: ChatRiseViewModel = viewModel()){
                 style = CRAppTheme.typography.H1
             )
         } else {
-            if (currentQuestionIndex.value < questions.size){
-                val currentQuestion = questions[currentQuestionIndex.value]
-                PairQuestion(
-                    currentQuestion.Question,
-                    onAnswer = { answer ->
-                        recordedAnswers.add(
-                            Answers(
-                                userId = userId,
-                                titleId = currentQuestion.TitleId,
-                                questionId = currentQuestion.id,
-                                question = currentQuestion.Question,
-                                answerPair = answer
+            if (!hasAnswered){
+                if (currentQuestionIndex.value < questions.size){
+                    val currentQuestion = questions[currentQuestionIndex.value]
+                    PairStructure(
+                        currentQuestion.Question,
+                        onAnswer = { answer ->
+                            recordedAnswers.add(
+                                Answers(
+                                    userId = userId,
+                                    titleId = currentQuestion.TitleId,
+                                    questionId = currentQuestion.id,
+                                    question = currentQuestion.Question,
+                                    answerPair = answer
+                                )
                             )
-                        )
-                        currentQuestionIndex.value += 1 // next question
-                    }
-                )
+                            currentQuestionIndex.value += 1 // next question
+                        }
+                    )
+                } else {
+                    // all finished operations
+
+                    crViewModel.savePairAnswers(recordedAnswers)
+                    /*crViewModel.addOrUpdateGame(
+                        crRoomId = crRoomId,
+                        gameName = gameTitle,
+                        doneStatusUpdate = true
+                    )*/
+                    crViewModel.updateGameStatus(
+                        crRoomId = crRoomId,
+                        questionsComplete = true
+                    )
+                }
             } else {
-                // all finished operations
                 Text(
                     "Done!",
                     color = Color.Black,
                     style = CRAppTheme.typography.H1,
                     modifier = Modifier.padding(20.dp)
                 )
-
-                crViewModel.savePairAnswers(recordedAnswers, titleId = 2)
             }
         }
     }
 }
 
-
 @Composable
-fun PairQuestion(
+fun PairStructure(
     question: String,
     onAnswer: (Boolean) -> Unit
 ){
@@ -191,7 +265,8 @@ fun PairQuestion(
 }
 
 @Composable
-fun AnswerScreen(
+fun PairAnswerScreen(
+    gameTitle: String,
     allChatRoomMembers: List<UserProfile>,
     crViewModel: ChatRiseViewModel = viewModel()
 ){
@@ -200,6 +275,7 @@ fun AnswerScreen(
 
 
     LaunchedEffect(true){
+
         crViewModel.fetchPairAnswers(titleId = 2) {retrievedAnswers ->
             answers.value = retrievedAnswers
         }
@@ -225,7 +301,7 @@ fun AnswerScreen(
             )
         }else {
             Text(
-                "Answer History",
+                gameTitle,
                 color = Color.White,
                 style = CRAppTheme.typography.H1,
                 modifier = Modifier
@@ -234,9 +310,9 @@ fun AnswerScreen(
             // display answers for each question individually
             answers.value.distinctBy { it.questionId }.forEach { userAnswer ->
                 val yesUsers = answers.value.filter { it.questionId == userAnswer.questionId && it.answerPair }
-                    .mapNotNull { userProfiles.value[it.userId]?.fname }
+                    .mapNotNull { userProfiles.value[it.userId] }
                 val noUsers = answers.value.filter { it.questionId == userAnswer.questionId && !it.answerPair }
-                    .mapNotNull { userProfiles.value[it.userId]?.fname }
+                    .mapNotNull { userProfiles.value[it.userId] }
 
                 UsersPairAnswers(
                     userAnswer.question,
@@ -251,8 +327,8 @@ fun AnswerScreen(
 @Composable
 fun UsersPairAnswers(
     question: String,
-    yesUser: List<String>,
-    noUsers: List<String>
+    yesUser: List<UserProfile>,
+    noUsers: List<UserProfile>
 ){
     Column(
         modifier = Modifier
@@ -278,10 +354,11 @@ fun UsersPairAnswers(
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier
                 .fillMaxWidth()
+                .height(45.dp)
                 .padding(start = 15.dp, end = 15.dp)
                 .padding(5.dp)
                 .background(CRAppTheme.colorScheme.gameBackground)
-                .padding(10.dp)
+                .padding(5.dp)
         ){
             Text(
                 "Yes",
@@ -289,11 +366,16 @@ fun UsersPairAnswers(
                 modifier = Modifier
                     .weight(1f)
             )
-            yesUser.forEach { firstName ->
-                Text(
-                    // for each userId that answered yes
-                    firstName,
-                    color = Color.White
+            yesUser.forEach { userProfile ->
+                Image(
+                    rememberAsyncImagePainter(userProfile.imageUrl),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(start = 2.dp, end = 2.dp)
+                        .size(25.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, Color.Black, CircleShape)
                 )
             }
         }
@@ -304,10 +386,11 @@ fun UsersPairAnswers(
             horizontalArrangement = Arrangement.Start,
             modifier = Modifier
                 .fillMaxWidth()
+                .height(45.dp)
                 .padding(start = 15.dp, end = 15.dp)
                 .padding(5.dp)
                 .background(CRAppTheme.colorScheme.gameBackground)
-                .padding(10.dp)
+                .padding(5.dp)
         ){
             Text(
                 "No",
@@ -315,11 +398,17 @@ fun UsersPairAnswers(
                 modifier = Modifier
                     .weight(1f)
             )
-            noUsers.forEach { firstName ->
-                Text(
-                    // for each userId that answered no
-                    firstName,
-                    color = Color.White
+            noUsers.forEach { userProfile ->
+                Image(
+                    rememberAsyncImagePainter(userProfile.imageUrl),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .padding(start = 2.dp, end = 2.dp)
+                        .size(25.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, Color.Black, CircleShape)
+
                 )
             }
         }

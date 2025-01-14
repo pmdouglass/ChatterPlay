@@ -176,10 +176,11 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                                 )
                             }
                             2 -> {
-                                //GameScreen()
-                                AnswerScreen(
+                                PairGameScreen(
+                                    crRoomId = crRoomId,
                                     allChatRoomMembers = allChatRoomMembers
                                 )
+
                             }
                             3 -> {
                                 RankingScreen(

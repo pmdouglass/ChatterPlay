@@ -2,16 +2,20 @@ package com.example.chatterplay.view_model
 
 import android.annotation.SuppressLint
 import android.util.Log
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.Answers
+import com.example.chatterplay.data_class.GameTitle
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -61,6 +65,30 @@ class ChatRiseViewModel: ViewModel() {
             chatRepository.saveRanking(crRoomId, memberId, userId, newPoints)
             chatRepository.updateUserRankingStatus(crRoomId = crRoomId, userId = userId, updatedStatus = "Done")
             checkUserRankingStatus(crRoomId = crRoomId, userId = userId)
+        }
+    }
+    private val _isDoneWithGame = mutableStateOf(false)
+    val isDoneWithGame: State<Boolean> = _isDoneWithGame
+    fun monitorUntilAllUsersDoneWithCurrentGame(crRoomId: String){
+        viewModelScope.launch {
+            try {
+                while (true){
+                    // check all users gameStatus
+                    val statuses = chatRepository.fetchAllUsersGameStatus(crRoomId)
+
+                    // check if all statuses are true
+                    if (statuses.isNotEmpty() && statuses.all { it }){
+                        Log.d("ViewModel", "All users are done with the current game")
+                        _isDoneWithGame.value = true
+                        break
+                    }
+
+                    // Delay to prevent tight loop (pooling every 5 seconds)
+                    delay(5000)
+                }
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error monitoring games")
+            }
         }
     }
     fun monitorUntilAllDone(crRoomId: String, currentUserId: String){
@@ -211,6 +239,57 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
+
+
+
+
+
+
+    //                        Supabase Games
+    fun fetchGameTitle(titleId: Int, onComplete: (String?) -> Unit){
+        viewModelScope.launch {
+            try {
+                val response = client.postgrest["title"]
+                    .select(
+                        filter = {
+                            filter("id", FilterOperator.EQ, titleId)
+                        }
+                    )
+                    .decodeList<GameTitle>()
+
+                val gameTitle = response.firstOrNull()?.title ?: "Unknown"
+                Log.d("ViewModel", "Fetched game title $gameTitle")
+                onComplete(gameTitle)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching game title ${e.message}")
+            }
+        }
+    }
+    fun addOrUpdateGame(crRoomId: String, userIdToUpdate: String? = null, gameName: String, gamePlayedUpdate: Boolean? = null, doneStatusUpdate: Boolean? = null){
+        viewModelScope.launch {
+            try {
+                chatRepository.addOrUpdateGame(
+                    crRoomId = crRoomId,
+                    gameName = gameName,
+                    userId = userIdToUpdate,
+                    gamePlayed = gamePlayedUpdate,
+                    doneStatus = doneStatusUpdate
+                )
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to addOrUpdateGame ${e.message}")
+            }
+        }
+    }
+    fun updateGameStatus(crRoomId: String, questionsComplete: Boolean){
+        viewModelScope.launch {
+            try {
+                chatRepository.updateGameStatus(crRoomId, userId, questionsComplete)
+                Log.d("ViewModel", "Updated gameStatus to $questionsComplete")
+            }catch (e: Exception){
+                Log.d("ViewModel", "failed to update game status to $questionsComplete")
+            }
+        }
+    }
     private val _gameQuestions = MutableStateFlow<List<Questions>>(emptyList())
     val gameQuestion: StateFlow<List<Questions>> = _gameQuestions
     fun fetchQuestions(titleId: Int){
@@ -224,7 +303,28 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun savePairAnswers(answers: List<Answers>, titleId: Int){
+    private val _isDoneAnswering = mutableStateOf(false)
+    val isDoneAnswering: State<Boolean> = _isDoneAnswering
+    suspend fun checkForAnswers(titleId: Int, userId: String): Boolean{
+        return try {
+            val response = client.postgrest["answers"]
+                .select(
+                    filter = {
+                        filter("titleId", FilterOperator.EQ, titleId)
+                        filter("userId", FilterOperator.EQ, userId)
+                    }
+                )
+                .decodeList<Answers>()
+
+            val hasAnswered = response.isNotEmpty()
+            _isDoneAnswering.value = hasAnswered
+            hasAnswered
+        }catch (e: Exception){
+            Log.d("ViewModel", "Error checking user answers: ${e.message}")
+            false
+        }
+    }
+    fun savePairAnswers(answers: List<Answers>){
         viewModelScope.launch {
             try {
                 answers.forEach { answer ->
@@ -238,6 +338,13 @@ class ChatRiseViewModel: ViewModel() {
                     client.postgrest["answers"].insert(answerInsert)
                     Log.d("ViewModel", "Saving answer: ${answer.question} -> ${answer.answerPair}")
                 }
+
+
+                // temerarliy update answers
+                val titleId = answers.firstOrNull()?.titleId ?: return@launch
+                checkForAnswers(titleId, userId)
+
+
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to save answers ${e.message}")
             }
