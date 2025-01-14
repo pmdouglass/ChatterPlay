@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Questions
+import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
@@ -89,32 +90,24 @@ fun notes(){
 @Composable
 fun PairGameScreen(
     crRoomId: String,
+    gameInfo: Title,
     allChatRoomMembers: List<UserProfile>,
     crViewModel: ChatRiseViewModel = viewModel()
 ){
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val hasAnswered by crViewModel.isDoneAnswering
     val isDone by crViewModel.isDoneWithGame
-    val gameTitle = remember { mutableStateOf("")}
     val questions by crViewModel.gameQuestion.collectAsState()
 
 
-    LaunchedEffect(isDone, crRoomId){
-        crViewModel.fetchGameTitle(2){ fetchedTitle ->
-            gameTitle.value = fetchedTitle ?: "Unknown Game"
-        }
+    LaunchedEffect(isDone, crRoomId, true){
 
-        crViewModel.checkForAnswers(crRoomId, 2, userId)
-        crViewModel.monitorUntilAllUsersDoneWithCurrentGame(crRoomId)
+        crViewModel.checkForUsersCompleteAnswers(crRoomId, gameInfo.id, userId)
+        crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId)
 
 
-        crViewModel.fetchQuestions(2)
+        crViewModel.fetchQuestions(gameInfo.id)
 
-        crViewModel.addOrUpdateGame(
-            crRoomId = crRoomId,
-            userIdToUpdate = userId,
-            gameName = gameTitle.value
-        )
     }
     Column(
         modifier = Modifier
@@ -125,12 +118,12 @@ fun PairGameScreen(
             PairQuestions(
                 crRoomId = crRoomId,
                 hasAnswered = hasAnswered,
-                gameTitle = gameTitle.value,
+                gameInfo = gameInfo,
                 questions = questions
             )
         } else {
             PairAnswerScreen(
-                gameTitle = gameTitle.value,
+                gameInfo = gameInfo,
                 allChatRoomMembers = allChatRoomMembers
             )
         }
@@ -143,7 +136,7 @@ fun PairGameScreen(
 fun PairQuestions(
     crRoomId: String,
     hasAnswered: Boolean,
-    gameTitle: String,
+    gameInfo: Title,
     questions: List<Questions>,
     crViewModel: ChatRiseViewModel = viewModel()
 ){
@@ -159,6 +152,12 @@ fun PairQuestions(
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
     ){
+        Text(
+            gameInfo.title,
+            style = CRAppTheme.typography.H2,
+            modifier = Modifier
+                .padding(20.dp)
+        )
         if(questions.isEmpty()){
             Text(
                 "Loading questions...",
@@ -171,6 +170,7 @@ fun PairQuestions(
                     val currentQuestion = questions[currentQuestionIndex.value]
                     PairStructure(
                         currentQuestion.Question,
+                        gameInfo = gameInfo,
                         onAnswer = { answer ->
                             recordedAnswers.add(
                                 Answers(
@@ -194,7 +194,7 @@ fun PairQuestions(
                         gameName = gameTitle,
                         doneStatusUpdate = true
                     )*/
-                    crViewModel.updateGameStatus(
+                    crViewModel.updateHasAnswered(
                         crRoomId = crRoomId,
                         questionsComplete = true
                     )
@@ -214,6 +214,7 @@ fun PairQuestions(
 @Composable
 fun PairStructure(
     question: String,
+    gameInfo: Title,
     onAnswer: (Boolean) -> Unit
 ){
     Column (
@@ -267,7 +268,7 @@ fun PairStructure(
 
 @Composable
 fun PairAnswerScreen(
-    gameTitle: String,
+    gameInfo: Title,
     allChatRoomMembers: List<UserProfile>,
     crViewModel: ChatRiseViewModel = viewModel()
 ){
@@ -277,7 +278,7 @@ fun PairAnswerScreen(
 
     LaunchedEffect(true){
 
-        crViewModel.fetchPairAnswers(titleId = 2) {retrievedAnswers ->
+        crViewModel.fetchPairAnswers(gameInfo.id) {retrievedAnswers ->
             answers.value = retrievedAnswers
         }
 
@@ -302,7 +303,7 @@ fun PairAnswerScreen(
             )
         }else {
             Text(
-                gameTitle,
+                gameInfo.title,
                 color = Color.White,
                 style = CRAppTheme.typography.H1,
                 modifier = Modifier

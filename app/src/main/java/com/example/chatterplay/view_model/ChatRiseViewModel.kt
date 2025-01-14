@@ -70,22 +70,22 @@ class ChatRiseViewModel: ViewModel() {
     }
     private val _isDoneWithGame = mutableStateOf(false)
     val isDoneWithGame: State<Boolean> = _isDoneWithGame
-    fun monitorUntilAllUsersDoneWithCurrentGame(crRoomId: String){
+    fun monitorUntilAllUsersDoneAnsweringQuestions(crRoomId: String){
         viewModelScope.launch {
             try {
                 while (true){
-                    // check all users gameStatus
-                    val statuses = chatRepository.fetchAllUsersGameStatus(crRoomId)
+                    // check all users hasAnswered
+                    val statuses = chatRepository.fetchAllUsersHasAnswered(crRoomId)
 
                     // check if all statuses are true
                     if (statuses.isNotEmpty() && statuses.all { it }){
-                        Log.d("ViewModel", "All users are done with the current game")
+                        Log.d("ViewModel", "All users are done with all their Questions")
                         _isDoneWithGame.value = true
                         break
                     }
 
                     // Delay to prevent tight loop (pooling every 5 seconds)
-                    delay(5000)
+                    delay(10000)
                 }
             }catch (e: Exception){
                 Log.d("ViewModel", "Error monitoring games")
@@ -128,7 +128,7 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun setAllToDone(crRoomId: String){
+    fun setAllVotesToDone(crRoomId: String){
         viewModelScope.launch {
             try {
                 // check all users in room
@@ -247,23 +247,35 @@ class ChatRiseViewModel: ViewModel() {
 
 
     //                        Supabase Games
-    fun getRandomGameInfo(onResult: (Title?) -> Unit){
+    fun generateRandomGameInfo(onResult: (Title?) -> Unit){
         viewModelScope.launch {
             try {
                 val randomId = chatRepository.fetchRandomGameInfo()
                 onResult(randomId)
             }catch (e: Exception){
-                Log.d("ViewModel", "Failed to get randome titleId ${e.message}")
+                Log.d("ViewModel", "Failed to get random titleId ${e.message}")
             }
         }
     }
-    fun addGameNameToAllUserProfiles(crRoomId: String, userIds: List<String>, gameInfo: Title){
+    fun addGame(crRoomId: String, userIds: List<String>, gameInfo: Title){
         viewModelScope.launch {
             try {
                 chatRepository.addGameNameToAllUserProfile(crRoomId, userIds, gameInfo)
+                chatRepository.addOrUpdateGame(
+                    crRoomId = crRoomId,
+                    gameName = gameInfo.title
+                )
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to add gameName ${e.message}")
             }
+        }
+    }
+    private val _gameInfo = MutableStateFlow<Title?>(null)
+    val gameInfo: StateFlow<Title?> = _gameInfo
+    fun getGameInfo(crRoomId: String){
+        viewModelScope.launch {
+            val retrievedGameInfo = chatRepository.fetchGameInfo(crRoomId, userId)
+            _gameInfo.value = retrievedGameInfo
         }
     }
     fun fetchGameTitle(titleId: Int, onComplete: (String?) -> Unit){
@@ -300,11 +312,11 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun updateGameStatus(crRoomId: String, questionsComplete: Boolean){
+    fun updateHasAnswered(crRoomId: String, questionsComplete: Boolean){
         viewModelScope.launch {
             try {
-                chatRepository.updateGameStatus(crRoomId, userId, questionsComplete)
-                Log.d("ViewModel", "Updated gameStatus to $questionsComplete")
+                chatRepository.updateHasAnswered(crRoomId, userId, questionsComplete)
+                Log.d("ViewModel", "Updated hasAnswered to $questionsComplete")
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to update game status to $questionsComplete")
             }
@@ -325,7 +337,7 @@ class ChatRiseViewModel: ViewModel() {
     }
     private val _isDoneAnswering = mutableStateOf(false)
     val isDoneAnswering: State<Boolean> = _isDoneAnswering
-    suspend fun checkForAnswers(crRoomId: String, titleId: Int, userId: String): Boolean{
+    suspend fun checkForUsersCompleteAnswers(crRoomId: String, titleId: Int, userId: String): Boolean{
         return try {
             val response = client.postgrest["answers"]
                 .select(
@@ -364,7 +376,7 @@ class ChatRiseViewModel: ViewModel() {
 
                 // temerarliy update answers
                 val titleId = answers.firstOrNull()?.titleId ?: return@launch
-                checkForAnswers(crRoomId, titleId, userId)
+                checkForUsersCompleteAnswers(crRoomId, titleId, userId)
 
 
             }catch (e: Exception){

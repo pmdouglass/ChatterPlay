@@ -31,7 +31,7 @@ object SupabaseClient {
 @Serializable
 data class Questions (
     val id: Int,
-    val modeId: Int,
+    //val modeId: Int,
     val Question: String,
     val TitleId: Int
 )

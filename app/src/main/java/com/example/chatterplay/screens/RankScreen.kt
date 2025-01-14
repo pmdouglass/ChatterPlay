@@ -123,7 +123,7 @@ fun RankingScreen(
             }
             "Done" -> {
                 Button(onClick = {
-                    crViewModel.setAllToDone(crRoomId)
+                    crViewModel.setAllVotesToDone(crRoomId)
                     crViewModel.checkUserRankingStatus(crRoomId, currentUser?.uid ?: "")
                 }){
                     Text("Final Final Rankings Do Not Press")

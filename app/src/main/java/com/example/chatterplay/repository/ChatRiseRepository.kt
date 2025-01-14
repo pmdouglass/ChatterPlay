@@ -1,7 +1,6 @@
 package com.example.chatterplay.repository
 
 import android.util.Log
-import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient
 import com.example.chatterplay.data_class.Title
@@ -56,14 +55,14 @@ class ChatRiseRepository {
             null
         }
     }
-    suspend fun fetchAllUsersGameStatus(crRoomId: String): List<Boolean>{
+    suspend fun fetchAllUsersHasAnswered(crRoomId: String): List<Boolean>{
         return try {
             val documentSnapshot = crGameRoomsCollection
                 .document(crRoomId)
                 .collection(users)
                 .get().await()
 
-            val statuses = documentSnapshot.documents.mapNotNull { it.getBoolean("gameStatus") }
+            val statuses = documentSnapshot.documents.mapNotNull { it.getBoolean("hasAnswered") }
             Log.d("Repository", "Fetched game statuses: $statuses")
             statuses
         }catch (e: Exception){
@@ -178,6 +177,11 @@ class ChatRiseRepository {
         }
     }
 
+
+
+
+
+
     //                   supabase
     suspend fun fetchRandomGameInfo(): Title?{
         return try {
@@ -217,30 +221,19 @@ class ChatRiseRepository {
                 }
             } else {
                 // if not create one
-                val gameData = GameData(
+
+                /*val gameData = GameData(
                     gameName = gameName,
                     gamePlayed = false,
                     doneStatus = false
+                )*/
+
+                val gameData = mapOf(
+                    "gameName" to gameName,
+                    "hadAlert" to false
                 )
 
                 gameDocRef.set(gameData).await()
-
-                // update UserProfile
-                if (userId != null){
-                    val collection = crGameRoomsCollection
-                        .document(crRoomId)
-                        .collection("Users")
-                        .document(userId)
-
-                    val userSnapshot = collection.get().await()
-                    if (userSnapshot.exists()){
-                        collection.update("gameName", gameName).await()
-                        Log.d("Repository", "user profile updated with gamename: $gameName")
-                    }else {
-                        collection.set(mapOf("gameName" to gameName)).await()
-                        Log.d("Repository", "user profile created and gameName: $gameName added")
-                    }
-                }
             }
 
             true
@@ -266,7 +259,8 @@ class ChatRiseRepository {
                     userDocRef.update(
                         mapOf(
                             "gameInfo" to gameInfoJson,
-                            "gameStatus" to false
+                            "hasAnswered" to false,
+                            "doneWithGame" to false
                         )
                     ).await()
 
@@ -278,15 +272,34 @@ class ChatRiseRepository {
             Log.d("Repository", "Failed to add gamename to userProfile ${e.message}")
         }
     }
-    suspend fun updateGameStatus(crRoomId: String, userId: String, questionsComplete: Boolean): Boolean{
+    suspend fun fetchGameInfo(crRoomId: String, userId: String): Title? {
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .document(userId)
+                .get().await()
+
+            val gameInfoJson = collection.getString("gameInfo")
+
+            // Deserialize the JSON string into a Title object
+            gameInfoJson?.let {
+                kotlinx.serialization.json.Json.decodeFromString<Title>(it)
+            }
+        }catch (e: Exception){
+            Log.d("Repository", "Failed to fetch game Info ${e.message}")
+            null
+        }
+    }
+    suspend fun updateHasAnswered(crRoomId: String, userId: String, questionsComplete: Boolean): Boolean{
         return try {
             val collection = crGameRoomsCollection
                 .document(crRoomId)
                 .collection("Users")
                 .document(userId)
 
-            collection.set(mapOf("gameStatus" to questionsComplete), SetOptions.merge()).await()
-            Log.d("Repository", "user profile updated/created with gameStatus: $questionsComplete")
+            collection.set(mapOf("hasAnswered" to questionsComplete), SetOptions.merge()).await()
+            Log.d("Repository", "user profile updated/created with hasAnswered: $questionsComplete")
             true
         }catch (e: Exception){
             Log.d("Repository", "Error updating game status ${e.message}")
@@ -307,7 +320,7 @@ class ChatRiseRepository {
         val response = SupabaseClient.client.postgrest["questions"]
             .select(
                 filter = {
-                    filter("titleId", FilterOperator.EQ, titleId)
+                    filter("TitleId", FilterOperator.EQ, titleId)
                 }
             )
         return response.decodeList()
