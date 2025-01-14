@@ -71,7 +71,6 @@ fun MainScreen(
     var showMemberProfile by remember { mutableStateOf(false)}
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
     var selectedGame by remember { mutableStateOf<Title?>(null)}
-    val gameInfo by crViewModel.gameInfo.collectAsState()
 
 
     val profile = rememberCRProfile(crRoomId = crRoomId)
@@ -91,7 +90,6 @@ fun MainScreen(
 
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
-        crViewModel.getGameInfo(crRoomId)
     }
 
     RightSideModalDrawer(
@@ -206,17 +204,10 @@ fun MainScreen(
                                 )
                             }
                             2 -> {
-                                if (gameInfo != null) {
-                                    gameInfo?.let { game ->
-                                        PairGameScreen(
-                                            crRoomId = crRoomId,
-                                            gameInfo = game,
-                                            allChatRoomMembers = allChatRoomMembers
-                                        )
-                                    }
-                                } else {
-                                    Text("GameInfo is null")
-                                }
+                                PairGameScreen(
+                                    crRoomId = crRoomId,
+                                    allChatRoomMembers = allChatRoomMembers
+                                )
 
                             }
                             3 -> {

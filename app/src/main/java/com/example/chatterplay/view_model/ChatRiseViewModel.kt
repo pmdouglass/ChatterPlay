@@ -69,7 +69,7 @@ class ChatRiseViewModel: ViewModel() {
         }
     }
     private val _isDoneWithGame = mutableStateOf(false)
-    val isDoneWithGame: State<Boolean> = _isDoneWithGame
+    val isAllDoneWithQuestions: State<Boolean> = _isDoneWithGame
     fun monitorUntilAllUsersDoneAnsweringQuestions(crRoomId: String){
         viewModelScope.launch {
             try {

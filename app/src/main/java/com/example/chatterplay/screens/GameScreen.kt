@@ -42,6 +42,7 @@ import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 
 fun notes(){
@@ -90,47 +91,66 @@ fun notes(){
 @Composable
 fun PairGameScreen(
     crRoomId: String,
-    gameInfo: Title,
     allChatRoomMembers: List<UserProfile>,
     crViewModel: ChatRiseViewModel = viewModel()
 ){
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val hasAnswered by crViewModel.isDoneAnswering
-    val isDone by crViewModel.isDoneWithGame
-    val questions by crViewModel.gameQuestion.collectAsState()
+    val hasAnswered by crViewModel.isDoneAnswering // sees if current user done with answers
+    val isAllDoneWithQuestions by crViewModel.isAllDoneWithQuestions // waits until everyone done with answers
+    val questions by crViewModel.gameQuestion.collectAsState()  // gets questions from supabase "questions" table
+    val gameInfo by crViewModel.gameInfo.collectAsState()  // gets gameInfo from UserProfile
 
 
-    LaunchedEffect(isDone, crRoomId, true){
 
-        crViewModel.checkForUsersCompleteAnswers(crRoomId, gameInfo.id, userId)
-        crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId)
+    LaunchedEffect(crRoomId) {
 
-
-        crViewModel.fetchQuestions(gameInfo.id)
+        crViewModel.getGameInfo(crRoomId)  // initialize 'gameInfo'
+        crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId) // initialize 'isAllDoneWithQuestions'
 
     }
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CRAppTheme.colorScheme.onGameBackground)
-    ){
-        if (!isDone){
-            PairQuestions(
-                crRoomId = crRoomId,
-                hasAnswered = hasAnswered,
-                gameInfo = gameInfo,
-                questions = questions
-            )
-        } else {
-            PairAnswerScreen(
-                gameInfo = gameInfo,
-                allChatRoomMembers = allChatRoomMembers
+    LaunchedEffect(gameInfo){
+        gameInfo?.let { game ->
+            crViewModel.checkForUsersCompleteAnswers(crRoomId, game.id, userId) // initialize 'hasAnswered'
+            crViewModel.fetchQuestions(game.id) // initialize 'questions'
+        }
+    }
+
+    if (gameInfo != null){
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(CRAppTheme.colorScheme.onGameBackground)
+        ) {
+            if (!isAllDoneWithQuestions) {
+                PairQuestions(
+                    crRoomId = crRoomId,
+                    hasAnswered = hasAnswered,
+                    gameInfo = gameInfo!!,
+                    questions = questions
+                )
+            } else {
+                PairAnswerScreen(
+                    gameInfo = gameInfo!!,
+                    allChatRoomMembers = allChatRoomMembers
+                )
+            }
+        }
+        Column(){Text("gameInfo is null")}
+    }else {
+        Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(CRAppTheme.colorScheme.onGameBackground)
+        ) {
+            Text(
+                "No Game's Playable",
+                style = CRAppTheme.typography.H1,
+                color = Color.White
             )
         }
-
     }
-
-
 }
 @Composable
 fun PairQuestions(
@@ -200,14 +220,40 @@ fun PairQuestions(
                     )
                 }
             } else {
-                Text(
-                    "Waiting for others to Complete",
-                    color = Color.Black,
-                    style = CRAppTheme.typography.H1,
-                    modifier = Modifier.padding(20.dp)
-                )
+                GameWaiting(10)
             }
         }
+    }
+}
+@Composable
+fun GameWaiting(seconds: Int){
+    val countdownTime = remember { mutableStateOf(seconds) }
+    LaunchedEffect(Unit){
+        while (true){
+            for (time in seconds downTo 0){
+                countdownTime.value = time
+                delay((1000L * seconds) / 10)
+            }
+        }
+    }
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+    ){
+        Text(
+            "Waiting for others to complete...",
+            color = Color.White,
+            style = CRAppTheme.typography.H1,
+            modifier = Modifier
+                .padding(bottom = 16.dp)
+        )
+        Text(
+            "Next check in: ${countdownTime.value} seconds",
+            color = Color.White,
+            style = CRAppTheme.typography.H2
+        )
     }
 }
 

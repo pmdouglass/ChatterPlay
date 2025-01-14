@@ -111,18 +111,62 @@ fun LoginScreen(navController: NavController) {
                 style = CRAppTheme.typography.titleMedium,
             )
         }
-        Button(
-            onClick = {
-                      Quicklogin()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 25.dp)
-        ) {
-            Text (
-                "Quick Login",
-                style = CRAppTheme.typography.titleMedium,
-            )
+        Row (
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
+        ){
+            Button(
+                onClick = {
+                    FirebaseAuth.getInstance().signInWithEmailAndPassword("doug@gmail.com", "qqqqqq")
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful){
+                                navController.navigate("roomSelect")
+                            }
+                        }
+                },
+                modifier = Modifier
+                    .padding(bottom = 25.dp)
+            ) {
+                Text (
+                    "phillip",
+                    style = CRAppTheme.typography.titleMedium,
+                )
+            }
+            Button(
+                onClick = {
+                    FirebaseAuth.getInstance().signInWithEmailAndPassword("chris@gmail.com", "qqqqqq")
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful){
+                                navController.navigate("roomSelect")
+                            }
+                        }
+                },
+                modifier = Modifier
+                    .padding(bottom = 25.dp)
+            ) {
+                Text (
+                    "chris",
+                    style = CRAppTheme.typography.titleMedium,
+                )
+            }
+            Button(
+                onClick = {
+                    FirebaseAuth.getInstance().signInWithEmailAndPassword("john@gmail.com", "qqqqqq")
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful){
+                                navController.navigate("roomSelect")
+                            }
+                        }
+                },
+                modifier = Modifier
+                    .padding(bottom = 25.dp)
+            ) {
+                Text (
+                    "john",
+                    style = CRAppTheme.typography.titleMedium,
+                )
+            }
+
         }
 
 
