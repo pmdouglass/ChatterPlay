@@ -8,6 +8,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -320,6 +325,8 @@ fun PairAnswerScreen(
 ){
     val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
     val userProfiles = remember { mutableStateOf<Map<String, UserProfile>>(emptyMap())}
+    val currentQuestionIndex = remember { mutableStateOf(0)}
+    var showAll = remember { mutableStateOf(false) }
 
 
     LaunchedEffect(true){
@@ -331,6 +338,8 @@ fun PairAnswerScreen(
         val members = allChatRoomMembers
         userProfiles.value = members.associateBy { it.userId }
     }
+
+    val distinctQuestions = answers.value.distinctBy { it.questionId }  // get unique question
 
     Column(
         verticalArrangement = Arrangement.Top,
@@ -355,19 +364,99 @@ fun PairAnswerScreen(
                 modifier = Modifier
                     .padding(bottom = 16.dp)
             )
+            Row(
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(25.dp)
+            ) {
+                Text(
+                    "Show All",
+                    color = Color.White,
+                    modifier = Modifier
+                        .clickable {
+                            showAll.value = true
+                        }
+                )
+                Text(
+                    "One by One",
+                    color = Color.White,
+                    modifier = Modifier
+                        .clickable {
+                            showAll.value = false
+                        }
+                )
+
+
+            }
+
             // display answers for each question individually
-            answers.value.distinctBy { it.questionId }.forEach { userAnswer ->
-                val yesUsers = answers.value.filter { it.questionId == userAnswer.questionId && it.answerPair }
+            if (showAll.value){
+                answers.value.distinctBy { it.questionId }.forEach { userAnswer ->
+                    val yesUsers = answers.value.filter { it.questionId == userAnswer.questionId && it.answerPair }
+                        .mapNotNull { userProfiles.value[it.userId] }
+                    val noUsers = answers.value.filter { it.questionId == userAnswer.questionId && !it.answerPair }
+                        .mapNotNull { userProfiles.value[it.userId] }
+
+                    UsersPairAnswers(
+                        userAnswer.question,
+                        yesUser = yesUsers,
+                        noUsers = noUsers
+                    )
+                }
+            }else {
+                val currentQuestion = distinctQuestions[currentQuestionIndex.value]
+                val yesUser = answers.value.filter { it.questionId == currentQuestion.questionId && it.answerPair}
                     .mapNotNull { userProfiles.value[it.userId] }
-                val noUsers = answers.value.filter { it.questionId == userAnswer.questionId && !it.answerPair }
+                val noUser = answers.value.filter { it.questionId == currentQuestion.questionId && !it.answerPair}
                     .mapNotNull { userProfiles.value[it.userId] }
 
                 UsersPairAnswers(
-                    userAnswer.question,
-                    yesUser = yesUsers,
-                    noUsers = noUsers
+                    question = currentQuestion.question,
+                    yesUser = yesUser,
+                    noUsers = noUser
                 )
+
+                // Navigation arrows
+                Row(
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ){
+                    Icon(
+                        Icons.AutoMirrored.Default.ArrowBack,
+                        contentDescription = null,
+                        tint = if (currentQuestionIndex.value > 0) Color.White else Color.Transparent,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable(enabled = currentQuestionIndex.value > 0){
+                                if (currentQuestionIndex.value > 0){
+                                    currentQuestionIndex.value -= 1
+                                }
+                            }
+                    )
+
+                    Spacer(modifier = Modifier.width(50.dp))
+
+                    Icon(
+                        Icons.AutoMirrored.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = if (currentQuestionIndex.value < distinctQuestions.size -1) Color.White else Color.Transparent,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clickable(enabled = currentQuestionIndex.value < distinctQuestions.size -1){
+                                if (currentQuestionIndex.value < distinctQuestions.size -1){
+                                    currentQuestionIndex.value += 1
+                                }
+                            }
+                    )
+
+                }
             }
+
+
+
         }
     }
 }
