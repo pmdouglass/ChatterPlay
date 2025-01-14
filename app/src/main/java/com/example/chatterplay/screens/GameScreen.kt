@@ -104,7 +104,7 @@ fun PairGameScreen(
             gameTitle.value = fetchedTitle ?: "Unknown Game"
         }
 
-        crViewModel.checkForAnswers(2, userId)
+        crViewModel.checkForAnswers(crRoomId, 2, userId)
         crViewModel.monitorUntilAllUsersDoneWithCurrentGame(crRoomId)
 
 
@@ -174,6 +174,7 @@ fun PairQuestions(
                         onAnswer = { answer ->
                             recordedAnswers.add(
                                 Answers(
+                                    crRoomId = crRoomId,
                                     userId = userId,
                                     titleId = currentQuestion.TitleId,
                                     questionId = currentQuestion.id,
@@ -187,7 +188,7 @@ fun PairQuestions(
                 } else {
                     // all finished operations
 
-                    crViewModel.savePairAnswers(recordedAnswers)
+                    crViewModel.savePairAnswers(crRoomId, recordedAnswers)
                     /*crViewModel.addOrUpdateGame(
                         crRoomId = crRoomId,
                         gameName = gameTitle,
@@ -200,7 +201,7 @@ fun PairQuestions(
                 }
             } else {
                 Text(
-                    "Done!",
+                    "Waiting for others to Complete",
                     color = Color.Black,
                     style = CRAppTheme.typography.H1,
                     modifier = Modifier.padding(20.dp)

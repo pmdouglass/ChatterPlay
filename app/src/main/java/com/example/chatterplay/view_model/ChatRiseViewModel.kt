@@ -305,13 +305,14 @@ class ChatRiseViewModel: ViewModel() {
     }
     private val _isDoneAnswering = mutableStateOf(false)
     val isDoneAnswering: State<Boolean> = _isDoneAnswering
-    suspend fun checkForAnswers(titleId: Int, userId: String): Boolean{
+    suspend fun checkForAnswers(crRoomId: String, titleId: Int, userId: String): Boolean{
         return try {
             val response = client.postgrest["answers"]
                 .select(
                     filter = {
                         filter("titleId", FilterOperator.EQ, titleId)
                         filter("userId", FilterOperator.EQ, userId)
+                        filter("crRoomId", FilterOperator.EQ, crRoomId)
                     }
                 )
                 .decodeList<Answers>()
@@ -324,11 +325,12 @@ class ChatRiseViewModel: ViewModel() {
             false
         }
     }
-    fun savePairAnswers(answers: List<Answers>){
+    fun savePairAnswers(crRoomId: String, answers: List<Answers>){
         viewModelScope.launch {
             try {
                 answers.forEach { answer ->
                     val answerInsert = Answers(
+                        crRoomId = crRoomId,
                         userId = answer.userId,
                         titleId = answer.titleId,
                         questionId = answer.questionId,
@@ -342,7 +344,7 @@ class ChatRiseViewModel: ViewModel() {
 
                 // temerarliy update answers
                 val titleId = answers.firstOrNull()?.titleId ?: return@launch
-                checkForAnswers(titleId, userId)
+                checkForAnswers(crRoomId, titleId, userId)
 
 
             }catch (e: Exception){

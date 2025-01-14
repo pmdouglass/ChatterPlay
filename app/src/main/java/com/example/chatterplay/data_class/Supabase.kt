@@ -38,6 +38,7 @@ data class Questions (
 
 @Serializable
 data class Answers(
+    val crRoomId: String,
     val userId: String,
     val titleId: Int,
     val questionId: Int,
