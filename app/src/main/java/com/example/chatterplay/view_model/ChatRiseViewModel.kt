@@ -11,6 +11,7 @@ import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.GameTitle
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
 import io.github.jan.supabase.postgrest.postgrest
@@ -246,6 +247,25 @@ class ChatRiseViewModel: ViewModel() {
 
 
     //                        Supabase Games
+    fun getRandomGameInfo(onResult: (Title?) -> Unit){
+        viewModelScope.launch {
+            try {
+                val randomId = chatRepository.fetchRandomGameInfo()
+                onResult(randomId)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to get randome titleId ${e.message}")
+            }
+        }
+    }
+    fun addGameNameToAllUserProfiles(crRoomId: String, userIds: List<String>, gameInfo: Title){
+        viewModelScope.launch {
+            try {
+                chatRepository.addGameNameToAllUserProfile(crRoomId, userIds, gameInfo)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to add gameName ${e.message}")
+            }
+        }
+    }
     fun fetchGameTitle(titleId: Int, onComplete: (String?) -> Unit){
         viewModelScope.launch {
             try {
@@ -295,7 +315,7 @@ class ChatRiseViewModel: ViewModel() {
     fun fetchQuestions(titleId: Int){
         viewModelScope.launch {
             try {
-                val query = chatRepository.getAllQuestions()
+                val query = chatRepository.getAllQuestions(titleId)
                 Log.d("ViewModel", "Fetched ${query.size} questions")
                 _gameQuestions.value = query
             }catch (e: Exception){

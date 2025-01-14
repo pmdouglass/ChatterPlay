@@ -6,7 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -14,10 +16,12 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ImageAspectRatio
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Button
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
@@ -51,7 +56,12 @@ import kotlinx.coroutines.launch
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatViewModel = viewModel()) {
+fun MainScreen(
+    crRoomId: String,
+    navController: NavController,
+    viewModel: ChatViewModel = viewModel(),
+    crViewModel: ChatRiseViewModel = viewModel()
+) {
 
 
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -60,6 +70,7 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
     var showTopBarInfo by remember { mutableStateOf(false)}
     var showMemberProfile by remember { mutableStateOf(false)}
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
+    var selectedGame by remember { mutableStateOf<Title?>(null)}
 
 
     val profile = rememberCRProfile(crRoomId = crRoomId)
@@ -143,6 +154,23 @@ fun MainScreen(crRoomId: String, navController: NavController, viewModel: ChatVi
                             .padding(paddingValues)
                             .clickable { showTopBarInfo = false }
                     ){
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ){
+                            Button(onClick = {
+                                crViewModel.getRandomGameInfo { randomGame ->
+                                    selectedGame = randomGame
+                                }
+                                selectedGame?.let {game ->
+                                    val userIds: List<String> = allChatRoomMembers.map { it.userId }
+                                    crViewModel.addGameNameToAllUserProfiles(crRoomId, userIds, game)
+                                }
+                            }){
+                                Text("Add Game")
+                            }
+                        }
                         NavigationRow(
                             tabs = tabs,
                             selectedTabIndex = selectedTabindex,

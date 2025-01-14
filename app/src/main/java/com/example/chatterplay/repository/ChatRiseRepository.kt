@@ -4,12 +4,14 @@ import android.util.Log
 import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient
+import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.tasks.await
+import kotlinx.serialization.encodeToString
 
 
 class ChatRiseRepository {
@@ -175,6 +177,24 @@ class ChatRiseRepository {
             Log.e("Repository", "Failed to deduct points from $userId", e)
         }
     }
+
+    //                   supabase
+    suspend fun fetchRandomGameInfo(): Title?{
+        return try {
+            // fetch all title's
+            val response = SupabaseClient.client.postgrest["title"]
+                .select()
+                .decodeList<Title>()
+
+            // extract id's to list
+            //val ids = response.map { it.id }
+
+            if (response.isNotEmpty()) response.random() else null
+        }catch (e: Exception){
+            Log.d("ViewModel", "Failed to get random titleId ${e.message}")
+            null
+        }
+    }
     suspend fun addOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, gamePlayed: Boolean? = null, doneStatus: Boolean? = null): Boolean{
         return try {
             val gameDocRef = crGameRoomsCollection
@@ -229,6 +249,35 @@ class ChatRiseRepository {
             false
         }
     }
+    suspend fun addGameNameToAllUserProfile(crRoomId: String, members: List<String>, gameInfo: Title){
+        try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+
+            // Serialize the Title object to JSON
+            val gameInfoJson = kotlinx.serialization.json.Json.encodeToString(gameInfo)
+
+            members.forEach { userId ->
+                val userDocRef = collection.document(userId)
+                val usersSnapshot = userDocRef.get().await()
+
+                if (usersSnapshot.exists()){
+                    userDocRef.update(
+                        mapOf(
+                            "gameInfo" to gameInfoJson,
+                            "gameStatus" to false
+                        )
+                    ).await()
+
+                    Log.d("Repository", "UserProfile updated with gameName: $gameInfoJson")
+                }
+            }
+
+        }catch (e: Exception){
+            Log.d("Repository", "Failed to add gamename to userProfile ${e.message}")
+        }
+    }
     suspend fun updateGameStatus(crRoomId: String, userId: String, questionsComplete: Boolean): Boolean{
         return try {
             val collection = crGameRoomsCollection
@@ -254,21 +303,13 @@ class ChatRiseRepository {
         }
     }*/
 
-    suspend fun getQuestions(titleId: Int): List<Questions> {
+    suspend fun getAllQuestions(titleId: Int): List<Questions>{
         val response = SupabaseClient.client.postgrest["questions"]
             .select(
                 filter = {
-                    filter("TitleId", FilterOperator.EQ, titleId)
+                    filter("titleId", FilterOperator.EQ, titleId)
                 }
             )
-        Log.d("Repository", "Raw response: ${response.body}")
-
-        return response.decodeList()
-
-    }
-    suspend fun getAllQuestions(): List<Questions>{
-        val response = SupabaseClient.client.postgrest["questions"]
-            .select()
         return response.decodeList()
     }
 

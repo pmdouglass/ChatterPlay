@@ -50,3 +50,9 @@ data class GameTitle(
     val id: Int,
     val title: String
 )
+@Serializable
+data class Title(
+    val id: Int,
+    val modeId: Int,
+    val title: String
+)
