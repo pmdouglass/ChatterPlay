@@ -47,11 +47,6 @@ data class Answers(
     val title: String,
 )
 @Serializable
-data class GameTitle(
-    val id: Int,
-    val title: String
-)
-@Serializable
 data class Title(
     val id: Int,
     val title: String,

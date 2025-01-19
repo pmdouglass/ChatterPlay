@@ -1,6 +1,5 @@
 package com.example.chatterplay.repository
 
-import android.util.Log
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp

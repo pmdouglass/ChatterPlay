@@ -34,8 +34,7 @@ class ChatViewModel: ViewModel() {
     val userProfile: StateFlow<UserProfile?> get() = _userProfile
     private val _alternateUserProfile = MutableStateFlow<UserProfile?>(null)
     val alternateUserProfile: StateFlow<UserProfile?> get() = _alternateUserProfile
-    private val _crUserProfile = MutableStateFlow<UserProfile?>(null)
-    val crUserProfile: StateFlow<UserProfile?> get() = _crUserProfile
+
     private val _personalImage = mutableStateOf<String?>(null)
     val personalImage: State<String?> get() = _personalImage
     private val _alternateImage = mutableStateOf<String?>(null)

@@ -325,7 +325,7 @@ fun PairAnswerScreen(
     val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
     val userProfiles = remember { mutableStateOf<Map<String, UserProfile>>(emptyMap())}
     val currentQuestionIndex = remember { mutableStateOf(0)}
-    var showAll = remember { mutableStateOf(false) }
+    val showAll = remember { mutableStateOf(false) }
 
 
     LaunchedEffect(true){
@@ -470,7 +470,6 @@ fun UsersPairAnswers(
         modifier = Modifier
             .padding(top = 10.dp, bottom = 10.dp)
     ){
-        val answers by remember { mutableStateOf(Answers)}
 
         Text(
             question,

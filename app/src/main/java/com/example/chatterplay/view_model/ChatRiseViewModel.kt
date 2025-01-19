@@ -6,12 +6,11 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.Answers
-import com.example.chatterplay.data_class.GameTitle
+import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
-import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.Title
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -51,12 +50,7 @@ class ChatRiseViewModel: ViewModel() {
             _rankingStatus.value = status ?: "View"
         }
     }
-    fun manualUpdateRankingStatus(crRoomId: String, userId: String, newStatus: String){
-        viewModelScope.launch {
-            chatRepository.updateUserRankingStatus(crRoomId = crRoomId, userId = userId, updatedStatus = newStatus)
-            checkUserRankingStatus(crRoomId = crRoomId, userId = userId)
-        }
-    }
+
     fun updateToRanking(crRoomId: String, userId: String){
         viewModelScope.launch {
             chatRepository.updateUserRankingStatus(crRoomId, userId, "Ranking")
@@ -105,42 +99,6 @@ class ChatRiseViewModel: ViewModel() {
         }
     }
 
-    fun monitorUntilAllDone(crRoomId: String, currentUserId: String){
-        viewModelScope.launch {
-            try {
-                while (true){
-                    Log.d("ViewModel", "Searching for Done Members")
-
-                    // check current rankingStatus
-                    val currentUserStatus = chatRepository.fetchUserRankingStatus(crRoomId, currentUserId)
-                    if (currentUserStatus == "View"){
-                        Log.d("ViewModel", "User status == 'View'")
-                        break
-                    }
-
-                    val usersSnapshot = chatRepository.getAllUsersInRoom(crRoomId)
-                    val allUsersDone = usersSnapshot.documents.all { document ->
-                        document.getString("rankingStatus") == "Done"
-                    }
-                    if (allUsersDone){
-                        usersSnapshot.documents.forEach { document ->
-                            val userId = document.id
-                            chatRepository.updateUserRankingStatus(
-                                crRoomId = crRoomId,
-                                userId = userId,
-                                updatedStatus = "View"
-                            )
-                        }
-                        Log.d("ViewModel", "All Users set to View")
-                        break
-                    }
-                    kotlinx.coroutines.delay(5000)
-                }
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error Monitoring until all done")
-            }
-        }
-    }
     fun setAllVotesToDone(crRoomId: String){
         viewModelScope.launch {
             try {
@@ -311,28 +269,9 @@ class ChatRiseViewModel: ViewModel() {
             _gameInfo.value = retrievedGameInfo
         }
     }
-    fun fetchGameTitle(title: String, onComplete: (String?) -> Unit){
-        viewModelScope.launch {
-            try {
-                val response = client.postgrest["title"]
-                    .select(
-                        filter = {
-                            filter("id", FilterOperator.EQ, title)
-                        }
-                    )
-                    .decodeList<GameTitle>()
 
-                val gameTitle = response.firstOrNull()?.title ?: "Unknown"
-                Log.d("ViewModel", "Fetched game title $gameTitle")
-                onComplete(gameTitle)
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error fetching game title ${e.message}")
-            }
-        }
-    }
     fun addOrUpdateGame(
         crRoomId: String,
-        userIdToUpdate: String? = null,
         gameName: String,
         hadAlert: Boolean? = null,
         allAnswered: Boolean? = null,
@@ -353,7 +292,7 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun updateHasAnswered(crRoomId: String, questionsComplete: Boolean){
+    private fun updateHasAnswered(crRoomId: String, questionsComplete: Boolean){
         viewModelScope.launch {
             try {
                 chatRepository.updateHasAnswered(crRoomId, userId, questionsComplete)
@@ -419,7 +358,7 @@ class ChatRiseViewModel: ViewModel() {
                     client.postgrest["answers"].insert(answers)
                     Log.d("ViewModel", "Saved ${answers.size} answers")
 
-                    val title = answers.first().title
+                    answers.first().title
                     updateHasAnswered(crRoomId, true)
                     checkForUsersCompleteAnswers(crRoomId, gameInfo.title, userId)
 

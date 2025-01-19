@@ -10,7 +10,6 @@ import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.tasks.await
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 
 
@@ -60,21 +59,7 @@ class ChatRiseRepository {
             null
         }
     }
-    suspend fun fetchAllUsersHasAnswered(crRoomId: String): List<Boolean>{
-        return try {
-            val documentSnapshot = crGameRoomsCollection
-                .document(crRoomId)
-                .collection(users)
-                .get().await()
 
-            val statuses = documentSnapshot.documents.mapNotNull { it.getBoolean("hasAnswered") }
-            Log.d("Repository", "Fetched game statuses: $statuses")
-            statuses
-        }catch (e: Exception){
-            Log.d("Repository", "Error fetching users game status ${e.message}")
-            emptyList()
-        }
-    }
     fun updateUserRankingStatus(crRoomId: String, userId: String, updatedStatus: String){
         val data = mapOf(
             "rankingStatus" to updatedStatus
@@ -94,9 +79,7 @@ class ChatRiseRepository {
             val snapshot = rankingRef.get().await()
 
             firestore.runTransaction { transaction ->
-                if (snapshot.isEmpty){
-
-                }else {
+                if (!snapshot.isEmpty){
                     snapshot.documents.forEach { document ->
                         val memberId = document.id
                         val memberRef = rankingRef.document(memberId)
@@ -349,37 +332,6 @@ class ChatRiseRepository {
         }catch (e: Exception){
             Log.d("Repository", "Error updating game status ${e.message}")
             false
-        }
-    }
-    suspend fun checkHasAnswered(crRoomId: String, userId: String): Boolean{
-        return try {
-            val collection = crGameRoomsCollection
-                .document(crRoomId)
-                .collection(users)
-                .document(userId)
-
-            val documentSnapshot = collection.get().await()
-            if (documentSnapshot.exists()){
-                documentSnapshot.getBoolean("hasAnswered") ?: false
-            }else {
-                false
-            }
-        }catch (e: Exception){
-            Log.d("Repository", "Error updating game status ${e.message}")
-            false
-        }
-    }
-    suspend fun updateAllAnsweredField(crRoomId: String, title: String, allAnswered: Boolean){
-        try {
-            val gameDocRef = crGameRoomsCollection
-                .document(crRoomId)
-                .collection("Games")
-                .document(title)
-
-            gameDocRef.update("allAnswered", allAnswered).await()
-            Log.d("Repsoitory", "Update allAnswered to $allAnswered for game: $title")
-        }catch (e: Exception){
-            Log.d("Repository", "Error updated 'allAnswered' field: ${e.message}")
         }
     }
 
