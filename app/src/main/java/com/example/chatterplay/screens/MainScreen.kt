@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,7 +33,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -71,6 +74,7 @@ fun MainScreen(
     var showMemberProfile by remember { mutableStateOf(false)}
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
     var selectedGame by remember { mutableStateOf<Title?>(null)}
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
 
 
     val profile = rememberCRProfile(crRoomId = crRoomId)
@@ -90,6 +94,7 @@ fun MainScreen(
 
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
+        crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
     }
 
     RightSideModalDrawer(
@@ -160,23 +165,60 @@ fun MainScreen(
                                 .fillMaxWidth()
                         ){
                             Button(onClick = {
-                                crViewModel.generateRandomGameInfo { randomGame ->
-                                    selectedGame = randomGame
+                                val userIds: List<String> = allChatRoomMembers.map { it.userId }
+                                crViewModel.generateRandomGameInfo(crRoomId, userIds) { randomGame ->
+                                    if (randomGame != null){
+                                        selectedGame = randomGame
+                                        Log.d("MainChat", "selectedGame successfully set: $selectedGame")
+
+                                        selectedGame?.let {game ->
+                                            Log.d("MainChat", "Attempting to add game: ${game.title} for users: $userIds")
+                                            crViewModel.addGame(crRoomId, userIds, game)
+                                        }
+                                    } else {
+                                        Log.d("MainChat", "No game was returned for generateRandomGameInfo, skipping addGame")
+                                    }
                                 }
-                                selectedGame?.let {game ->
-                                    val userIds: List<String> = allChatRoomMembers.map { it.userId }
-                                    crViewModel.addGame(crRoomId, userIds, game)
-                                }
+                                Log.d("MainChat", "Button to Generate clicked")
                             }){
                                 Text("Add Game")
                             }
+
+                            Button(onClick = {
+                                val userIds: List<String> = allChatRoomMembers.map { it.userId }
+                                if (gameInfo != null){
+                                    gameInfo?.let { game->
+                                        crViewModel.addOrUpdateGame(
+                                            crRoomId = crRoomId,
+                                            gameName = game.title,
+                                            allDone = true
+                                        )
+                                        crViewModel.deleteGames(crRoomId, userIds)
+                                    }
+                                } else {
+                                    Log.e("MainScreen", "gameInfo is null update")
+                                }
+
+                            }){
+                                Text("update allDone")
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ){
+
+
+
                         }
                         NavigationRow(
                             tabs = tabs,
                             selectedTabIndex = selectedTabindex,
                             onTabSelected = {index ->
                                 selectedTabindex = index
-                            }
+                            },
+                            disabledTabIndices = if (gameInfo == null) listOf(2) else emptyList()
                         )
 
                         when (selectedTabindex){
@@ -204,10 +246,38 @@ fun MainScreen(
                                 )
                             }
                             2 -> {
-                                PairGameScreen(
-                                    crRoomId = crRoomId,
-                                    allChatRoomMembers = allChatRoomMembers
-                                )
+                                if (gameInfo != null){
+                                    gameInfo?.let { game ->
+                                        when (game.mode){
+                                            "pair"-> {
+                                                PairGameScreen(
+                                                    crRoomId = crRoomId,
+                                                    allChatRoomMembers = allChatRoomMembers
+                                                )
+                                            }
+                                            else -> {
+                                                Log.d("MainScreen", "game.modeId = ${game.mode}")
+                                            }
+                                        }
+                                    }
+
+                                } else {
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(CRAppTheme.colorScheme.onGameBackground)
+                                    ){
+                                        Text(
+                                            "No Games to Play",
+                                            style = CRAppTheme.typography.H2,
+                                            color = Color.White
+                                        )
+                                    }
+                                    Log.d("MainScreen", "selected game is null")
+                                }
+
 
                             }
                             3 -> {

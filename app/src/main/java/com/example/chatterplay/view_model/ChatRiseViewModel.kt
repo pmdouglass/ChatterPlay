@@ -14,17 +14,21 @@ import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.tasks.await
 
 
 class ChatRiseViewModel: ViewModel() {
+    private val firestore = FirebaseFirestore.getInstance()
     private val chatRepository = ChatRiseRepository()
+    private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
+
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
@@ -68,30 +72,39 @@ class ChatRiseViewModel: ViewModel() {
             checkUserRankingStatus(crRoomId = crRoomId, userId = userId)
         }
     }
-    private val _isDoneWithGame = mutableStateOf(false)
-    val isAllDoneWithQuestions: State<Boolean> = _isDoneWithGame
-    fun monitorUntilAllUsersDoneAnsweringQuestions(crRoomId: String){
+    private val _isAllDoneWithQuestions = mutableStateOf(false)
+    val isAllDoneWithQuestions: State<Boolean> = _isAllDoneWithQuestions
+    fun monitorUntilAllUsersDoneAnsweringQuestions(crRoomId: String, title: String) {
         viewModelScope.launch {
             try {
-                while (true){
-                    // check all users hasAnswered
-                    val statuses = chatRepository.fetchAllUsersHasAnswered(crRoomId)
+                crGameRoomsCollection.document(crRoomId).collection("Users")
+                    .addSnapshotListener { snapshot, error ->
+                        if (error != null) {
+                            Log.d("ViewModel", "Error monitoring games: ${error.message}")
+                            return@addSnapshotListener
+                        }
 
-                    // check if all statuses are true
-                    if (statuses.isNotEmpty() && statuses.all { it }){
-                        Log.d("ViewModel", "All users are done with all their Questions")
-                        _isDoneWithGame.value = true
-                        break
+                        val statuses = snapshot?.documents?.mapNotNull { it.getBoolean("hasAnswered") } ?: emptyList()
+                        if (statuses.isNotEmpty() && statuses.all { it }) {
+                            Log.d("ViewModel", "All users are done with all their Questions")
+                            _isAllDoneWithQuestions.value = true
+
+                        }
+                        if (_isAllDoneWithQuestions.value){
+                            addOrUpdateGame(
+                                crRoomId = crRoomId,
+                                gameName = title,
+                                allAnswered = true
+                            )
+                            Log.d("ViewModel", "Updated $title 'allAnswered' to true")
+                        }
                     }
-
-                    // Delay to prevent tight loop (pooling every 5 seconds)
-                    delay(10000)
-                }
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error monitoring games")
+            } catch (e: Exception) {
+                Log.d("ViewModel", "Error monitoring games: ${e.message}")
             }
         }
     }
+
     fun monitorUntilAllDone(crRoomId: String, currentUserId: String){
         viewModelScope.launch {
             try {
@@ -247,13 +260,21 @@ class ChatRiseViewModel: ViewModel() {
 
 
     //                        Supabase Games
-    fun generateRandomGameInfo(onResult: (Title?) -> Unit){
+    fun generateRandomGameInfo(crRoomId: String, userIds: List<String>, onResult: (Title?) -> Unit){
         viewModelScope.launch {
             try {
-                val randomId = chatRepository.fetchRandomGameInfo()
+                Log.d("ViewModel", "Generating Random Game for room $crRoomId")
+                val randomId = chatRepository.fetchRandomGameInfo(crRoomId)
+                if (randomId != null){
+                    Log.d("ViewModel", "Random Game Selected: ${randomId.title}")
+                }else {
+                    deleteGames(crRoomId, userIds)
+                    Log.d("ViewModel", "No games available or found for selection")
+                }
                 onResult(randomId)
+                _isAllDoneWithQuestions.value = false
             }catch (e: Exception){
-                Log.d("ViewModel", "Failed to get random titleId ${e.message}")
+                Log.d("ViewModel", "Failed to get random title ${e.message}")
             }
         }
     }
@@ -265,8 +286,20 @@ class ChatRiseViewModel: ViewModel() {
                     crRoomId = crRoomId,
                     gameName = gameInfo.title
                 )
+                _gameInfo.value = gameInfo
+                _isAllDoneWithQuestions.value = false
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to add gameName ${e.message}")
+            }
+        }
+    }
+    fun deleteGames(crRoomId: String, userIds: List<String>){
+        viewModelScope.launch {
+            try {
+                chatRepository.deleteGameNameFromAllUsers(crRoomId, userIds)
+                _isAllDoneWithQuestions.value = false
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to delete games ${e.message}")
             }
         }
     }
@@ -278,13 +311,13 @@ class ChatRiseViewModel: ViewModel() {
             _gameInfo.value = retrievedGameInfo
         }
     }
-    fun fetchGameTitle(titleId: Int, onComplete: (String?) -> Unit){
+    fun fetchGameTitle(title: String, onComplete: (String?) -> Unit){
         viewModelScope.launch {
             try {
                 val response = client.postgrest["title"]
                     .select(
                         filter = {
-                            filter("id", FilterOperator.EQ, titleId)
+                            filter("id", FilterOperator.EQ, title)
                         }
                     )
                     .decodeList<GameTitle>()
@@ -297,16 +330,24 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun addOrUpdateGame(crRoomId: String, userIdToUpdate: String? = null, gameName: String, gamePlayedUpdate: Boolean? = null, doneStatusUpdate: Boolean? = null){
+    fun addOrUpdateGame(
+        crRoomId: String,
+        userIdToUpdate: String? = null,
+        gameName: String,
+        hadAlert: Boolean? = null,
+        allAnswered: Boolean? = null,
+        allDone: Boolean? = null
+    ){
         viewModelScope.launch {
             try {
                 chatRepository.addOrUpdateGame(
                     crRoomId = crRoomId,
                     gameName = gameName,
-                    userId = userIdToUpdate,
-                    gamePlayed = gamePlayedUpdate,
-                    doneStatus = doneStatusUpdate
+                    hadAlert = hadAlert,
+                    allAnswered = allAnswered,
+                    allDone = allDone
                 )
+                Log.d("ViewModel", "Updated $gameName")
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to addOrUpdateGame ${e.message}")
             }
@@ -324,60 +365,65 @@ class ChatRiseViewModel: ViewModel() {
     }
     private val _gameQuestions = MutableStateFlow<List<Questions>>(emptyList())
     val gameQuestion: StateFlow<List<Questions>> = _gameQuestions
-    fun fetchQuestions(titleId: Int){
+    fun fetchQuestions(title: String){
         viewModelScope.launch {
             try {
-                val query = chatRepository.getAllQuestions(titleId)
+                val query = chatRepository.getAllQuestions(title)
                 Log.d("ViewModel", "Fetched ${query.size} questions")
                 _gameQuestions.value = query
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to fetch questions ${e.message}")
+                _gameQuestions.value = emptyList()
             }
         }
     }
     private val _isDoneAnswering = mutableStateOf(false)
     val isDoneAnswering: State<Boolean> = _isDoneAnswering
-    suspend fun checkForUsersCompleteAnswers(crRoomId: String, titleId: Int, userId: String): Boolean{
+    suspend fun checkForUsersCompleteAnswers(crRoomId: String, title: String, userId: String): Boolean{
         return try {
+            // check if answers exist for this user in supabase
             val response = client.postgrest["answers"]
                 .select(
                     filter = {
-                        filter("titleId", FilterOperator.EQ, titleId)
+                        filter("title", FilterOperator.EQ, title)
                         filter("userId", FilterOperator.EQ, userId)
                         filter("crRoomId", FilterOperator.EQ, crRoomId)
                     }
                 )
                 .decodeList<Answers>()
 
-            val hasAnswered = response.isNotEmpty()
-            _isDoneAnswering.value = hasAnswered
-            hasAnswered
+            val answeredOrNot = response.isNotEmpty()
+
+            if (answeredOrNot){
+                crGameRoomsCollection
+                    .document(crRoomId)
+                    .collection("Users")
+                    .document(userId)
+                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
+                    .await()
+                _isDoneAnswering.value = true
+            }else {
+                _isDoneAnswering.value = false
+            }
+            answeredOrNot
+
         }catch (e: Exception){
             Log.d("ViewModel", "Error checking user answers: ${e.message}")
             false
         }
     }
-    fun savePairAnswers(crRoomId: String, answers: List<Answers>){
+    fun savePairAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title){
         viewModelScope.launch {
             try {
-                answers.forEach { answer ->
-                    val answerInsert = Answers(
-                        crRoomId = crRoomId,
-                        userId = answer.userId,
-                        titleId = answer.titleId,
-                        questionId = answer.questionId,
-                        question = answer.question,
-                        answerPair = answer.answerPair
-                    )
-                    client.postgrest["answers"].insert(answerInsert)
-                    Log.d("ViewModel", "Saving answer: ${answer.question} -> ${answer.answerPair}")
+                if (answers.isNotEmpty()){
+                    client.postgrest["answers"].insert(answers)
+                    Log.d("ViewModel", "Saved ${answers.size} answers")
+
+                    val title = answers.first().title
+                    updateHasAnswered(crRoomId, true)
+                    checkForUsersCompleteAnswers(crRoomId, gameInfo.title, userId)
+
                 }
-
-
-                // temerarliy update answers
-                val titleId = answers.firstOrNull()?.titleId ?: return@launch
-                checkForUsersCompleteAnswers(crRoomId, titleId, userId)
-
 
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to save answers ${e.message}")
@@ -385,13 +431,14 @@ class ChatRiseViewModel: ViewModel() {
         }
     }
     @SuppressLint("SuspiciousIndentation")
-    fun fetchPairAnswers(titleId: Int, onComplete: (List<Answers>) -> Unit){
+    fun fetchPairAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
         viewModelScope.launch {
             try {
             val response = client.postgrest["answers"]
                 .select(
                     filter = {
-                        filter("titleId", FilterOperator.EQ, titleId)
+                        filter("title", FilterOperator.EQ, title)
+                        filter("crRoomId", FilterOperator.EQ, crRoomId)
                     }
                 )
                 .decodeList<Answers>()

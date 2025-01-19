@@ -99,8 +99,7 @@ fun PairGameScreen(
     allChatRoomMembers: List<UserProfile>,
     crViewModel: ChatRiseViewModel = viewModel()
 ){
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val hasAnswered by crViewModel.isDoneAnswering // sees if current user done with answers
+
     val isAllDoneWithQuestions by crViewModel.isAllDoneWithQuestions // waits until everyone done with answers
     val questions by crViewModel.gameQuestion.collectAsState()  // gets questions from supabase "questions" table
     val gameInfo by crViewModel.gameInfo.collectAsState()  // gets gameInfo from UserProfile
@@ -110,13 +109,13 @@ fun PairGameScreen(
     LaunchedEffect(crRoomId) {
 
         crViewModel.getGameInfo(crRoomId)  // initialize 'gameInfo'
-        crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId) // initialize 'isAllDoneWithQuestions'
+
 
     }
     LaunchedEffect(gameInfo){
         gameInfo?.let { game ->
-            crViewModel.checkForUsersCompleteAnswers(crRoomId, game.id, userId) // initialize 'hasAnswered'
-            crViewModel.fetchQuestions(game.id) // initialize 'questions'
+            crViewModel.fetchQuestions(game.title) // initialize 'questions'
+            crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId, game.title) // initialize 'isAllDoneWithQuestions'
         }
     }
 
@@ -129,12 +128,12 @@ fun PairGameScreen(
             if (!isAllDoneWithQuestions) {
                 PairQuestions(
                     crRoomId = crRoomId,
-                    hasAnswered = hasAnswered,
                     gameInfo = gameInfo!!,
                     questions = questions
                 )
             } else {
                 PairAnswerScreen(
+                    crRoomId = crRoomId,
                     gameInfo = gameInfo!!,
                     allChatRoomMembers = allChatRoomMembers
                 )
@@ -160,7 +159,6 @@ fun PairGameScreen(
 @Composable
 fun PairQuestions(
     crRoomId: String,
-    hasAnswered: Boolean,
     gameInfo: Title,
     questions: List<Questions>,
     crViewModel: ChatRiseViewModel = viewModel()
@@ -168,8 +166,13 @@ fun PairQuestions(
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val currentQuestionIndex = remember { mutableStateOf(0) }
     val recordedAnswers = remember { mutableStateListOf<Answers>()}
+    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+
+    LaunchedEffect(crRoomId){
+        crViewModel.checkForUsersCompleteAnswers(crRoomId, gameInfo.title, userId) // initialize 'hasAnswered'
 
 
+    }
     Column(
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -190,20 +193,20 @@ fun PairQuestions(
                 style = CRAppTheme.typography.H1
             )
         } else {
-            if (!hasAnswered){
+            if (!isDoneAnswering){
                 if (currentQuestionIndex.value < questions.size){
                     val currentQuestion = questions[currentQuestionIndex.value]
                     PairStructure(
-                        currentQuestion.Question,
+                        currentQuestion.question,
                         gameInfo = gameInfo,
                         onAnswer = { answer ->
                             recordedAnswers.add(
                                 Answers(
                                     crRoomId = crRoomId,
                                     userId = userId,
-                                    titleId = currentQuestion.TitleId,
+                                    title = currentQuestion.title,
                                     questionId = currentQuestion.id,
-                                    question = currentQuestion.Question,
+                                    question = currentQuestion.question,
                                     answerPair = answer
                                 )
                             )
@@ -213,16 +216,8 @@ fun PairQuestions(
                 } else {
                     // all finished operations
 
-                    crViewModel.savePairAnswers(crRoomId, recordedAnswers)
-                    /*crViewModel.addOrUpdateGame(
-                        crRoomId = crRoomId,
-                        gameName = gameTitle,
-                        doneStatusUpdate = true
-                    )*/
-                    crViewModel.updateHasAnswered(
-                        crRoomId = crRoomId,
-                        questionsComplete = true
-                    )
+                    crViewModel.savePairAnswers(crRoomId, recordedAnswers, gameInfo)
+
                 }
             } else {
                 GameWaiting(10)
@@ -252,12 +247,7 @@ fun GameWaiting(seconds: Int){
             color = Color.White,
             style = CRAppTheme.typography.H1,
             modifier = Modifier
-                .padding(bottom = 16.dp)
-        )
-        Text(
-            "Next check in: ${countdownTime.value} seconds",
-            color = Color.White,
-            style = CRAppTheme.typography.H2
+                .padding(top = 50.dp, bottom = 16.dp)
         )
     }
 }
@@ -288,11 +278,15 @@ fun PairStructure(
                 .padding(top = 20.dp)
         ){
             Text(
-                "Yes",
+                when(gameInfo.type){
+                    "yes/no" -> "Yes"
+                    "agree/disagree" -> "Agree"
+                    else -> " . "
+                },
                 textAlign = TextAlign.Center,
                 color = Color.White,
                 modifier = Modifier
-                    .width(100.dp)
+                    .width(150.dp)
                     .padding(10.dp) // outside
                     .background(CRAppTheme.colorScheme.gameBackground)
                     .padding(15.dp) // inside
@@ -301,11 +295,15 @@ fun PairStructure(
                     }
             )
             Text(
-                "No",
+                when(gameInfo.type){
+                    "yes/no" -> "No"
+                    "agree/disagree" -> "Disagree"
+                    else -> " . "
+                },
                 textAlign = TextAlign.Center,
                 color = Color.White,
                 modifier = Modifier
-                    .width(100.dp)
+                    .width(150.dp)
                     .padding(10.dp) // outside
                     .background(CRAppTheme.colorScheme.gameBackground)
                     .padding(15.dp) // inside
@@ -319,6 +317,7 @@ fun PairStructure(
 
 @Composable
 fun PairAnswerScreen(
+    crRoomId: String,
     gameInfo: Title,
     allChatRoomMembers: List<UserProfile>,
     crViewModel: ChatRiseViewModel = viewModel()
@@ -331,7 +330,7 @@ fun PairAnswerScreen(
 
     LaunchedEffect(true){
 
-        crViewModel.fetchPairAnswers(gameInfo.id) {retrievedAnswers ->
+        crViewModel.fetchPairAnswers(crRoomId, gameInfo.title) {retrievedAnswers ->
             answers.value = retrievedAnswers
         }
 

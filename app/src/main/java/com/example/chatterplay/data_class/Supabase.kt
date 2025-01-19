@@ -31,19 +31,20 @@ object SupabaseClient {
 @Serializable
 data class Questions (
     val id: Int,
-    //val modeId: Int,
-    val Question: String,
-    val TitleId: Int
+    val mode: String,
+    val question: String,
+    val title: String,
+    val type: String
 )
 
 @Serializable
 data class Answers(
-    val crRoomId: String,
     val userId: String,
-    val titleId: Int,
     val questionId: Int,
     val question: String,
-    val answerPair: Boolean
+    val answerPair: Boolean,
+    val crRoomId: String,
+    val title: String,
 )
 @Serializable
 data class GameTitle(
@@ -53,6 +54,7 @@ data class GameTitle(
 @Serializable
 data class Title(
     val id: Int,
-    val modeId: Int,
-    val title: String
+    val title: String,
+    val mode: String,
+    val type: String
 )

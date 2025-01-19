@@ -32,6 +32,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ImageAspectRatio
 import androidx.compose.material.icons.filled.Menu
@@ -1068,10 +1069,12 @@ fun TopBarInformation(
 fun NavigationRow(
     tabs: List<Pair<String, ImageVector>>,
     selectedTabIndex: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    disabledTabIndices: List<Int> = emptyList()
 ) {
     val selectedColor = Color.White
     val unselectedColor = Color.Gray
+    val disabledColor = Color.Red
 
     TabRow(
         selectedTabIndex = selectedTabIndex,
@@ -1086,17 +1089,44 @@ fun NavigationRow(
     ) {
         tabs.forEachIndexed { index, tab ->
             val (title, icon) = tab
+            val isDisabled = index in disabledTabIndices
+
             Tab(
                 selected = selectedTabIndex == index,
-                onClick = { onTabSelected(index) },
-                icon = {
+                onClick = {
+                    if (!isDisabled){
+                        onTabSelected(index)
+                    }
+                          },
+                enabled = !isDisabled,
+                /*icon = {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
                         tint = if (selectedTabIndex == index) selectedColor else unselectedColor
                     )
+                }*/
+            ){
+                Box{
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = if (selectedTabIndex == index) selectedColor else unselectedColor,
+                        modifier = Modifier
+                            .size(28.dp)
+                    )
+                    if (isDisabled){
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(28.dp)
+                        )
+                    }
                 }
-            )
+            }
         }
     }
 }
