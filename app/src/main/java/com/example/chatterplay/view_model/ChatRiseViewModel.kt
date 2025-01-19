@@ -17,7 +17,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
-import io.ktor.client.utils.EmptyContent.status
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -219,7 +218,7 @@ class ChatRiseViewModel: ViewModel() {
 
 
     //                        Supabase Games
-    fun generateRandomGameInfo(crRoomId: String, userIds: List<String>, onResult: (Title?) -> Unit){
+    fun generateRandomGameInfo(crRoomId: String, onResult: (Title?) -> Unit){
         viewModelScope.launch {
             try {
                 Log.d("ViewModel", "Generating Random Game for room $crRoomId")
@@ -305,14 +304,13 @@ class ChatRiseViewModel: ViewModel() {
                 when (status) {
                     true -> Log.d("ViewModel", "User $userId has been alerted")
                     false -> Log.d("ViewModel", "User $userId has not been alerted")
-                    null -> Log.d("ViewModel", "No alert status found for user $userId")
                 }
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to get users game alert status ${e.message}")
             }
         }
     }
-    fun addOrUpdateGame(
+    private fun addOrUpdateGame(
         crRoomId: String,
         gameName: String,
         userId: String? = null,
@@ -336,13 +334,19 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    private fun updateHasAnswered(crRoomId: String, questionsComplete: Boolean){
+    private fun updateHasAnswered(crRoomId: String){
         viewModelScope.launch {
             try {
-                chatRepository.updateHasAnswered(crRoomId, userId, questionsComplete)
-                Log.d("ViewModel", "Updated hasAnswered to $questionsComplete")
+                val success = chatRepository.updateHasAnswered(crRoomId, userId, true)
+                if (success){
+                    _isDoneAnswering.value = true
+                    Log.d("ViewModel", "Update hasAnswered to true successful")
+                }else {
+                    Log.d("ViewModel", "Failed to update hasAnswered to true")
+                }
+                Log.d("ViewModel", "Updated hasAnswered to true")
             }catch (e: Exception){
-                Log.d("ViewModel", "failed to update game status to $questionsComplete")
+                Log.d("ViewModel", "failed to update game status to true: ${e.message}")
             }
         }
     }
@@ -403,7 +407,7 @@ class ChatRiseViewModel: ViewModel() {
                     Log.d("ViewModel", "Saved ${answers.size} answers")
 
                     answers.first().title
-                    updateHasAnswered(crRoomId, true)
+                    updateHasAnswered(crRoomId)
                     checkForUsersCompleteAnswers(crRoomId, gameInfo.title)
 
                 }

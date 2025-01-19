@@ -82,8 +82,8 @@ fun ChatLazyColumn(
             listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size - 1
         }
     }
-    LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
+    LaunchedEffect(messages.size, scrollToBottom) {
+        if (messages.isNotEmpty() && scrollToBottom.value) {
             listState.animateScrollToItem(messages.size - 1)
         }
     }

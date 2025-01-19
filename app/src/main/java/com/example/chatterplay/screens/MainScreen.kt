@@ -6,7 +6,6 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -182,7 +181,7 @@ fun MainScreen(
                         ){
                             Button(onClick = {
                                 val userIds: List<String> = allChatRoomMembers.map { it.userId }
-                                crViewModel.generateRandomGameInfo(crRoomId, userIds) { randomGame ->
+                                crViewModel.generateRandomGameInfo(crRoomId) { randomGame ->
                                     if (randomGame != null){
                                         selectedGame = randomGame
                                         Log.d("MainChat", "selectedGame successfully set: $selectedGame")
@@ -256,7 +255,7 @@ fun MainScreen(
                             disabledTabIndices =
                             when {
                                 gameInfo == null -> listOf(2)
-                                isDoneAnswering == false -> listOf(0)
+                                !isDoneAnswering -> listOf(0)
                                 else -> emptyList()
                             }
                         )
