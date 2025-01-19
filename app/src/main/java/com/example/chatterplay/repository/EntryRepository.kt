@@ -1,7 +1,6 @@
 package com.example.chatterplay.repository
 
 import com.example.chatterplay.data_class.ChatRoom
-import com.example.chatterplay.data_class.GameData
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -127,7 +126,7 @@ class RoomCreateRepository {
 
             //                            ADD Collections
 
-            // add Games Collection
+            /*// add Games Collection
             val gameDocs = listOf(
                 "AskMeAnything",
                 "PopQuiz",
@@ -143,8 +142,7 @@ class RoomCreateRepository {
                     hasViewed = false
                 )
                 gameSubCollection.document(gameName).set(gameData).await()
-            }
-
+            }*/
 
             true
         }catch (e: Exception){
@@ -153,6 +151,7 @@ class RoomCreateRepository {
         }
 
     }
+
     suspend fun fetchUsersSelectedProfileStatus(userId: String): String?{
         return try {
             val documentSnapshot = userCollection.document(userId).get().await()
