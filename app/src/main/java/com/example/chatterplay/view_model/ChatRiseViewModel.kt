@@ -17,6 +17,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
+import io.ktor.client.utils.EmptyContent.status
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -226,7 +227,6 @@ class ChatRiseViewModel: ViewModel() {
                 if (randomId != null){
                     Log.d("ViewModel", "Random Game Selected: ${randomId.title}")
                 }else {
-                    deleteGames(crRoomId, userIds)
                     Log.d("ViewModel", "No games available or found for selection")
                 }
                 onResult(randomId)
@@ -236,13 +236,14 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun addGame(crRoomId: String, userIds: List<String>, gameInfo: Title){
+    fun addGame(crRoomId: String, userIds: List<String>, gameInfo: Title, allMembers: List<UserProfile>? = null){
         viewModelScope.launch {
             try {
                 chatRepository.addGameNameToAllUserProfile(crRoomId, userIds, gameInfo)
                 chatRepository.addOrUpdateGame(
                     crRoomId = crRoomId,
-                    gameName = gameInfo.title
+                    gameName = gameInfo.title,
+                    allMembers = allMembers
                 )
                 _gameInfo.value = gameInfo
                 _isAllDoneWithQuestions.value = false
@@ -251,16 +252,37 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    fun deleteGames(crRoomId: String, userIds: List<String>){
+    fun deleteGames(crRoomId: String, userIds: List<String>, gameName: String){
         viewModelScope.launch {
             try {
                 chatRepository.deleteGameNameFromAllUsers(crRoomId, userIds)
                 _isAllDoneWithQuestions.value = false
+                chatRepository.addOrUpdateGame(
+                    crRoomId = crRoomId,
+                    gameName = gameName,
+                    allDone = true
+                )
+
+                val retrievedGameInfo = chatRepository.fetchGameInfo(crRoomId, userId)
+                _gameInfo.value = retrievedGameInfo
+
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to delete games ${e.message}")
             }
         }
     }
+    fun updateGameAlertStatus(crRoomId: String, gameName: String, hadAlert: Boolean){
+        viewModelScope.launch {
+            try {
+                val status = chatRepository.updateGameAlertStatus(crRoomId, userId, gameName, hadAlert)
+                _usersAlertStatus.value = status
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error updating user $userId to gameAlert $hadAlert: ${e.message}")
+            }
+        }
+    }
+
+
     private val _gameInfo = MutableStateFlow<Title?>(null)
     val gameInfo: StateFlow<Title?> = _gameInfo
     fun getGameInfo(crRoomId: String){
@@ -269,10 +291,31 @@ class ChatRiseViewModel: ViewModel() {
             _gameInfo.value = retrievedGameInfo
         }
     }
-
+    private val _usersAlertStatus = MutableStateFlow<Boolean?>(null)
+    val usersAlertStatus: StateFlow<Boolean?> = _usersAlertStatus
+    fun getUsersGameAlert(crRoomId: String, userId: String, gameName: String){
+        viewModelScope.launch {
+            try {
+                val status = chatRepository.checkUsersGameAlert(
+                    crRoomId = crRoomId,
+                    userId = userId,
+                    gameName = gameName
+                )
+                _usersAlertStatus.value = status
+                when (status) {
+                    true -> Log.d("ViewModel", "User $userId has been alerted")
+                    false -> Log.d("ViewModel", "User $userId has not been alerted")
+                    null -> Log.d("ViewModel", "No alert status found for user $userId")
+                }
+            }catch (e: Exception){
+                Log.d("ViewModel", "failed to get users game alert status ${e.message}")
+            }
+        }
+    }
     fun addOrUpdateGame(
         crRoomId: String,
         gameName: String,
+        userId: String? = null,
         hadAlert: Boolean? = null,
         allAnswered: Boolean? = null,
         allDone: Boolean? = null
@@ -282,6 +325,7 @@ class ChatRiseViewModel: ViewModel() {
                 chatRepository.addOrUpdateGame(
                     crRoomId = crRoomId,
                     gameName = gameName,
+                    userId = userId,
                     hadAlert = hadAlert,
                     allAnswered = allAnswered,
                     allDone = allDone
@@ -318,7 +362,7 @@ class ChatRiseViewModel: ViewModel() {
     }
     private val _isDoneAnswering = mutableStateOf(false)
     val isDoneAnswering: State<Boolean> = _isDoneAnswering
-    suspend fun checkForUsersCompleteAnswers(crRoomId: String, title: String, userId: String): Boolean{
+    suspend fun checkForUsersCompleteAnswers(crRoomId: String, title: String): Boolean{
         return try {
             // check if answers exist for this user in supabase
             val response = client.postgrest["answers"]
@@ -360,7 +404,7 @@ class ChatRiseViewModel: ViewModel() {
 
                     answers.first().title
                     updateHasAnswered(crRoomId, true)
-                    checkForUsersCompleteAnswers(crRoomId, gameInfo.title, userId)
+                    checkForUsersCompleteAnswers(crRoomId, gameInfo.title)
 
                 }
 

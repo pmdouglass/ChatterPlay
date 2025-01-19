@@ -2,6 +2,7 @@ package com.example.chatterplay.data_class
 
 import com.google.firebase.Timestamp
 
+
 data class ChatMessage(
     val senderId: String = "",
     val senderName: String = "",

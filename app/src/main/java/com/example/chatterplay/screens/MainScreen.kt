@@ -6,6 +6,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.seperate_composables.AlertDialogSplash
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
 import com.example.chatterplay.seperate_composables.ChatLazyColumn
@@ -75,11 +78,11 @@ fun MainScreen(
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
     var selectedGame by remember { mutableStateOf<Title?>(null)}
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-
-
+    val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
     val profile = rememberCRProfile(crRoomId = crRoomId)
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
+    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
 
 
     // Navigation tab Icons 'Description to Icon'
@@ -95,6 +98,19 @@ fun MainScreen(
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
+
+    }
+    LaunchedEffect(gameInfo){
+        if (gameInfo != null)
+            gameInfo?.let { game ->
+                crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
+                crViewModel.checkForUsersCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
+            }
+    }
+
+    val thereIsAnAlertMessage by remember {
+        derivedStateOf {
+            gameInfo != null && usersGameAlertStatus == false /* || */}
     }
 
     RightSideModalDrawer(
@@ -173,7 +189,12 @@ fun MainScreen(
 
                                         selectedGame?.let {game ->
                                             Log.d("MainChat", "Attempting to add game: ${game.title} for users: $userIds")
-                                            crViewModel.addGame(crRoomId, userIds, game)
+                                            crViewModel.addGame(
+                                                crRoomId = crRoomId,
+                                                userIds = userIds,
+                                                gameInfo = game,
+                                                allMembers = allChatRoomMembers
+                                            )
                                         }
                                     } else {
                                         Log.d("MainChat", "No game was returned for generateRandomGameInfo, skipping addGame")
@@ -188,12 +209,7 @@ fun MainScreen(
                                 val userIds: List<String> = allChatRoomMembers.map { it.userId }
                                 if (gameInfo != null){
                                     gameInfo?.let { game->
-                                        crViewModel.addOrUpdateGame(
-                                            crRoomId = crRoomId,
-                                            gameName = game.title,
-                                            allDone = true
-                                        )
-                                        crViewModel.deleteGames(crRoomId, userIds)
+                                        crViewModel.deleteGames(crRoomId, userIds, game.title)
                                     }
                                 } else {
                                     Log.e("MainScreen", "gameInfo is null update")
@@ -202,6 +218,7 @@ fun MainScreen(
                             }){
                                 Text("update allDone")
                             }
+
                         }
                         Row(
                             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -212,13 +229,36 @@ fun MainScreen(
 
 
                         }
+
+
+
+                        if (thereIsAnAlertMessage){
+                            gameInfo?.let { game ->
+                                AlertDialogSplash(
+                                    crRoomId = crRoomId,
+                                    game = true,
+                                    gameInfo = game,
+                                    onDone = {
+                                        selectedTabindex = 2
+                                    }
+                                )
+                            }
+
+                        }
+
+
                         NavigationRow(
                             tabs = tabs,
                             selectedTabIndex = selectedTabindex,
                             onTabSelected = {index ->
                                 selectedTabindex = index
                             },
-                            disabledTabIndices = if (gameInfo == null) listOf(2) else emptyList()
+                            disabledTabIndices =
+                            when {
+                                gameInfo == null -> listOf(2)
+                                isDoneAnswering == false -> listOf(0)
+                                else -> emptyList()
+                            }
                         )
 
                         when (selectedTabindex){
@@ -233,7 +273,6 @@ fun MainScreen(
                                     profile = profile,
                                     navController = navController
                                 )
-
                             }
                             1 -> {
                                 ProfileScreen2(
@@ -308,7 +347,13 @@ fun MainScreen(
     )
 }
 @Composable
-fun RiseMainChat(selectedMember: (UserProfile) -> Unit, chatRoomMembers: List<UserProfile>, crRoomId: String, profile: UserProfile, navController: NavController){
+fun RiseMainChat(
+    selectedMember: (UserProfile) -> Unit,
+    chatRoomMembers: List<UserProfile>,
+    crRoomId: String,
+    profile: UserProfile,
+    navController: NavController
+){
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -332,7 +377,7 @@ fun RiseMainChat(selectedMember: (UserProfile) -> Unit, chatRoomMembers: List<Us
                 roomId = "",
                 profile = profile,
                 game = true,
-                mainChat = true
+                mainChat = true,
             )
         }
     }
@@ -365,4 +410,5 @@ fun ShowMembersProfile(
         }
     }
 }
+
 

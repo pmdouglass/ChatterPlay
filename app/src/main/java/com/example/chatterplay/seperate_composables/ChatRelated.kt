@@ -3,6 +3,7 @@ package com.example.chatterplay.seperate_composables
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,19 +43,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.ui.theme.CRAppTheme
+import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
-fun ChatLazyColumn(crRoomId: String, roomId: String, profile: UserProfile, game: Boolean, mainChat: Boolean, viewModel: ChatViewModel = viewModel()) {
+fun ChatLazyColumn(
+    crRoomId: String,
+    roomId: String,
+    profile: UserProfile,
+    game: Boolean,
+    mainChat: Boolean,
+    viewModel: ChatViewModel = viewModel()
+) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
@@ -64,19 +75,20 @@ fun ChatLazyColumn(crRoomId: String, roomId: String, profile: UserProfile, game:
         viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
     }
 
+
     // Scroll to bottom when new messages arrive
     val scrollToBottom = remember {
         derivedStateOf {
             listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size - 1
         }
     }
-    if (scrollToBottom.value) {
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(messages.size - 1)
-            }
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
         }
     }
+    /*if (scrollToBottom.value) {
+    }*/
 
     // Chat List UI
     LazyColumn(
@@ -94,6 +106,7 @@ fun ChatLazyColumn(crRoomId: String, roomId: String, profile: UserProfile, game:
                 previousMessage = previousMessage
             )
         }
+
         // Footer
         item {
             UserInfoFooter(profile)
@@ -258,5 +271,82 @@ fun ChatInput(viewModel: ChatViewModel = viewModel(), crRoomId: String, roomId: 
 
     }
 
+}
+@Composable
+fun AlertDialogSplash(
+    crRoomId: String,
+    game: Boolean = false,
+    rank: Boolean = false,
+    system: Boolean = false,
+    gameInfo: Title? = null,
+    onDone: () -> Unit,
+    crViewModel: ChatRiseViewModel = viewModel()
+){
+    val pitch0 = "Alert!"
+    val pitch1 =
+        when{
+            game ->
+                gameInfo?.let { game ->
+                    "You will now Play\n${game.title}"
+                } ?: "Game Information Not Available"
+
+            rank -> "This is rank"
+            system -> "this is system"
+            else -> "No Specific Alert type"
+
+        }
+    val pitch2 = "You will be presented with a series of questions"
+    val pitch3 =
+        when(gameInfo?.type){
+            "agree/disagree" -> "Respond with Agree or Disagree"
+            "yes/no" -> "Respond with Yes or No"
+            else -> "nothing"
+        }
+    val texts = listOf(pitch0, pitch1, pitch2, pitch3)
+    var currentIndex by remember { mutableStateOf(0)}
+    val isLastItem = currentIndex == texts.size -1
+
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CRAppTheme.colorScheme.onGameBackground)
+            .clickable {
+                if (isLastItem){
+                    onDone()
+                    when{
+                        game -> {
+                            gameInfo?.let { game ->
+                                crViewModel.updateGameAlertStatus(
+                                    crRoomId = crRoomId,
+                                    gameName = game.title,
+                                    hadAlert = true
+                                )
+                            }
+                        }
+                        rank -> {
+
+                        }
+                        system -> {
+
+                        }
+                        else -> {
+
+                        }
+                    }
+                } else {
+                    currentIndex++
+                }
+                    //currentIndex = (currentIndex + 1) % texts.size
+            }
+    ){
+        Text(
+            texts[currentIndex],
+            style = CRAppTheme.typography.H2,
+            textAlign = TextAlign.Center,
+            color = Color.Red
+        )
+    }
 }
 
