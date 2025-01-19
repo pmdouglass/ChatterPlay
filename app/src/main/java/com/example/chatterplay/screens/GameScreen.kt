@@ -169,9 +169,7 @@ fun PairQuestions(
     val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
 
     LaunchedEffect(crRoomId){
-        crViewModel.checkForUsersCompleteAnswers(crRoomId, gameInfo.title, userId) // initialize 'hasAnswered'
-
-
+        crViewModel.checkForUsersCompleteAnswers(crRoomId, gameInfo.title) // initialize 'isDoneAnswering'
     }
     Column(
         verticalArrangement = Arrangement.Top,

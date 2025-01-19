@@ -170,6 +170,8 @@ class ChatRiseRepository {
 
 
 
+
+
     //                   supabase
     suspend fun fetchRandomGameInfo(crRoomId: String): Title?{
         return try {
@@ -201,9 +203,59 @@ class ChatRiseRepository {
             null
         }
     }
+    suspend fun updateGameAlertStatus(crRoomId: String, userId: String, gameName: String, hadAlert: Boolean): Boolean?{
+        return try {
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            val gameSnapshot = gameDocRef.get().await()
+            if (gameSnapshot.exists()){
+                val currentHadAlertMap = gameSnapshot.get("hadAlert") as? MutableMap<String, Boolean> ?: mutableMapOf()
+                currentHadAlertMap[userId] = hadAlert
+
+                val update = mapOf("hadAlert" to currentHadAlertMap)
+                gameDocRef.update(update).await()
+                Log.d("Repository", "Successfully updated hadAlert for user $userId in game $gameName to $hadAlert")
+                true
+            }else {
+                Log.d("Repository", "Game document does not exist for $gameName")
+                false
+            }
+        }catch (e: Exception){
+            Log.e("Repository", "Error updating game alert ${e.message}", e)
+            false
+        }
+    }
+    suspend fun checkUsersGameAlert(crRoomId: String, userId: String, gameName: String): Boolean{
+        return try {
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            val gameSnapshot = gameDocRef.get().await()
+            if (gameSnapshot.exists()){
+                val hadAlertMap = gameSnapshot.get("hadAlert") as? Map<String, Boolean> ?: emptyMap()
+                val userAlertStatus = hadAlertMap?.get(userId) ?: false
+                Log.d("Repository", "User $userId alert status: $userAlertStatus")
+                userAlertStatus
+
+            }else {
+                Log.d("Repository", "Game document does not exist for $gameName")
+                false
+            }
+        }catch (e: Exception){
+            Log.e("Repository", "Failed to check user alert game status ${e.message}", e)
+            false
+        }
+    }
     suspend fun addOrUpdateGame(
         crRoomId: String,
         gameName: String,
+        userId: String? = null,
+        allMembers: List<UserProfile>? = null,
         hadAlert: Boolean? = null,
         allAnswered: Boolean? = null,
         allDone: Boolean? = null
@@ -220,7 +272,12 @@ class ChatRiseRepository {
                 val updates = mutableMapOf<String, Any>()
                 allAnswered?.let { updates["allAnswered"] = it }
                 allDone?.let { updates["allDone"] = it }
-                hadAlert?.let { updates["hadAlert"] = it }
+
+                if (userId != null && hadAlert != null){
+                    val currentHadAlertMap = gameSnapshot.get("hadAlert") as? MutableMap<String, Boolean> ?: mutableMapOf()
+                    currentHadAlertMap[userId] = hadAlert
+                    updates["hadAlert"] = currentHadAlertMap
+                }
 
                 if (updates.isNotEmpty()){
                     gameDocRef.update(updates).await()
@@ -229,10 +286,11 @@ class ChatRiseRepository {
                     Log.d("Repository", "no fields to update")
                 }
             } else {
+                val hadAlertMap = allMembers?.associate { it.userId to false } ?: emptyMap()
 
                 val gameData = mapOf(
                     "gameName" to gameName,
-                    "hadAlert" to false,
+                    "hadAlert" to hadAlertMap,
                     "allAnswered" to false,
                     "allDone" to false
                 )
