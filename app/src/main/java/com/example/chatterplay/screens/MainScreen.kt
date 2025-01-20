@@ -287,8 +287,8 @@ fun MainScreen(
                                 if (gameInfo != null){
                                     gameInfo?.let { game ->
                                         when (game.mode){
-                                            "pair"-> {
-                                                PairGameScreen(
+                                            "pair", "multiple" -> {
+                                                ChoiceGameScreen(
                                                     crRoomId = crRoomId,
                                                     allChatRoomMembers = allChatRoomMembers
                                                 )

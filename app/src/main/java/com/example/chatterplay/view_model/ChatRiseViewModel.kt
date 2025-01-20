@@ -409,11 +409,25 @@ class ChatRiseViewModel: ViewModel() {
                     answers.first().title
                     updateHasAnswered(crRoomId)
                     checkForUsersCompleteAnswers(crRoomId, gameInfo.title)
-
                 }
-
             }catch (e: Exception){
-                Log.d("ViewModel", "Failed to save answers ${e.message}")
+                Log.d("ViewModel", "Failed to save pair answers ${e.message}")
+            }
+        }
+    }
+    fun saveMultipleAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title){
+        viewModelScope.launch {
+            try {
+                if (answers.isNotEmpty()){
+                    client.postgrest["answers"].insert(answers)
+                    Log.d("ViewModel", "Saved ${answers.size} answers")
+
+                    answers.first().title
+                    updateHasAnswered(crRoomId)
+                    checkForUsersCompleteAnswers(crRoomId, gameInfo.title)
+                }
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to save multiple answers ${e.message}")
             }
         }
     }
