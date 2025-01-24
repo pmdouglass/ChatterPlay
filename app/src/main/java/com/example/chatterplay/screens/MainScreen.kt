@@ -81,7 +81,6 @@ fun MainScreen(
     val profile = rememberCRProfile(crRoomId = crRoomId)
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
-    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
 
 
     // Navigation tab Icons 'Description to Icon'
@@ -111,8 +110,9 @@ fun MainScreen(
         derivedStateOf {
             gameInfo != null && usersGameAlertStatus == false /* || */}
     }
+    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
     val startIndex = when {
-        !isDoneAnswering -> 2
+        isDoneAnswering -> 2
         else -> 0
     }
     var selectedTabindex by remember { mutableIntStateOf(startIndex) }

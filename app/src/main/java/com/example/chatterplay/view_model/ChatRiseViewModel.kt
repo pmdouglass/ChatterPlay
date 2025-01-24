@@ -370,11 +370,12 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    private val _isDoneAnswering = mutableStateOf(false)
+    private val _isDoneAnswering = mutableStateOf(true)
     val isDoneAnswering: State<Boolean> = _isDoneAnswering
     suspend fun checkForUsersCompleteAnswers(crRoomId: String, title: String): Boolean{
         return try {
             // check if answers exist for this user in supabase
+            Log.d("ViewModel", "Checking for completed answers")
             val response = client.postgrest["answers"]
                 .select(
                     filter = {
@@ -395,8 +396,11 @@ class ChatRiseViewModel: ViewModel() {
                     .set(mapOf("hasAnswered" to true), SetOptions.merge())
                     .await()
                 _isDoneAnswering.value = true
+                Log.d("ViewModel", "is Done Answering: true")
             }else {
                 _isDoneAnswering.value = false
+                Log.d("ViewModel", "is Done Answering: false")
+
             }
             answeredOrNot
 

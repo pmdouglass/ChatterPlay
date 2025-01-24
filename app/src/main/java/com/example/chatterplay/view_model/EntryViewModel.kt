@@ -15,7 +15,7 @@ class RoomCreationViewModel: ViewModel(){
 
     private val userRepository = RoomCreateRepository()
     // User state flow ("NotPending", "Pending", "InGame")
-    private val _userState = MutableStateFlow<String?>("NotPending")
+    private val _userState = MutableStateFlow<String?>(null)
     val userStatus: StateFlow<String?> = _userState
 
     // Room readiness flow
