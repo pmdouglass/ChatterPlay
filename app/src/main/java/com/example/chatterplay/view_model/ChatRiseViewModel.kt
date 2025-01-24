@@ -11,7 +11,6 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.data_class.askQuestion
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,7 +19,6 @@ import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -241,12 +239,6 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-
-
-
-
-
-
     fun addGame(crRoomId: String, userIds: List<String>, gameInfo: Title, allMembers: List<UserProfile>? = null){
         viewModelScope.launch {
             try {
@@ -256,7 +248,7 @@ class ChatRiseViewModel: ViewModel() {
                     gameName = gameInfo.title,
                     allMembers = allMembers
                 )
-                if (gameInfo.title == "Mystery Caller" && allMembers != null){
+                /*if (gameInfo.title == "Mystery Caller" && allMembers != null){
                     val generatedPairs = createUserPairs(allMembers)
                     saveMysterCallerPairs(
                         crRoomId = crRoomId,
@@ -265,7 +257,7 @@ class ChatRiseViewModel: ViewModel() {
                     ){
                         Log.d("ViewModel", "${gameInfo.title} pairs saved successfully.")
                     }
-                }
+                }*/
                 _gameInfo.value = gameInfo
                 _isAllDoneWithQuestions.value = false
             }catch (e: Exception){
@@ -273,22 +265,6 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     fun deleteGames(crRoomId: String, userIds: List<String>, gameName: String){
         viewModelScope.launch {
             try {
@@ -318,7 +294,6 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-
 
     private val _gameInfo = MutableStateFlow<Title?>(null)
     val gameInfo: StateFlow<Title?> = _gameInfo
@@ -470,6 +445,7 @@ class ChatRiseViewModel: ViewModel() {
 
 
 
+    /*
     //               supabase anon questions
     private val _theyHaveAsked = MutableStateFlow(false)
     val theyHaveAsked: StateFlow<Boolean> = _theyHaveAsked.asStateFlow()
@@ -607,13 +583,6 @@ class ChatRiseViewModel: ViewModel() {
         }
     }
 
-
-
-
-
-
-
-
     fun saveAnonAnswer(question: Answers){
         viewModelScope.launch {
             try {
@@ -649,18 +618,11 @@ class ChatRiseViewModel: ViewModel() {
     }
 
 
-
-
-
-
-
-
-
-
-
     private val _QnAState = MutableStateFlow<String>("")
     val QnAState: StateFlow<String> = _QnAState
 
+
+     */
 
 
 

@@ -251,15 +251,7 @@ class ChatRiseRepository {
             false
         }
     }
-    suspend fun addOrUpdateGame(
-        crRoomId: String,
-        gameName: String,
-        userId: String? = null,
-        allMembers: List<UserProfile>? = null,
-        hadAlert: Boolean? = null,
-        allAnswered: Boolean? = null,
-        allDone: Boolean? = null
-    ): Boolean{
+    suspend fun addOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null): Boolean{
         return try {
             val gameDocRef = crGameRoomsCollection
                 .document(crRoomId)
@@ -409,13 +401,8 @@ class ChatRiseRepository {
         cachedQuestions = questions
         return questions
     }
-    fun saveMysterCallerPairs(
-        crRoomId: String,
-        gameName: String,
-        pairs: List<Pair<String, String>>,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    ){
+    /*
+    fun saveMysterCallerPairs(crRoomId: String, gameName: String, pairs: List<Pair<String, String>>, onSuccess: () -> Unit, onError: (Exception) -> Unit){
         val mysterCallerData = pairs.mapIndexed { index, pair ->
             "pair${index + 1}" to mapOf(
                 "askerId" to pair.first,
@@ -440,13 +427,7 @@ class ChatRiseRepository {
                 onError(exception)
             }
     }
-    fun updateHasAsked(
-        crRoomId: String,
-        gameName: String,
-        userId: String,
-        onSuccess: () -> Unit,
-        onError: (Exception) -> Unit
-    ) {
+    fun updateHasAsked(crRoomId: String, gameName: String, userId: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
         val documentPath = crGameRoomsCollection
             .document(crRoomId)
             .collection("Games")
@@ -496,14 +477,7 @@ class ChatRiseRepository {
                 onError(exception)
             }
     }
-    fun checkIfUserHasAnswered(
-        crRoomId: String,
-        gameName: String,
-        userId: String,
-        toYou: Boolean,
-        onComplete: (Boolean) -> Unit,
-        onError: (Exception) -> Unit
-    ) {
+    fun checkIfUserHasAnswered(crRoomId: String, gameName: String, userId: String, toYou: Boolean, onComplete: (Boolean) -> Unit, onError: (Exception) -> Unit) {
         val documentPath = crGameRoomsCollection
             .document(crRoomId)
             .collection("Games")
@@ -546,14 +520,7 @@ class ChatRiseRepository {
                 onError(exception)
             }
     }
-
-
-    fun fetchMysteryCallerPairs(
-        crRoomId: String,
-        gameName: String,
-        onComplete: (List<Pair<String, String>>) -> Unit,
-        onError: (Exception) -> Unit
-    ) {
+    fun fetchMysteryCallerPairs(crRoomId: String, gameName: String, onComplete: (List<Pair<String, String>>) -> Unit, onError: (Exception) -> Unit) {
         val documentPath = crGameRoomsCollection
             .document(crRoomId)
             .collection("Games")
@@ -592,7 +559,6 @@ class ChatRiseRepository {
                 onError(exception)
             }
     }
-
     suspend fun getSelectedUserProfile(crRoomId: String, userId: String): UserProfile?{
         return try {
             val documentPath = crGameRoomsCollection
@@ -608,6 +574,7 @@ class ChatRiseRepository {
         }
     }
 
+     */
 
 
 }

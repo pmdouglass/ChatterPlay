@@ -425,7 +425,6 @@ fun ChoiceStructure(
                     )
                 }
             }
-            else -> "No Type Selected"
         }
     }
 }
