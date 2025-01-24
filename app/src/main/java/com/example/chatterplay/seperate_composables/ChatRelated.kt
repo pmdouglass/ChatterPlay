@@ -116,6 +116,51 @@ fun ChatLazyColumn(
         }
     }
 }
+
+@Composable
+fun ChatMainPreviewLazyColumn(
+    crRoomId: String,
+    roomId: String,
+    viewModel: ChatViewModel = viewModel()
+) {
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val messages by viewModel.messages.collectAsState()
+    val listState = rememberLazyListState()
+
+    // Fetch chat messages when roomId or game changes
+    LaunchedEffect(roomId) {
+        viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = true, mainChat = true)
+    }
+
+
+    // Scroll to bottom when new messages arrive
+    val scrollToBottom = remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size - 1
+        }
+    }
+    LaunchedEffect(messages.size, scrollToBottom) {
+        if (messages.isNotEmpty() && scrollToBottom.value) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    // Chat List UI
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.Bottom,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Messages
+        itemsIndexed(messages) { index, message ->
+            ThumbnailChatList(
+                image = message.image,
+                message = message,
+                isFromMe = message.senderId == currentUser?.uid
+            )
+        }
+    }
+}
 @Composable
 fun UserInfoFooter(profile: UserProfile, game: Boolean) {
     Row(
@@ -318,7 +363,7 @@ fun AlertDialogSplash(
         when{
             game ->
                 gameInfo?.let { game ->
-                    "You will now Play\n${game.title}"
+                    "You will now Play\n\n\n${game.title}"
                 } ?: "Game Information Not Available"
 
             rank -> "This is rank"
@@ -329,8 +374,8 @@ fun AlertDialogSplash(
     val pitch2 = "You will be presented with a series of questions"
     val pitch3 =
         when(gameInfo?.type){
-            "agree/disagree" -> "Respond with Agree or Disagree"
-            "yes/no" -> "Respond with Yes or No"
+            "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"
+            "yes/no" -> "Respond with\n\n\nYes or No"
             else -> "nothing"
         }
     val texts = listOf(pitch0, pitch1, pitch2, pitch3)
@@ -374,7 +419,7 @@ fun AlertDialogSplash(
     ){
         Text(
             texts[currentIndex],
-            style = CRAppTheme.typography.H2,
+            style = if (texts[currentIndex] == pitch0) CRAppTheme.typography.H7 else CRAppTheme.typography.H4,
             textAlign = TextAlign.Center,
             color = Color.Red
         )

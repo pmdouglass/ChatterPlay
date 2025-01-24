@@ -66,6 +66,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -95,6 +96,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
+import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.UserProfile
@@ -143,13 +145,21 @@ fun rememberCRProfile(crRoomId: String, viewModel: ChatRiseViewModel = viewModel
     return profile
 }
 @Composable
-fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCreationViewModel = viewModel(), navController: NavController) {
+fun ChatRiseThumbnail(
+    viewModel: ChatViewModel = viewModel(),
+    crViewModel: ChatRiseViewModel = viewModel(),
+    roomCreate: RoomCreationViewModel = viewModel(),
+    navController: NavController
+) {
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val currentUser = FirebaseAuth.getInstance().currentUser
     var selfSelect by remember { mutableStateOf(true)}
     var altSelect by remember { mutableStateOf(false)}
-    val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUser?.uid ?: "", viewModel)
+    val crRoomId by roomCreate.crRoomId.collectAsState()
+    val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+
 
     val width = 100
 
@@ -158,6 +168,8 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
 
 
     val hasAlternateProfile = alternateProfile.fname.isNotBlank()
+
+
 
 
     Column (
@@ -203,12 +215,21 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                     }
                     userStatus == "Pending" -> {}
                     roomReady -> {
+
+                        LaunchedEffect(Unit){
+                            if (crRoomId != "0"){
+                                crRoomId?.let {room ->
+                                    viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
+                                }
+                            }
+                        }
+
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                "1.3k",
+                                "${allChatRoomMembers.size}",
                                 style = CRAppTheme.typography.infoMedium
                             )
                             Text(
@@ -387,8 +408,8 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                                     altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
                                     else -> { alternateProfile}
                                 }
-                                viewModel.saveUserProfile(userId = currentUserId, userProfile = updatedProfile, game = false)
-                                viewModel.saveUserProfile(userId = currentUserId, userProfile = altUpdatedProfile, game = true)
+                                viewModel.saveUserProfile(userId = currentUser?.uid ?: "", userProfile = updatedProfile, game = false)
+                                viewModel.saveUserProfile(userId = currentUser?.uid ?: "", userProfile = altUpdatedProfile, game = true)
                                 roomCreate.setToPending()
                             },
                                 modifier = Modifier
@@ -467,73 +488,72 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                     }
                 }
                 roomReady -> {
-                    val crRoomId by roomCreate.crRoomId.collectAsState()
-                    Column(
-                        verticalArrangement = Arrangement.Bottom,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable {
-                                navController.navigate("mainScreen/$crRoomId")
+                    if (crRoomId != "0"){
+                        crRoomId?.let { crRoomId ->
+                            Column(
+                                verticalArrangement = Arrangement.Bottom,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable {
+                                        navController.navigate("mainScreen/$crRoomId")
+                                    }
+                            ) {
+
+
+                                val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
+                                val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
+
+                                LaunchedEffect(crRoomId){
+                                    crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
+                                }
+
+                                LaunchedEffect(gameInfo){
+                                    if (gameInfo != null){
+                                        gameInfo?.let { game ->
+                                            crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
+                                        }
+                                    }
+                                }
+
+                                val thereIsAnAlertMessage by remember {
+                                    derivedStateOf {
+                                        gameInfo != null && usersGameAlertStatus == false /* || */}
+                                }
+
+
+
+
+
+
+
+
+
+                                if (thereIsAnAlertMessage){
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                    ){
+                                        Text(
+                                            "ALERT!",
+                                            style = CRAppTheme.typography.H6,
+                                            color = Color.Red
+                                        )
+                                    }
+                                }else {
+                                    ChatMainPreviewLazyColumn(
+                                        crRoomId = crRoomId,
+                                        roomId = crRoomId,
+                                    )
+                                }
+
+
+
+
+
+
                             }
-                    ) {
-                        Text("RoomId is: $crRoomId")
-                        Row (
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                        ){
-                            Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Hey all! Besides the gym, I'm big into hiking and mountain biking. Anyone else here into outdoor stuff?",
-                                style = CRAppTheme.typography.bodySmall
-                            )
-                        }
-                        Row (
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                        ){
-                            Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = "Nice. I love hikiing too! I'm also really into cooking, especially trying to make healthy versions of comfort foods. Any foodies here?",
-                                style = CRAppTheme.typography.bodySmall
-                            )
-                        }
-                        Row (
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                        ){
-                            Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = "For sure! I'm more of a runner and a swimmer, but I love trying new recipes. Trying to get into yogo lately, too. What got you guys into your hobbies?",
-                                style = CRAppTheme.typography.bodySmall
-                            )
                         }
                     }
                 }
@@ -544,6 +564,35 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
 
             }
         }
+    }
+}
+@Composable
+fun ThumbnailChatList(
+    image: String,
+    message: ChatMessage,
+    isFromMe: Boolean,
+){
+    Row (
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(5.dp)
+    ){
+        if (!isFromMe){
+            Image(
+                painter = rememberAsyncImagePainter(image),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(text = message.message,
+            style = CRAppTheme.typography.bodyLarge
+        )
     }
 }
 @Composable
