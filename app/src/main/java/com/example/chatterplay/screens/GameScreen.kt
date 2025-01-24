@@ -106,13 +106,10 @@ fun ChoiceGameScreen(
     val gameInfo by crViewModel.gameInfo.collectAsState()  // gets gameInfo from UserProfile
 
 
-
     LaunchedEffect(crRoomId) {
-
         crViewModel.getGameInfo(crRoomId)  // initialize 'gameInfo'
-
-
     }
+
     LaunchedEffect(gameInfo){
         gameInfo?.let { game ->
             crViewModel.fetchQuestions(game.title) // initialize 'questions'
@@ -735,3 +732,5 @@ fun UsersPairAnswers(
 
     }
 }
+
+

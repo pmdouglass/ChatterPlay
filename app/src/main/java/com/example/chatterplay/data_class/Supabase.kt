@@ -48,7 +48,7 @@ data class Answers(
     val question: String,
     val answerPair: Boolean? = null,
     val crRoomId: String,
-    val title: String,
+    val title: String? = null,
     val choice: String? = null
 )
 @Serializable
@@ -57,4 +57,11 @@ data class Title(
     val title: String,
     val mode: String,
     val type: String
+)
+@Serializable
+data class askQuestion(
+    val crRoomId: String,
+    val question: String,
+    val userId: String,
+    val toUserId: String
 )
