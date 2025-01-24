@@ -46,6 +46,7 @@ fun AllMembersRow(selectedMember: ((UserProfile) -> Unit)? = null, chatRoomMembe
 
     }
 }
+
 @Composable
 fun UserProfileIcon(selectedMember: ((UserProfile) -> Unit)? = null, chatMember: UserProfile, imgSize: Int = 30, txtSize: Int = 10, game: Boolean, self: Boolean, navController: NavController) {
     Column(

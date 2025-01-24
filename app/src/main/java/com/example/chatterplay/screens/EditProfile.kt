@@ -259,6 +259,7 @@ fun EditPersonalInfo(
     var showEditInfo by remember { mutableStateOf(false)}
     var titleEdit by remember{ mutableStateOf("")}
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: ""
     val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
 
 
@@ -293,7 +294,7 @@ fun EditPersonalInfo(
                     .background(CRAppTheme.colorScheme.background)
                     .padding(paddingValues)
             ) {
-                SettingsInfoRow(edit = true, title = "Email", body = "doug@gmail.com", onClick = { showEditInfo = true; titleEdit = "Email" })
+                SettingsInfoRow(edit = true, title = "Email", body = userEmail, onClick = { showEditInfo = true; titleEdit = "Email" })
                 SettingsInfoRow(edit = true, title = "Update Password", body = "*********", onClick = { showEditInfo = true; titleEdit = "Password" })
 
             }

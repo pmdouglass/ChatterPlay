@@ -138,7 +138,9 @@ fun SettingsScreen(game: Boolean, navController: NavController) {
                         icon = Icons.Default.Info,
                         contentDescription = null,
                         title = "Terms of Service",
-                        onClick = { /*TODO*/ }
+                        onClick = {
+                            navController.navigate("termsAndConditions")
+                        }
                     )
                 }
 
