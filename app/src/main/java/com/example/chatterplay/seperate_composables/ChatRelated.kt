@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.R
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
@@ -140,8 +142,16 @@ fun UserInfoFooter(profile: UserProfile) {
         )
     }
 }
+
 @Composable
-fun ChatBubble(message: ChatMessage, image: String, isFromMe: Boolean, previousMessage: ChatMessage?) {
+fun ChatBubble(
+    message: ChatMessage,
+    image: String,
+    isFromMe: Boolean,
+    anon: Boolean = false,
+    previousMessage: ChatMessage?
+) {
+
     val borderRad = 30.dp
     val showProfileImage = previousMessage?.senderId != message.senderId
 
@@ -155,7 +165,12 @@ fun ChatBubble(message: ChatMessage, image: String, isFromMe: Boolean, previousM
         // ---------------- if left than members picture
         if (!isFromMe && showProfileImage) {
             Image(
-                painter = rememberAsyncImagePainter(image),
+                painter =
+                if (anon){
+                    painterResource(R.drawable.person_sillouette)
+                }else {
+                    rememberAsyncImagePainter(image)
+                },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -163,7 +178,7 @@ fun ChatBubble(message: ChatMessage, image: String, isFromMe: Boolean, previousM
                     .clip(CircleShape)
             )
             Spacer(modifier = Modifier.width(10.dp))
-        } else{
+        } else {
             Image(
                 painter = rememberAsyncImagePainter(model = ""),
                 contentDescription = null,
@@ -174,9 +189,9 @@ fun ChatBubble(message: ChatMessage, image: String, isFromMe: Boolean, previousM
             )
             Spacer(modifier = Modifier.width(10.dp))
         }
-        Column (
-            horizontalAlignment = if(isFromMe) Alignment.End else Alignment.Start
-        ){
+        Column(
+            horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start
+        ) {
             //----------------- name and time
             Row(
                 horizontalArrangement = if (!isFromMe) Arrangement.Start else Arrangement.End,
@@ -185,14 +200,21 @@ fun ChatBubble(message: ChatMessage, image: String, isFromMe: Boolean, previousM
             ) {
                 if (!isFromMe && showProfileImage) {
                     Text(
-                        text = message.senderName,
+                        text =
+                        if (anon){
+                            ""
+                        }else {
+                            message.senderName
+                        },
                         fontWeight = FontWeight.Light,
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                 }
-                if (showProfileImage){
-                    Text(formattedDayTimestamp(message.timestamp), fontWeight = FontWeight.Light)
+                if (showProfileImage) {
+                    if (!anon){
+                        Text(formattedDayTimestamp(message.timestamp), fontWeight = FontWeight.Light)
+                    }
                 }
 
             }

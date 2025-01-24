@@ -80,7 +80,7 @@ class RoomCreationViewModel: ViewModel(){
     private fun monitorPendingUsers() {
         viewModelScope.launch {
             while (_userState.value == "Pending"){
-                val roomSize = 3
+                val roomSize = 4
                 val pendingUsers = userRepository.fetchUsersPendingState()
                 if (pendingUsers.size >= roomSize){
                     val usersToUpdate = pendingUsers.take(roomSize)

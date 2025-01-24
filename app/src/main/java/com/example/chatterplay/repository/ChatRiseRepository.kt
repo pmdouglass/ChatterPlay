@@ -251,15 +251,7 @@ class ChatRiseRepository {
             false
         }
     }
-    suspend fun addOrUpdateGame(
-        crRoomId: String,
-        gameName: String,
-        userId: String? = null,
-        allMembers: List<UserProfile>? = null,
-        hadAlert: Boolean? = null,
-        allAnswered: Boolean? = null,
-        allDone: Boolean? = null
-    ): Boolean{
+    suspend fun addOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null): Boolean{
         return try {
             val gameDocRef = crGameRoomsCollection
                 .document(crRoomId)
@@ -409,7 +401,180 @@ class ChatRiseRepository {
         cachedQuestions = questions
         return questions
     }
+    /*
+    fun saveMysterCallerPairs(crRoomId: String, gameName: String, pairs: List<Pair<String, String>>, onSuccess: () -> Unit, onError: (Exception) -> Unit){
+        val mysterCallerData = pairs.mapIndexed { index, pair ->
+            "pair${index + 1}" to mapOf(
+                "askerId" to pair.first,
+                "hasAsked" to false,
+                "recieverId" to pair.second,
+                "hasAnswered" to false
+            )
+        }.toMap()
 
+        val documentPath = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Games")
+            .document(gameName)
+
+        documentPath.set(mapOf("pairs" to mysterCallerData), SetOptions.merge())
+            .addOnSuccessListener {exception ->
+                Log.d("Repository", "Saved $gameName pairs successfullly.")
+                onSuccess
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Repository", "Failed to save $gameName pairs: ${exception.message}")
+                onError(exception)
+            }
+    }
+    fun updateHasAsked(crRoomId: String, gameName: String, userId: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
+        val documentPath = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Games")
+            .document(gameName)
+
+        documentPath.get()
+            .addOnSuccessListener { document ->
+                try {
+                    if (document.exists()) {
+                        val pairsData = document.get("pairs") as? Map<String, Map<String, Any>>
+                        if (pairsData != null) {
+                            // Find the pair where `askerId` matches the userId
+                            val updatedPairs = pairsData.mapValues { entry ->
+                                if (entry.value["askerId"] == userId) {
+                                    entry.value.toMutableMap().apply {
+                                        this["hasAsked"] = true
+                                    }
+                                } else {
+                                    entry.value
+                                }
+                            }
+
+                            // Update the document with the modified pairs
+                            documentPath.update("pairs", updatedPairs)
+                                .addOnSuccessListener {
+                                    Log.d("Repository", "Updated hasAsked for user $userId successfully.")
+                                    onSuccess()
+                                }
+                                .addOnFailureListener { exception ->
+                                    Log.e("Repository", "Failed to update hasAsked for user $userId: ${exception.message}")
+                                    onError(exception)
+                                }
+                        } else {
+                            Log.d("Repository", "No pairs data found.")
+                            onSuccess()
+                        }
+                    } else {
+                        Log.d("Repository", "No document found for $gameName.")
+                        onSuccess()                    }
+                } catch (e: Exception) {
+                    Log.e("Repository", "Error processing $gameName data: ${e.message}")
+                    onError(e)
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Repository", "Failed to fetch $gameName data: ${exception.message}")
+                onError(exception)
+            }
+    }
+    fun checkIfUserHasAnswered(crRoomId: String, gameName: String, userId: String, toYou: Boolean, onComplete: (Boolean) -> Unit, onError: (Exception) -> Unit) {
+        val documentPath = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Games")
+            .document(gameName)
+
+        documentPath.get()
+            .addOnSuccessListener { document ->
+                try {
+                    if (document.exists()) {
+                        val pairsData = document.get("pairs") as? Map<String, Map<String, Any>>
+                        if (pairsData != null) {
+                            val hasAnswered = pairsData.any { (_, pairData) ->
+                                val askerId = pairData["askerId"] as? String
+                                val receiverId = pairData["receiverId"] as? String
+                                val answered = pairData["hasAnswered"] as? Boolean ?: false
+
+                                if (toYou) {
+                                    receiverId == userId && answered
+                                } else {
+                                    askerId == userId && answered
+                                }
+                            }
+                            Log.d("Repository", "Check hasAnswered result: $hasAnswered")
+                            onComplete(hasAnswered)
+                        } else {
+                            Log.d("Repository", "No pairs data found.")
+                            onComplete(false)
+                        }
+                    } else {
+                        Log.d("Repository", "No document found for $gameName")
+                        onComplete(false)
+                    }
+                } catch (e: Exception) {
+                    Log.e("Repository", "Error processing $gameName data: ${e.message}")
+                    onError(e)
+                }
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Repository", "Failed to check hasAnswered: ${exception.message}")
+                onError(exception)
+            }
+    }
+    fun fetchMysteryCallerPairs(crRoomId: String, gameName: String, onComplete: (List<Pair<String, String>>) -> Unit, onError: (Exception) -> Unit) {
+        val documentPath = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Games")
+            .document(gameName)
+
+        documentPath.get()
+            .addOnSuccessListener { document ->
+                try {
+                    if (document.exists()) {
+                        val pairsData = document.get("pairs") as? Map<String, Map<String, String>>
+                        if (pairsData != null){
+                            val pairs = pairsData.mapNotNull {
+                                val askerId = it.value["askerId"]
+                                val recieverId = it.value["recieverId"]
+                                if (askerId != null && recieverId != null){
+                                    askerId to recieverId
+                                }else {
+                                    null
+                                }
+                            }
+                            Log.d("Repository", "Fetched $gameName pairs successfully: $pairs")
+                            onComplete(pairs)
+                        }
+                    }else {
+                        Log.d("Repository", "No document found for $gameName")
+                        onComplete(emptyList())
+                    }
+                }catch (e: Exception){
+                    Log.e("Repository", "Error processing $gameName data: ${e.message}")
+                    onError(e)
+                }
+
+            }
+            .addOnFailureListener { exception ->
+                Log.e("Repository", "Failed to fetch $gameName pairs: ${exception.message}")
+                onError(exception)
+            }
+    }
+    suspend fun getSelectedUserProfile(crRoomId: String, userId: String): UserProfile?{
+        return try {
+            val documentPath = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Users")
+                .document(userId)
+                .get().await()
+
+            documentPath.toObject(UserProfile::class.java)
+        }catch (e: Exception){
+            Log.e("Repository", "Failed to fetch UserProfile for userId: $userId in room: $crRoomId")
+            null
+        }
+    }
+
+     */
 
 
 }
