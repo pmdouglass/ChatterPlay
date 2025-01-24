@@ -47,7 +47,8 @@ fun ChattingScreen(
 ) {
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val chatRoom by viewModel.roomInfo.collectAsState()
-    val chatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+    val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+    val RoomMembers = allChatRoomMembers.filter { it.userId != currentUserId }
     val membersCount by viewModel.chatRoomMembersCount.collectAsState()
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
 
@@ -55,7 +56,7 @@ fun ChattingScreen(
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
         viewModel.fetchSingleChatRoomMemberCount(roomId)
         viewModel.getRoomInfo(crRoomId = crRoomId, roomId = roomId)
-        Log.d("examp", "Chat room members: $chatRoomMembers")
+        Log.d("examp", "Chat room members: $allChatRoomMembers")
 
     }
 
@@ -76,7 +77,8 @@ fun ChattingScreen(
                                     Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = null,
                                     Modifier
-                                        .size(35.dp)
+                                        .size(35.dp),
+                                    tint = Color.White
                                 )
                             }
                         },
@@ -90,7 +92,7 @@ fun ChattingScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         if (membersCount == 2){
-                            chatRoomMembers.firstOrNull()?.let {  member ->
+                            RoomMembers.firstOrNull()?.let { member ->
                                 Text(
                                     member.fname,
                                     style = CRAppTheme.typography.headingLarge
@@ -140,7 +142,7 @@ fun ChattingScreen(
                 .padding(paddingValues)
         ){
             AllMembersRow(
-                chatRoomMembers = chatRoomMembers,
+                chatRoomMembers = RoomMembers,
                 game = game,
                 self = false,
                 navController = navController

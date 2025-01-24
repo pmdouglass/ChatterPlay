@@ -105,18 +105,19 @@ fun ChatLazyColumn(
                 image = message.image,
                 message = message,
                 isFromMe = message.senderId == currentUser?.uid,
-                previousMessage = previousMessage
+                previousMessage = previousMessage,
+                game = game
             )
         }
 
         // Footer
         item {
-            UserInfoFooter(profile)
+            UserInfoFooter(profile, game)
         }
     }
 }
 @Composable
-fun UserInfoFooter(profile: UserProfile) {
+fun UserInfoFooter(profile: UserProfile, game: Boolean) {
     Row(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -126,6 +127,7 @@ fun UserInfoFooter(profile: UserProfile) {
     ) {
         Text(
             text = "Sending as",
+            color = if(game) Color.White else Color.Black,
             modifier = Modifier.padding(end = 8.dp)
         )
         Image(
@@ -138,6 +140,7 @@ fun UserInfoFooter(profile: UserProfile) {
         )
         Text(
             text = profile.fname,
+            color = if (game) Color.White else Color.Black,
             modifier = Modifier.padding(start = 8.dp)
         )
     }
@@ -146,6 +149,7 @@ fun UserInfoFooter(profile: UserProfile) {
 @Composable
 fun ChatBubble(
     message: ChatMessage,
+    game: Boolean,
     image: String,
     isFromMe: Boolean,
     anon: Boolean = false,
@@ -207,13 +211,18 @@ fun ChatBubble(
                             message.senderName
                         },
                         fontWeight = FontWeight.Light,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.sp,
+                        color = if (game) Color.White else Color.Black
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                 }
                 if (showProfileImage) {
                     if (!anon){
-                        Text(formattedDayTimestamp(message.timestamp), fontWeight = FontWeight.Light)
+                        Text(
+                            formattedDayTimestamp(message.timestamp),
+                            fontWeight = FontWeight.Light,
+                            color = if (game) Color.White else Color.Black
+                        )
                     }
                 }
 
