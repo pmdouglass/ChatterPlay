@@ -147,12 +147,12 @@ class ChatRepository {
         }
         return null
     }
-    suspend fun checkIfSingleRoomExists(crRoomId: String, memberId: String): String? {
+    suspend fun checkIfSingleRoomExists(crRoomId: String, userId: String, otherMemberId: String): String? {
         if (crRoomId == "0") {
             val querySnapshot = chatRoomsCollection.get().await()
             for (document in querySnapshot.documents) {
                 val chatRoom = document.toObject(ChatRoom::class.java)
-                if (chatRoom != null && chatRoom.members.size == 2 && chatRoom.members.contains(memberId)) {
+                if (chatRoom != null && chatRoom.members.size == 2 && chatRoom.members.contains(userId) && chatRoom.members.contains(otherMemberId)) {
                     return document.id
                 }
             }
@@ -164,7 +164,7 @@ class ChatRepository {
                 .get().await()
             for (document in querySnapshot.documents){
                 val chatRoom = document.toObject(ChatRoom::class.java)
-                if (chatRoom != null && chatRoom.members.size == 2 && chatRoom.members.contains(memberId)) {
+                if (chatRoom != null && chatRoom.members.size == 2 && chatRoom.members.contains(userId) && chatRoom.members.contains(otherMemberId)) {
                     return document.id
                 }
             }
@@ -198,8 +198,10 @@ class ChatRepository {
             roomRef.update("members", FieldValue.arrayUnion(memberId)).await()
         }
     }
-    suspend fun getChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
+    suspend fun getMainChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
         Log.d("riser", "crRoomId: $crRoomId, roomId:$roomId, game:$game, mainChat:$mainChat")
+
+        // Base Collection
         val roomCollection = if (game) {
             if (mainChat){
                 crGameRoomsCollection
@@ -226,6 +228,71 @@ class ChatRepository {
             usersPath.document(memberId).get().await().toObject(UserProfile::class.java)
         } ?: emptyList()
     }
+    suspend fun getMembersforGame(
+        crRoomId: String,
+        roomId: String,
+        game: Boolean,
+        mainChat: Boolean
+    ): List<UserProfile> {
+        // which path
+        // which room
+        // collect members
+        // get userprofile
+
+        Log.d("Repository", "Getting Members for Game")
+        Log.d("Repository", "Parameters - crRoomId: $crRoomId, roomId: $roomId, game: $game, mainChat: $mainChat")
+
+        // Determine the collection to use
+        val roomCollection = if (game) crGameRoomsCollection else chatRoomsCollection
+        Log.d("Repository", "Using roomCollection path: ${roomCollection.path}")
+
+        return if (mainChat) {
+            // Main chat logic
+            val usersPath = roomCollection.document(crRoomId).collection("Users")
+            Log.d("Repository", "MainChat UserPath: ${usersPath.path}")
+
+            try {
+                val users = usersPath.get().await().documents.mapNotNull { document ->
+                    val user = document.toObject(UserProfile::class.java)
+                    Log.d("Repository", "Fetched user: ${user?.userId ?: "null"}")
+                    user
+                }
+                Log.d("Repository", "Total users fetched for mainChat: ${users.size}")
+                users
+            } catch (e: Exception) {
+                Log.e("Repository", "Error fetching users for mainChat: ${e.message}", e)
+                emptyList()
+            }
+        } else {
+            // Private room logic
+            try {
+                val privateRoomDoc = roomCollection.document(crRoomId)
+                    .collection(private)
+                    .document(roomId)
+                    .get()
+                    .await()
+                Log.d("Repository", "privateRoomDoc exists: ${privateRoomDoc.exists()}")
+
+                val members = privateRoomDoc.get("members") as? List<String> ?: emptyList()
+                Log.d("Repository", "Private Room members fetched: $members")
+
+                val userPath = roomCollection.document(crRoomId).collection("Users")
+                Log.d("Repository", "PrivateRoom UserPath: ${userPath.path}")
+
+                val users = members.mapNotNull { memberId ->
+                    val user = userPath.document(memberId).get().await().toObject(UserProfile::class.java)
+                    Log.d("Repository", "Fetched member user: ${user?.userId ?: "null"}")
+                    user
+                }
+                Log.d("Repository", "Total users fetched for privateRoom: ${users.size}")
+                users
+            } catch (e: Exception) {
+                Log.e("Repository", "Error fetching users for privateRoom: ${e.message}", e)
+                emptyList()
+            }
+        }
+    }
+
     suspend fun getSingleChatRoom(roomId: String): ChatRoom? {
         return try {
             val documentSnapshot = chatRoomsCollection.document(roomId).get().await()

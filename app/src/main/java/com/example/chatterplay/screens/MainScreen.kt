@@ -91,7 +91,7 @@ fun MainScreen(
         "null" to Icons.Default.Menu,
         "null" to Icons.Default.ImageAspectRatio
     )
-    var selectedTabindex by remember { mutableIntStateOf(0) }
+
     var invite by remember { mutableStateOf(false)}
 
     LaunchedEffect(crRoomId){
@@ -111,6 +111,11 @@ fun MainScreen(
         derivedStateOf {
             gameInfo != null && usersGameAlertStatus == false /* || */}
     }
+    val startIndex = when {
+        !isDoneAnswering -> 2
+        else -> 0
+    }
+    var selectedTabindex by remember { mutableIntStateOf(startIndex) }
 
     RightSideModalDrawer(
         drawerState  = drawerState,

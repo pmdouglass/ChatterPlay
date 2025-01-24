@@ -82,6 +82,8 @@ fun ProfileScreen2(
     var editProfile by remember { mutableStateOf(false)}
     var bigPicture by remember { mutableStateOf(false)}
     val picSize = if (bigPicture) 800 else 200
+    var roomList by remember { mutableStateOf<List<UserProfile>>(emptyList())}
+
 
     Log.d("riser", "other userId is ${profile.userId}")
 
@@ -237,6 +239,16 @@ fun ProfileScreen2(
                             if (roomId != null){
                                 navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
                             } else {
+                                // create chat room and navigate
+
+                                viewModel.createAndInviteToChatRoom(
+                                    crRoomId = crRoomId,
+                                    memberIds = roomList.map { it.userId }.toMutableList().apply { add(profile.userId) },
+                                    roomName = profile.fname,
+                                    onRoomCreated = { roomId ->
+                                        navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
+                                    }
+                                )
                                 Log.d("riser", "RoomId is null")
                             }
 

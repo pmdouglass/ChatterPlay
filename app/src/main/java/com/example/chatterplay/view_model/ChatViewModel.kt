@@ -215,7 +215,7 @@ class ChatViewModel: ViewModel() {
     }
     fun fetchChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
         viewModelScope.launch {
-            val members = chatRepository.getChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
+            val members = chatRepository.getMainChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
             _allChatRoomMembers.value = members
             Log.d("riser", "members = $members")
             _userState.value = UserState.Success("Success fetching Members")
@@ -279,7 +279,7 @@ class ChatViewModel: ViewModel() {
     private var isListenerAdded = false
     fun fetchSingleRoom(crRoomId: String, otherUserId: String, onResult: (String?) -> Unit){
         viewModelScope.launch {
-            val roomId = chatRepository.checkIfSingleRoomExists(crRoomId, otherUserId)
+            val roomId = chatRepository.checkIfSingleRoomExists(crRoomId, userId, otherUserId)
             onResult(roomId)
             Log.d("riser", "viewmodel roomId is $roomId")
         }

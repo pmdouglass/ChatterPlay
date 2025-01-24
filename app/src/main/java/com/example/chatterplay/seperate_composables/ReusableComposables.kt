@@ -502,6 +502,8 @@ fun ChatRiseThumbnail(
 
                                 val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
                                 val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
+                                val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+
 
                                 LaunchedEffect(crRoomId){
                                     crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
@@ -511,6 +513,7 @@ fun ChatRiseThumbnail(
                                     if (gameInfo != null){
                                         gameInfo?.let { game ->
                                             crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
+                                            crViewModel.checkForUsersCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
                                         }
                                     }
                                 }
@@ -542,10 +545,30 @@ fun ChatRiseThumbnail(
                                         )
                                     }
                                 }else {
-                                    ChatMainPreviewLazyColumn(
-                                        crRoomId = crRoomId,
-                                        roomId = crRoomId,
-                                    )
+                                    if (isDoneAnswering){
+                                        ChatMainPreviewLazyColumn(
+                                            crRoomId = crRoomId,
+                                            roomId = crRoomId,
+                                        )
+                                    }else {
+                                        if (gameInfo != null){
+                                            gameInfo?.let { game ->
+                                                Row(
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                ){
+                                                    Text(
+                                                        "You Must Complete\n\n${game.title}",
+                                                        style = CRAppTheme.typography.H3,
+                                                        color = Color.Black,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
 
 
