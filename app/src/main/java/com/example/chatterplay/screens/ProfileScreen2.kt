@@ -34,7 +34,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -296,6 +295,7 @@ fun ProfileScreen2(
                 }
             }
             Spacer(modifier = Modifier.padding(10.dp))
+            /*
             if (!self){
                 Card(
                     modifier = Modifier
@@ -320,10 +320,15 @@ fun ProfileScreen2(
                     )
                 }
             }
+
+             */
         }
 
     }
 }
+
+
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

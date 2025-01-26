@@ -114,6 +114,7 @@ fun ChoiceGameScreen(
         gameInfo?.let { game ->
             crViewModel.fetchQuestions(game.title) // initialize 'questions'
             crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId, game.title) // initialize 'isAllDoneWithQuestions'
+
         }
     }
 
@@ -133,14 +134,33 @@ fun ChoiceGameScreen(
                                 questions = questions
                             )
                         }
+                        "questions" -> {
+                            QuestionsScreen(
+                                crRoomId = crRoomId,
+                                done = isAllDoneWithQuestions,
+                                gameInfo = gameInfo!!
+                            )
+                        }
                     }
                 } else {
-                    ChoiceAnswerScreen(
-                        crRoomId = crRoomId,
-                        gameInfo = game,
-                        allChatRoomMembers = allChatRoomMembers,
-                        questions = questions
-                    )
+                    when (game.mode){
+                        "pair", "multiple" -> {
+                            ChoiceAnswerScreen(
+                                crRoomId = crRoomId,
+                                gameInfo = game,
+                                allChatRoomMembers = allChatRoomMembers,
+                                questions = questions
+                            )
+                        }
+                        "questions" -> {
+                            QuestionsScreen(
+                                crRoomId = crRoomId,
+                                done = isAllDoneWithQuestions,
+                                gameInfo = gameInfo!!
+                            )
+                        }
+                    }
+
                 }
             }
         }
@@ -174,7 +194,7 @@ fun ChoiceQuestions(
     val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
 
     LaunchedEffect(crRoomId){
-        crViewModel.checkForUsersCompleteAnswers(crRoomId, gameInfo.title) // initialize 'isDoneAnswering'
+        crViewModel.checkUserForAllCompleteAnswers(crRoomId, gameInfo.title) // initialize 'isDoneAnswering'
     }
     Column(
         verticalArrangement = Arrangement.Top,
@@ -196,7 +216,7 @@ fun ChoiceQuestions(
                 style = CRAppTheme.typography.H1
             )
         } else {
-            if (!isDoneAnswering){
+            if (isDoneAnswering == false){
                 if (currentQuestionIndex.value < questions.size){
                     val currentQuestion = questions[currentQuestionIndex.value]
                     val onAnswer: ((Boolean) -> Unit)? = when (gameInfo.mode) {
@@ -445,7 +465,7 @@ fun ChoiceAnswerScreen(
 
     LaunchedEffect(true){
 
-        crViewModel.fetchPairAnswers(crRoomId, gameInfo.title) {retrievedAnswers ->
+        crViewModel.fetchAnswers(crRoomId, gameInfo.title) { retrievedAnswers ->
             answers.value = retrievedAnswers
         }
 

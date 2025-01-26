@@ -2,7 +2,7 @@ package com.example.chatterplay.repository
 
 import android.util.Log
 import com.example.chatterplay.data_class.Questions
-import com.example.chatterplay.data_class.SupabaseClient
+import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.firestore.FirebaseFirestore
@@ -188,7 +188,7 @@ class ChatRiseRepository {
             Log.d("Repository", "Games Found $completedGames")
 
             // fetch all available games from supabase
-            val response = SupabaseClient.client.postgrest["title"]
+            val response = client.postgrest["title"]
                 .select()
                 .decodeList<Title>()
 
@@ -357,9 +357,11 @@ class ChatRiseRepository {
 
             // Deserialize the JSON string into a Title object
             gameInfoJson?.let {
-                runCatching {
-                    kotlinx.serialization.json.Json.decodeFromString<Title>(it)
-                }.getOrElse { e ->
+                try {
+                    val gameInfo = kotlinx.serialization.json.Json.decodeFromString<Title>(it)
+                    Log.d("Repository", "Success decoding gameInfo: $gameInfoJson")
+                    gameInfo
+                }catch (e: Exception) {
                     Log.e("Repository", "Failed to decode gameInfo: ${e.message}", e)
                     null
                 }
@@ -391,7 +393,7 @@ class ChatRiseRepository {
             return it
         }
 
-        val response = SupabaseClient.client.postgrest["questions"]
+        val response = client.postgrest["questions"]
             .select(
                 filter = {
                     filter("title", FilterOperator.EQ, title)
@@ -576,5 +578,63 @@ class ChatRiseRepository {
 
      */
 
+    fun assignQuestionsToFirebase(crRoomId: String, title: String, questionId: Int, memberId: String){
+        val collection = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Games")
+            .document(title)
+
+        val questions = mapOf(
+            questionId.toString() to memberId
+        )
+        collection.set(questions, SetOptions.merge())
+
+    }
+
+    suspend fun getAssignedQuestionId(crRoomId: String, title: String): List<Int>{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(title)
+                .get().await()
+
+            // extract all question Ids
+            collection.data?.keys?.mapNotNull { it.toIntOrNull() } ?: emptyList()
+
+        }catch (e: Exception){
+            Log.d("RepositoryQ", "Error getting assigned questions from firebase")
+            emptyList()
+        }
+    }
+    suspend fun getQuestionIdForUser(crRoomId: String, title: String, userId: String): Int?{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(title)
+                .get().await()
+
+            collection.data?.filterValues { it == userId }?.keys?.firstOrNull()?.toIntOrNull()
+        }catch (e: Exception) {
+            Log.e("RepositoryQ", "Error fetching questionId for user: ${e.message}")
+            null
+        }
+    }
+    suspend fun getQuestionDetailsFromSupabase(questionId: Int): Questions?{
+        return try {
+            val response = client.postgrest["questions"]
+                .select(
+                    filter = {
+                        filter("id", FilterOperator.EQ, questionId)
+                    }
+                )
+                .decodeSingle<Questions>()
+            response
+        }catch (e: Exception) {
+            Log.e("RepositoryQ", "Error fetching question details: ${e.message}")
+            null
+        }
+    }
 
 }

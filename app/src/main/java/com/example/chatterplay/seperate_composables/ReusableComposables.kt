@@ -3,6 +3,7 @@
 package com.example.chatterplay.seperate_composables
 
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -169,7 +171,45 @@ fun ChatRiseThumbnail(
 
     val hasAlternateProfile = alternateProfile.fname.isNotBlank()
 
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
+    val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
+    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+    val thereIsAnAlertMessage by remember {
+        derivedStateOf {
+            gameInfo != null && usersGameAlertStatus == false}
+    }
 
+
+    LaunchedEffect(crRoomId, gameInfo){
+        crRoomId?.let { roomId ->
+            if (roomId.isNotEmpty()){
+                if (gameInfo == null){
+                    crViewModel.getGameInfo(roomId) // initialize gameInfo
+                }else {
+                    gameInfo?.let { game ->
+                        crViewModel.getUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
+                        crViewModel.checkUserForAllCompleteAnswers(roomId, game.title) // initialize isDoneAnswering
+                    }
+                }
+            }
+        }
+    }
+
+    val temperaryCrRoomId = crRoomId
+    val isReadyToDisplay by remember {
+        derivedStateOf {
+            crRoomId != null &&
+                    crRoomId!!.isNotEmpty() &&
+                    gameInfo != null &&
+                    isDoneAnswering != null &&
+                    userStatus != null
+        }
+    }
+    Log.d("Reusable", "crRoomId: $crRoomId")
+    Log.d("Reusable", "gameInfo: $gameInfo")
+    Log.d("Reusable", "isDoneAnswering: $isDoneAnswering")
+    Log.d("Reusable", "isReadyToDisplay: $isReadyToDisplay")
+    Log.d("Reusable", "userStatus: $userStatus")
 
 
     Column (
@@ -186,64 +226,68 @@ fun ChatRiseThumbnail(
                 .border(2.dp, CRAppTheme.colorScheme.highlight, RoundedCornerShape(15.dp))
                 .padding(start = 10.dp, end = 10.dp)
         ){
+            /*
             if (userStatus != null){
-                Row (
-                    verticalAlignment = Alignment.CenterVertically,
+            }
+             */
+            Row (
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+            ){
+                Text(
+                    text = "ChatRise",
+                    style = CRAppTheme.typography.headingMedium,
                     modifier = Modifier
-                        .fillMaxWidth()
-                ){
-                    Text(
-                        text = "ChatRise",
-                        style = CRAppTheme.typography.headingMedium,
-                        modifier = Modifier
-                            .then(if (userStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
-                    )
-                    when  {
-                        userStatus == "NotPending" -> {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black)
-                                    .clickable { navController.navigate("aboutChatrise") }
-                            ) {
-                                Icon(
-                                    Icons.Default.QuestionMark,
-                                    contentDescription = null,
-                                    tint = Color.White
-                                )
-                            }
-                        }
-                        userStatus == "Pending" -> {}
-                        roomReady -> {
-
-                            LaunchedEffect(Unit){
-                                if (crRoomId != "0"){
-                                    crRoomId?.let {room ->
-                                        viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
-                                    }
-                                }
-                            }
-
-                            Column(
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "${allChatRoomMembers.size}",
-                                    style = CRAppTheme.typography.infoMedium
-                                )
-                                Text(
-                                    "People",
-                                    style = CRAppTheme.typography.infoSmall
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(15.dp))
-                            DynamicCircleBox(number = 121)
+                        .then(if (userStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                )
+                when  {
+                    userStatus == "NotPending" -> {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black)
+                                .clickable { navController.navigate("aboutChatrise") }
+                        ) {
+                            Icon(
+                                Icons.Default.QuestionMark,
+                                contentDescription = null,
+                                tint = Color.White
+                            )
                         }
                     }
+                    userStatus == "Pending" -> {}
+                    roomReady -> {
 
+                        LaunchedEffect(Unit){
+                            if (crRoomId != "0"){
+                                crRoomId?.let {room ->
+                                    viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
+                                }
+                            }
+                        }
+
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "${allChatRoomMembers.size}",
+                                style = CRAppTheme.typography.infoMedium
+                            )
+                            Text(
+                                "People",
+                                style = CRAppTheme.typography.infoSmall
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(15.dp))
+                        DynamicCircleBox(number = 121)
+                    }
                 }
+
+            }
+            if (isReadyToDisplay){
                 when {
                     userStatus == "NotPending" -> {
                         Column(
@@ -500,31 +544,6 @@ fun ChatRiseThumbnail(
                                         }
                                 ) {
 
-
-                                    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-                                    val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
-
-
-                                    LaunchedEffect(crRoomId){
-                                    }
-
-                                    LaunchedEffect(crRoomId, gameInfo){
-                                        crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
-                                        if (gameInfo != null){
-                                            gameInfo?.let { game ->
-                                                crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
-                                                crViewModel.checkForUsersCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
-                                            }
-                                        }
-                                    }
-
-                                    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
-                                    val thereIsAnAlertMessage by remember {
-                                        derivedStateOf {
-                                            gameInfo != null && usersGameAlertStatus == false}
-                                    }
-
-
                                     if (thereIsAnAlertMessage){
                                         Row(
                                             horizontalArrangement = Arrangement.Center,
@@ -539,7 +558,7 @@ fun ChatRiseThumbnail(
                                             )
                                         }
                                     }else {
-                                        if (isDoneAnswering){
+                                        if (isDoneAnswering == true){
                                             ChatMainPreviewLazyColumn(
                                                 crRoomId = crRoomId,
                                                 roomId = crRoomId,
@@ -581,9 +600,17 @@ fun ChatRiseThumbnail(
 
                 }
             }else {
-
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxSize()
+                ){
+                    CircularProgressIndicator(color = Color.Black)
+                }
             }
+
         }
+
     }
 }
 @Composable

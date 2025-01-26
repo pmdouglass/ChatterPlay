@@ -44,7 +44,7 @@ data class Questions (
 @Serializable
 data class Answers(
     val userId: String,
-    val questionId: Int,
+    val questionId: Int? = null,
     val question: String,
     val answerPair: Boolean? = null,
     val crRoomId: String,
