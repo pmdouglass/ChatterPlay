@@ -71,6 +71,7 @@ class ChatRiseViewModel: ViewModel() {
     fun monitorUntilAllUsersDoneAnsweringQuestions(crRoomId: String, title: String) {
         viewModelScope.launch {
             try {
+                Log.d("ViewModel", "monitoring until all users are done anxwering")
                 crGameRoomsCollection.document(crRoomId).collection("Users")
                     .addSnapshotListener { snapshot, error ->
                         if (error != null) {
@@ -80,7 +81,7 @@ class ChatRiseViewModel: ViewModel() {
 
                         val statuses = snapshot?.documents?.mapNotNull { it.getBoolean("hasAnswered") } ?: emptyList()
                         if (statuses.isNotEmpty() && statuses.all { it }) {
-                            Log.d("ViewModel", "All users are done with all their Questions")
+                            Log.d("ViewModel", "monitor - All users are done with all their Questions")
                             _isAllDoneWithQuestions.value = true
 
                         }
@@ -90,7 +91,7 @@ class ChatRiseViewModel: ViewModel() {
                                 gameName = title,
                                 allAnswered = true
                             )
-                            Log.d("ViewModel", "Updated $title 'allAnswered' to true")
+                            Log.d("ViewModel", "monitor - Updated $title 'allAnswered' to true")
                         }
                     }
             } catch (e: Exception) {
@@ -258,6 +259,15 @@ class ChatRiseViewModel: ViewModel() {
                         Log.d("ViewModel", "${gameInfo.title} pairs saved successfully.")
                     }
                 }*/
+                if (gameInfo.title == "Twisted Truths"){
+                    allMembers?.let { nonNullMembers ->
+                        assignQuestionsStatement(
+                            crRoomId = crRoomId,
+                            title = gameInfo.title,
+                            members = nonNullMembers
+                        )
+                    }?: Log.e("ViewModel", "AllMembers is null. Cannot assign questions.")
+                }
                 _gameInfo.value = gameInfo
                 _isAllDoneWithQuestions.value = false
             }catch (e: Exception){
@@ -299,8 +309,17 @@ class ChatRiseViewModel: ViewModel() {
     val gameInfo: StateFlow<Title?> = _gameInfo
     fun getGameInfo(crRoomId: String){
         viewModelScope.launch {
-            val retrievedGameInfo = chatRepository.fetchGameInfo(crRoomId, userId)
-            _gameInfo.value = retrievedGameInfo
+            try {
+                val retrievedGameInfo = chatRepository.fetchGameInfo(crRoomId, userId)
+                if (retrievedGameInfo != null){
+                    _gameInfo.value = retrievedGameInfo
+                    Log.d("ViewModel", "Game info successfully retried: $retrievedGameInfo")
+                }else {
+                    Log.d("ViewModel", "No game info found for crRoomId: $crRoomId")
+                }
+            }catch (e: Exception){
+                Log.e("ViewModel", "Error retrieving game info: ${e.message}", e)
+            }
         }
     }
     private val _usersAlertStatus = MutableStateFlow<Boolean?>(null)
@@ -370,11 +389,18 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    private val _isDoneAnswering = mutableStateOf(false)
-    val isDoneAnswering: State<Boolean> = _isDoneAnswering
-    suspend fun checkForUsersCompleteAnswers(crRoomId: String, title: String): Boolean{
+    private val _isDoneAnswering = mutableStateOf<Boolean?>(null)
+    val isDoneAnswering: State<Boolean?> = _isDoneAnswering
+    suspend fun checkUserForAllCompleteAnswers(crRoomId: String, title: String): Boolean{
         return try {
+            if (title.isEmpty()){
+                Log.d("ViewModel", "title is empty; skipping check for completed answers.")
+                _isDoneAnswering.value = null
+                return false
+            }
+
             // check if answers exist for this user in supabase
+            Log.d("ViewModel", "Checking for completed answers")
             val response = client.postgrest["answers"]
                 .select(
                     filter = {
@@ -394,17 +420,62 @@ class ChatRiseViewModel: ViewModel() {
                     .document(userId)
                     .set(mapOf("hasAnswered" to true), SetOptions.merge())
                     .await()
-                _isDoneAnswering.value = true
+                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
             }else {
-                _isDoneAnswering.value = false
+                Log.d("ViewModel", "User has not answered: $answeredOrNot")
             }
+            _isDoneAnswering.value = answeredOrNot
+            Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
             answeredOrNot
-
         }catch (e: Exception){
             Log.d("ViewModel", "Error checking user answers: ${e.message}")
+            _isDoneAnswering.value = null
             false
         }
     }
+    suspend fun checkForUsersSingleCompleteAnswer(crRoomId: String, title: String): Boolean{
+        return try {
+            if (title.isEmpty()){
+                Log.d("ViewModel", "title is empty; skipping check for completed answers.")
+                _isDoneAnswering.value = null
+                return false
+            }
+
+            // check if answer exist for this user in supabase
+            Log.d("ViewModel", "Checking for completed answers")
+            val response = client.postgrest["answers"]
+                .select(
+                    filter = {
+                        filter("title", FilterOperator.EQ, title)
+                        filter("userId", FilterOperator.EQ, userId)
+                        filter("crRoomId", FilterOperator.EQ, crRoomId)
+                    }
+                )
+                .decodeSingleOrNull<Answers>()
+
+            val answeredOrNot = response != null
+
+            if (answeredOrNot){
+                crGameRoomsCollection
+                    .document(crRoomId)
+                    .collection("Users")
+                    .document(userId)
+                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
+                    .await()
+                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
+            }else {
+                Log.d("ViewModel", "User has not answered: $answeredOrNot")
+            }
+            _isDoneAnswering.value = answeredOrNot
+            Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
+            answeredOrNot
+        }catch (e: Exception){
+            Log.d("ViewModel", "Error checking user answers: ${e.message}")
+            _isDoneAnswering.value = null
+            false
+        }
+    }
+
     fun savePairAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title){
         viewModelScope.launch {
             try {
@@ -414,7 +485,7 @@ class ChatRiseViewModel: ViewModel() {
 
                     answers.first().title
                     updateHasAnswered(crRoomId)
-                    checkForUsersCompleteAnswers(crRoomId, gameInfo.title)
+                    checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
                 }
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to save pair answers ${e.message}")
@@ -422,7 +493,7 @@ class ChatRiseViewModel: ViewModel() {
         }
     }
     @SuppressLint("SuspiciousIndentation")
-    fun fetchPairAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
+    fun fetchAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
         viewModelScope.launch {
             try {
             val response = client.postgrest["answers"]
@@ -439,6 +510,30 @@ class ChatRiseViewModel: ViewModel() {
             }catch (e: Exception){
                 Log.d("ViewModel", "Error fetching answers ${e.message}")
                 onComplete(emptyList())
+            }
+        }
+    }
+    private val _userAnswer = MutableStateFlow<Answers?>(null)
+    val userAnswer: StateFlow<Answers?> = _userAnswer
+    @SuppressLint("SuspiciousIndentation")
+    fun fetchSingleUsersAnswers(crRoomId: String, title: String){
+        viewModelScope.launch {
+            try {
+                val response = client.postgrest["answers"]
+                    .select(
+                        filter = {
+                            filter("title", FilterOperator.EQ, title)
+                            filter("crRoomId", FilterOperator.EQ, crRoomId)
+                            filter("userId", FilterOperator.EQ, userId)
+                        }
+                    )
+                    .decodeSingle<Answers>()
+
+                Log.d("ViewModel", "Fetched $response")
+                _userAnswer.value = response
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching answers ${e.message}")
+                null
             }
         }
     }
@@ -624,8 +719,90 @@ class ChatRiseViewModel: ViewModel() {
 
      */
 
+    fun assignQuestionsStatement(crRoomId: String, title: String, members: List<UserProfile>){
+        viewModelScope.launch {
+            try {
+                // get Questions for title in Supabase
+                val supabaseQuestions = chatRepository.getAllQuestions(title)
 
+                if (members.isEmpty() || supabaseQuestions.isEmpty()){
+                    throw IllegalArgumentException("Member IDs or Supabase Questions cannot be empty")
+                }
 
+                val memberIds = members.map { it.userId }
+
+                // filter out already assigned questions from firebase
+                val assignedQuestionIds = chatRepository.getAssignedQuestionId(crRoomId, title)
+                val unassignedQuestions = supabaseQuestions.filter { it.id !in assignedQuestionIds }
+
+                // Randomize the unassigned questions
+                val randomizedQuestions = unassignedQuestions.shuffled()
+
+                // Ensure there are enough questions for members
+                if (randomizedQuestions.size < memberIds.size){
+                    throw IllegalArgumentException("Not enough questions for all members!")
+                }
+
+                // Assign each member a unique question
+                val questionToMemberMap = memberIds.mapIndexed { index, memberId ->
+                    randomizedQuestions[index] to memberId
+                }
+
+                // Store in Firebase
+                questionToMemberMap.forEach { (question, memberId) ->
+                    chatRepository.assignQuestionsToFirebase(
+                        crRoomId = crRoomId,
+                        title = title,
+                        questionId = question.id,
+                        memberId = memberId
+                    )
+                }
+
+                Log.d("ViewModelQ", "Successfully assigned questions to members.")
+
+            }catch (e: java.lang.IllegalArgumentException){
+                Log.e("ViewModelQ", "Validation Error: ${e.message}")
+            } catch (e: Exception){
+                Log.d("ViewModelQ", "Error assigning questionStatement ${e.message}")
+            }
+        }
+    }
+    private val _currentQuestion = MutableStateFlow<Questions?>(null)
+    val currentQuestion: StateFlow<Questions?> = _currentQuestion
+    fun getQuestionForUser(crRoomId: String, title: String){
+        viewModelScope.launch {
+            try {
+                // get questionid from firebase
+                val questionId = chatRepository.getQuestionIdForUser(crRoomId, title, userId)
+
+                if (questionId != null){
+                    // get question details from supabase
+                    val question = chatRepository.getQuestionDetailsFromSupabase(questionId)
+                    _currentQuestion.value = question
+                }else {
+                    Log.e("ViewModelQ", "No questionId found for user $userId")
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModelQ", "Error fetching question for user: ${e.message}")
+            }
+        }
+    }
+    fun saveQuestionStatement(crRoomId: String, answer: Answers, gameInfo: Title){
+        viewModelScope.launch {
+            try {
+                client.postgrest["answers"].insert(answer)
+                Log.d("ViewModel", "Saved $answer")
+
+                answer.title
+                // update has answered
+                // check for users completed answers
+                //updateHasAnswered(crRoomId)
+                checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error saving questionStatement")
+            }
+        }
+    }
 
 
 

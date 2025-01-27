@@ -81,7 +81,6 @@ fun MainScreen(
     val profile = rememberCRProfile(crRoomId = crRoomId)
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
-    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
 
 
     // Navigation tab Icons 'Description to Icon'
@@ -91,25 +90,44 @@ fun MainScreen(
         "null" to Icons.Default.Menu,
         "null" to Icons.Default.ImageAspectRatio
     )
-    var selectedTabindex by remember { mutableIntStateOf(0) }
+
     var invite by remember { mutableStateOf(false)}
 
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
 
+
     }
     LaunchedEffect(gameInfo){
+        Log.d("MainScreen", "gameInfo: $gameInfo")
         if (gameInfo != null)
             gameInfo?.let { game ->
                 crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
-                crViewModel.checkForUsersCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
+                crViewModel.checkUserForAllCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
             }
     }
 
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
             gameInfo != null && usersGameAlertStatus == false /* || */}
+    }
+    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+    Log.d("MainScreen", "isDoneAnswering: $isDoneAnswering")
+    val startIndex by remember {
+        derivedStateOf {
+            when {
+                isDoneAnswering == false -> 2
+                else -> 0
+            }
+        }
+    }
+
+    Log.d("MainScreen", "startIndex: $startIndex")
+    var selectedTabindex by remember { mutableIntStateOf(startIndex) }
+
+    LaunchedEffect(startIndex){
+        selectedTabindex = startIndex
     }
 
     RightSideModalDrawer(
@@ -255,7 +273,8 @@ fun MainScreen(
                             disabledTabIndices =
                             when {
                                 gameInfo == null -> listOf(2)
-                                !isDoneAnswering -> listOf(0)
+                                isDoneAnswering == false -> listOf(0)
+                                isDoneAnswering == true -> emptyList()
                                 else -> emptyList()
                             }
                         )
@@ -286,17 +305,10 @@ fun MainScreen(
                             2 -> {
                                 if (gameInfo != null){
                                     gameInfo?.let { game ->
-                                        when (game.mode){
-                                            "pair", "multiple" -> {
-                                                ChoiceGameScreen(
-                                                    crRoomId = crRoomId,
-                                                    allChatRoomMembers = allChatRoomMembers
-                                                )
-                                            }
-                                            else -> {
-                                                Log.d("MainScreen", "game.modeId = ${game.mode}")
-                                            }
-                                        }
+                                        ChoiceGameScreen(
+                                            crRoomId = crRoomId,
+                                            allChatRoomMembers = allChatRoomMembers
+                                        )
                                     }
 
                                 } else {

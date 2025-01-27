@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -45,6 +46,7 @@ fun AllMembersRow(selectedMember: ((UserProfile) -> Unit)? = null, chatRoomMembe
 
     }
 }
+
 @Composable
 fun UserProfileIcon(selectedMember: ((UserProfile) -> Unit)? = null, chatMember: UserProfile, imgSize: Int = 30, txtSize: Int = 10, game: Boolean, self: Boolean, navController: NavController) {
     Column(
@@ -74,7 +76,8 @@ fun UserProfileIcon(selectedMember: ((UserProfile) -> Unit)? = null, chatMember:
         )
         Text(
             chatMember.fname,
-            fontSize = txtSize.sp
+            fontSize = txtSize.sp,
+            color = if (game) Color.White else Color.Black
         )
 
     }

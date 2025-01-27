@@ -34,7 +34,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -78,10 +77,12 @@ fun ProfileScreen2(
     navController: NavController
 ){
     var roomId by remember { mutableStateOf<String?>(null)}
-    var noteInput by remember { mutableStateOf("")}
+    //var noteInput by remember { mutableStateOf("")}
     var editProfile by remember { mutableStateOf(false)}
     var bigPicture by remember { mutableStateOf(false)}
     val picSize = if (bigPicture) 800 else 200
+    val roomList by remember { mutableStateOf<List<UserProfile>>(emptyList())}
+
 
     Log.d("riser", "other userId is ${profile.userId}")
 
@@ -237,6 +238,16 @@ fun ProfileScreen2(
                             if (roomId != null){
                                 navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
                             } else {
+                                // create chat room and navigate
+
+                                viewModel.createAndInviteToChatRoom(
+                                    crRoomId = crRoomId,
+                                    memberIds = roomList.map { it.userId }.toMutableList().apply { add(profile.userId) },
+                                    roomName = profile.fname,
+                                    onRoomCreated = { roomId ->
+                                        navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
+                                    }
+                                )
                                 Log.d("riser", "RoomId is null")
                             }
 
@@ -284,6 +295,7 @@ fun ProfileScreen2(
                 }
             }
             Spacer(modifier = Modifier.padding(10.dp))
+            /*
             if (!self){
                 Card(
                     modifier = Modifier
@@ -308,10 +320,15 @@ fun ProfileScreen2(
                     )
                 }
             }
+
+             */
         }
 
     }
 }
+
+
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable

@@ -201,6 +201,9 @@ fun MainRoomSelect(
                             .padding(start = 10.dp, end = 10.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    // possible sort by and filter
+                    /*
                     Row (
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -212,6 +215,8 @@ fun MainRoomSelect(
                         Text("Filter")
 
                     }
+
+                     */
                     Spacer(modifier = Modifier.height(20.dp))
 
 
