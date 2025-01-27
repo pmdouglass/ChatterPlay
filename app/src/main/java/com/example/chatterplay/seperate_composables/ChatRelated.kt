@@ -74,13 +74,14 @@ fun ChatLazyColumn(
     mainChat: Boolean,
     viewModel: ChatViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
     // Fetch chat messages when roomId or game changes
     LaunchedEffect(roomId, game) {
-        viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
+        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
     }
 
 
@@ -129,13 +130,14 @@ fun ChatMainPreviewLazyColumn(
     roomId: String,
     viewModel: ChatViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
     // Fetch chat messages when roomId or game changes
     LaunchedEffect(roomId) {
-        viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = true, mainChat = true)
+        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = roomId, game = true, mainChat = true)
     }
 
 
