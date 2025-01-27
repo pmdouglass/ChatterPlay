@@ -93,6 +93,7 @@ class ChatViewModel: ViewModel() {
 
 
 
+
     fun saveUserProfile(userId: String, userProfile: UserProfile, game: Boolean){
       viewModelScope.launch {
           if (!game){
