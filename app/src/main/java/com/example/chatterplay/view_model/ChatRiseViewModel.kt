@@ -1,11 +1,13 @@
 package com.example.chatterplay.view_model
 
 import android.annotation.SuppressLint
+import android.os.Bundle
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
@@ -15,6 +17,7 @@ import com.example.chatterplay.repository.ChatRiseRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import io.github.jan.supabase.gotrue.mfa.FactorType.TOTP.value
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,6 +100,8 @@ class ChatRiseViewModel: ViewModel() {
                     gameName = gameInfo.title,
                     allMembers = allMembers
                 )
+
+
                 /*if (gameInfo.title == "Mystery Caller" && allMembers != null){
                     val generatedPairs = createUserPairs(allMembers)
                     saveMysterCallerPairs(

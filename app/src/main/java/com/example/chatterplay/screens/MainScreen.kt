@@ -231,6 +231,16 @@ fun MainScreen(
                                                 gameInfo = game,
                                                 allMembers = allChatRoomMembers
                                             )
+
+                                            coroutineScope.launch {
+                                                // Log the event in Firebase Analytics
+                                                val params = Bundle().apply {
+                                                    putString("cr_room_id", crRoomId)
+                                                    putString("game_name", game.title)
+                                                    putString("game_mode", game.mode)
+                                                }
+                                                AnalyticsManager.getInstance(context).logEvent("game_started", params)
+                                            }
                                         }
                                     } else {
                                         Log.d("MainChat", "No game was returned for generateRandomGameInfo, skipping addGame")
