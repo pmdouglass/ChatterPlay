@@ -95,7 +95,7 @@ fun MainScreen(
 
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
-        crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
+        crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
 
 
     }
@@ -103,7 +103,7 @@ fun MainScreen(
         Log.d("MainScreen", "gameInfo: $gameInfo")
         if (gameInfo != null)
             gameInfo?.let { game ->
-                crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
+                crViewModel.fetchUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
                 crViewModel.checkUserForAllCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
             }
     }
@@ -206,7 +206,7 @@ fun MainScreen(
 
                                         selectedGame?.let {game ->
                                             Log.d("MainChat", "Attempting to add game: ${game.title} for users: $userIds")
-                                            crViewModel.addGame(
+                                            crViewModel.saveGame(
                                                 crRoomId = crRoomId,
                                                 userIds = userIds,
                                                 gameInfo = game,
@@ -226,7 +226,7 @@ fun MainScreen(
                                 val userIds: List<String> = allChatRoomMembers.map { it.userId }
                                 if (gameInfo != null){
                                     gameInfo?.let { game->
-                                        crViewModel.deleteGames(crRoomId, userIds, game.title)
+                                        crViewModel.resetGames(crRoomId, userIds, game.title)
                                     }
                                 } else {
                                     Log.e("MainScreen", "gameInfo is null update")

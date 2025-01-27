@@ -184,10 +184,10 @@ fun ChatRiseThumbnail(
         crRoomId?.let { roomId ->
             if (roomId.isNotEmpty()){
                 if (gameInfo == null){
-                    crViewModel.getGameInfo(roomId) // initialize gameInfo
+                    crViewModel.fetchGameInfo(roomId) // initialize gameInfo
                 }else {
                     gameInfo?.let { game ->
-                        crViewModel.getUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
+                        crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
                         crViewModel.checkUserForAllCompleteAnswers(roomId, game.title) // initialize isDoneAnswering
                     }
                 }

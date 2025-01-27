@@ -107,13 +107,13 @@ fun ChoiceGameScreen(
 
 
     LaunchedEffect(crRoomId) {
-        crViewModel.getGameInfo(crRoomId)  // initialize 'gameInfo'
+        crViewModel.fetchGameInfo(crRoomId)  // initialize 'gameInfo'
     }
 
     LaunchedEffect(gameInfo){
         gameInfo?.let { game ->
             crViewModel.fetchQuestions(game.title) // initialize 'questions'
-            crViewModel.monitorUntilAllUsersDoneAnsweringQuestions(crRoomId, game.title) // initialize 'isAllDoneWithQuestions'
+            crViewModel.monitorUntilAllUsersDoneAnswering(crRoomId, game.title) // initialize 'isAllDoneWithQuestions'
 
         }
     }

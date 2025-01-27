@@ -67,9 +67,9 @@ fun QuestionsScreen(
 
 
     LaunchedEffect(gameInfo){
-        crViewModel.getQuestionForUser(crRoomId, gameInfo.title) // initialize question
-        crViewModel.checkForUsersSingleCompleteAnswer(crRoomId, gameInfo.title) // initialize hasAnswered
-        crViewModel.fetchSingleUsersAnswers(crRoomId, gameInfo.title) // initialize usersAnswer
+        crViewModel.fetchQuestionForUser(crRoomId, gameInfo.title) // initialize question
+        crViewModel.checkForUsersCompleteAnswer(crRoomId, gameInfo.title) // initialize hasAnswered
+        crViewModel.fetchUsersAnswers(crRoomId, gameInfo.title) // initialize usersAnswer
         crViewModel.fetchAnswers(crRoomId, gameInfo.title){retrievedAnswers ->
             answers.value = retrievedAnswers
         }

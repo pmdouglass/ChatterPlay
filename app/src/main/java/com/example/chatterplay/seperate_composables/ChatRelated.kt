@@ -426,7 +426,7 @@ fun AlertDialogSplash(
                     when{
                         game -> {
                             gameInfo?.let { game ->
-                                crViewModel.updateGameAlertStatus(
+                                crViewModel.updateGameAlert(
                                     crRoomId = crRoomId,
                                     gameName = game.title,
                                     hadAlert = true
