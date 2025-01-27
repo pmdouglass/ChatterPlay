@@ -55,7 +55,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel(), navController: NavController) {
 
-    val scop = rememberCoroutineScope()
+    val coroutineScope = rememberCoroutineScope()
     val isAnalyticsEnabled by settingsModel.isAnalyticsEnabled.collectAsState(true)
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -195,7 +195,7 @@ fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel()
                         Switch(
                             checked = isAnalyticsEnabled,
                             onCheckedChange = { isChecked ->
-                                scop.launch {
+                                coroutineScope.launch {
                                     settingsModel.setAnalyticsEnabled(isChecked)
                                 }
                             }
@@ -222,6 +222,16 @@ fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel()
                         contentDescription = null,
                         title = "Log out",
                         onClick = {
+
+                            coroutineScope.launch {
+                                // Log the logout event
+                                val params = Bundle().apply {
+                                    putString("user_id", userId)
+                                    putString("login_method", "email") // Change as needed for other methods
+                                }
+                                AnalyticsManager.getInstance(context).logEvent("user_logout", params)
+                            }
+
                             FirebaseAuth.getInstance().signOut()
                             navController.navigate("loginScreen") {
                                 popUpTo(0)

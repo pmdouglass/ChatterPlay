@@ -145,6 +145,16 @@ fun MainRoomSelect(
                            Icons.Default.AutoStories
                     },
                     onClick = {
+
+                        coroutineScope.launch {
+                            // Log the logout event
+                            val params = Bundle().apply {
+                                putString("user_id", userId)
+                                putString("login_method", "email") // Change as needed for other methods
+                            }
+                            AnalyticsManager.getInstance(context).logEvent("user_logout", params)
+                        }
+
                         FirebaseAuth.getInstance().signOut()
                         navController.navigate("loginScreen") {
                             popUpTo(0)
