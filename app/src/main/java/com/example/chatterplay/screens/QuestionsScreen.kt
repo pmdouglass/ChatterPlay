@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.os.Bundle
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -39,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -46,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.R
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -75,6 +78,17 @@ fun QuestionsScreen(
         }
 
 
+    }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "QuestionsScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
 
     /*val isLoading = remember {

@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -37,10 +38,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.AlertDialogSplash
@@ -108,6 +111,17 @@ fun MainScreen(
                 crViewModel.fetchUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
                 crViewModel.checkUserForAllCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
             }
+    }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ChatRiseScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
 
     val thereIsAnAlertMessage by remember {
@@ -368,6 +382,18 @@ fun RiseMainChat(
     profile: UserProfile,
     navController: NavController
 ){
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ChatRiseMainChat")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()

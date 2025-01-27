@@ -2,6 +2,7 @@ package com.example.chatterplay.screens
 
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -36,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +57,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.seperate_composables.EditInfoDialog
@@ -87,6 +90,15 @@ fun EditProfileScreen(
     val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
 
 
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "EditProfileScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
 
 
     Scaffold (

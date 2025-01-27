@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,16 +30,19 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.SettingsInfoRow
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -52,6 +56,17 @@ fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel()
 
     val scop = rememberCoroutineScope()
     val isAnalyticsEnabled by settingsModel.isAnalyticsEnabled.collectAsState(true)
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "SettingsScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
 
     Scaffold(
         topBar = {

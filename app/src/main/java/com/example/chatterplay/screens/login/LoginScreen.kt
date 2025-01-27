@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens.login
 
+import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,8 +22,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -33,6 +37,15 @@ fun LoginScreen(navController: NavController) {
 
     var email by remember { mutableStateOf("")}
     var password by remember { mutableStateOf("")}
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "LoginScreen")
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
 
     fun login(){
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)

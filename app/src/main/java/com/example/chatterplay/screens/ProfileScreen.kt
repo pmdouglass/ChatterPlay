@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,10 +54,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,6 +83,17 @@ fun ProfileScreen(
     
     LaunchedEffect(Unit) {
         viewModel.fetchUserProfile(userId = userId)
+    }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ProfileScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
 
     Scaffold(

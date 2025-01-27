@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.os.Bundle
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -23,9 +24,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
 import com.example.chatterplay.seperate_composables.ChatLazyColumn
@@ -58,6 +61,17 @@ fun ChattingScreen(
         viewModel.getRoomInfo(crRoomId = crRoomId, roomId = roomId)
         Log.d("examp", "Chat room members: $allChatRoomMembers")
 
+    }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ChattingScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
 
     Scaffold (
