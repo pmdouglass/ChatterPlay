@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.SettingsInfoRow
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -67,6 +68,8 @@ fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel()
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "SettingsScreen", userId = userId)
+
 
     Scaffold(
         topBar = {

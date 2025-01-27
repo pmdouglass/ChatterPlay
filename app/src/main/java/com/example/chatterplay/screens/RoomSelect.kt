@@ -56,6 +56,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.chatterplay.R
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.seperate_composables.ChatRiseThumbnail
 import com.example.chatterplay.seperate_composables.RoomSelectionView
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -91,6 +92,8 @@ fun MainRoomSelect(
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "RoomSelectScreen", userId = userId)
+
 
     ModalNavigationDrawer(
         drawerState = drawerState,

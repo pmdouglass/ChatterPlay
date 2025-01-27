@@ -9,9 +9,11 @@ import androidx.compose.material3.Surface
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.UserPresenceObserver
 import com.example.chatterplay.analytics.dataStore
 import com.example.chatterplay.navigation.AppNavHost
 import com.example.chatterplay.ui.theme.CRAppTheme
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -32,6 +34,8 @@ class MainActivity : ComponentActivity() {
             AnalyticsManager.getInstance(this@MainActivity)
                 .setAnalyticsCollectionEnabled(isAnalyticsEnabled)
         }
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        lifecycle.addObserver(UserPresenceObserver(this, userId))
 
         setContent {
             CRAppTheme {

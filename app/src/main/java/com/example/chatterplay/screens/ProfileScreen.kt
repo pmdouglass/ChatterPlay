@@ -55,6 +55,7 @@ import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -95,6 +96,8 @@ fun ProfileScreen(
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "ProfileScreen", userId = userId)
+
 
     Scaffold(
         topBar = {

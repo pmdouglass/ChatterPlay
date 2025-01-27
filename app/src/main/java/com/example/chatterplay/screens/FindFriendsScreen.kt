@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.FriendInfoRow
@@ -56,6 +57,8 @@ fun FindFriends(navController: NavController) {
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "FindFriends", userId = userId)
+
 
     Scaffold (
         topBar = {

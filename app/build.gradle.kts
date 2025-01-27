@@ -81,6 +81,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.datastore:datastore-preferences-android:1.1.2")
     implementation("androidx.datastore:datastore:1.1.2")
     implementation("androidx.room:room-runtime:2.6.1")

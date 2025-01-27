@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
 import com.example.chatterplay.seperate_composables.ChatLazyColumn
@@ -73,6 +74,8 @@ fun ChattingScreen(
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "ChattingScreen", userId = userId)
+
 
     Scaffold (
         topBar = {

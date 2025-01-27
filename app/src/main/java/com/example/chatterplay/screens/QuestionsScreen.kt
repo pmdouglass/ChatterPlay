@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.R
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -90,6 +91,7 @@ fun QuestionsScreen(
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "QuestionsScreen", userId = userId)
 
     /*val isLoading = remember {
         question == null ||

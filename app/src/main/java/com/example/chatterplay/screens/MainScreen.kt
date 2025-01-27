@@ -44,6 +44,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.AlertDialogSplash
@@ -123,6 +124,7 @@ fun MainScreen(
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    ScreenPresenceLogger(screenName = "ChatRiseScreen", userId = userId)
 
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
