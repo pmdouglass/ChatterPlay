@@ -1,9 +1,12 @@
 package com.example.chatterplay.seperate_composables
 
 import android.util.Log
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -38,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -366,29 +371,56 @@ fun AlertDialogSplash(
                     "You will now Play\n\n\n${game.title}"
                 } ?: "Game Information Not Available"
 
-            rank -> "This is rank"
+            rank -> "It's time to rank your fellow players and decide who stands out in the game."
             system -> "this is system"
             else -> "No Specific Alert type"
 
         }
-    val pitch2 = "You will be presented with a series of questions"
+    val pitch2 =
+        when {
+            game ->
+                gameInfo?.let { game ->
+                    when (game.mode){
+                        "questions" -> "You will be asked a Question"
+                        else -> "You will be presented with a series of Questions"
+                    }
+                } ?: "Game Information Not Available"
+            rank -> "Your rankings will shape the competition, so choose wisely and strategically."
+            else -> "nothing selected"
+        }
     val pitch3 =
-        when(gameInfo?.type){
-            "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"
-            "yes/no" -> "Respond with\n\n\nYes or No"
-            else -> "nothing"
+        when {
+            game -> gameInfo?.let { game ->
+                when(game.type){
+                    "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"
+                    "yes/no" -> "Respond with\n\n\nYes or No"
+                    "anonymousStatement" -> "Reply anonymously"
+                    else -> "nothing"
+                }
+            } ?: "Game Information Not Available"
+
+            rank -> "Remember, your decisions remain confidential, but your choices could change everything."
+            system -> "System Alert: Pleas pay attention to this important information."
+            else -> "Nothing"
         }
     val texts = listOf(pitch0, pitch1, pitch2, pitch3)
     var currentIndex by remember { mutableStateOf(0)}
     val isLastItem = currentIndex == texts.size -1
+    val transition = updateTransition(currentIndex, label = "Text Transition")
+    val alpha by transition.animateFloat(label = "Alpha Transition") { index ->
+        if (index == currentIndex) 1f else 0f
+    }
 
     Column(
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxSize()
             .background(CRAppTheme.colorScheme.onGameBackground)
-            .clickable {
+            .clickable(
+                indication = rememberRipple(false),
+                interactionSource = remember { MutableInteractionSource()}
+            ) {
                 if (isLastItem){
                     onDone()
                     when{
@@ -421,7 +453,10 @@ fun AlertDialogSplash(
             texts[currentIndex],
             style = if (texts[currentIndex] == pitch0) CRAppTheme.typography.H7 else CRAppTheme.typography.H4,
             textAlign = TextAlign.Center,
-            color = Color.Red
+            color = Color.Red,
+            modifier = Modifier
+                .alpha(alpha)
+                .padding(horizontal = 16.dp)
         )
     }
 }

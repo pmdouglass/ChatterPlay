@@ -77,11 +77,11 @@ fun ProfileScreen2(
     navController: NavController
 ){
     var roomId by remember { mutableStateOf<String?>(null)}
-    var noteInput by remember { mutableStateOf("")}
+    //var noteInput by remember { mutableStateOf("")}
     var editProfile by remember { mutableStateOf(false)}
     var bigPicture by remember { mutableStateOf(false)}
     val picSize = if (bigPicture) 800 else 200
-    var roomList by remember { mutableStateOf<List<UserProfile>>(emptyList())}
+    val roomList by remember { mutableStateOf<List<UserProfile>>(emptyList())}
 
 
     Log.d("riser", "other userId is ${profile.userId}")
