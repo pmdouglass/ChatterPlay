@@ -397,7 +397,7 @@ class ChatViewModel: ViewModel() {
                 Log.d("ChatViewModel", "Message sent successfully to roomId: $roomId")
 
                 // Fetch updated messages
-                fetchChatMessages(crRoomId, roomId, game, mainChat)
+                fetchChatMessages(context, crRoomId, roomId, game, mainChat)
 
                 val messageId = UUID.randomUUID().toString()
                 val senderType = "player"
@@ -448,6 +448,7 @@ class ChatViewModel: ViewModel() {
     }
 
     fun fetchChatMessages(
+        context: Context,
         crRoomId: String,
         roomId: String,
         game: Boolean,
@@ -470,6 +471,12 @@ class ChatViewModel: ViewModel() {
                     game = game,
                     mainChat = mainChat
                 )
+                // Log the event in Firebase Analytics
+                val params = Bundle().apply {
+                    putString("room_id", roomId)
+                }
+                AnalyticsManager.getInstance(context).logEvent("message_received", params)
+
                 _messages.value = messages
 
                 Log.d("ChatViewModel", "Successfully fetched ${messages.size} messages for roomId: $roomId")
