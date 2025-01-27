@@ -123,27 +123,6 @@ class RoomCreateRepository {
             )
             crGameRoomsCollection.document(newRoom.roomId).set(newRoom).await()
 
-
-            //                            ADD Collections
-
-            /*// add Games Collection
-            val gameDocs = listOf(
-                "AskMeAnything",
-                "PopQuiz",
-                "YesOrNo",
-                "Mojojojo",
-                "PickAnImage"
-            )
-            val gameSubCollection = crGameRoomsCollection.document(newRoom.roomId).collection("Games")
-            gameDocs.forEach{ gameName ->
-                val gameData = GameData(
-                    gameName = gameName,
-                    gameStatus = "NotPlayedYet",
-                    hasViewed = false
-                )
-                gameSubCollection.document(gameName).set(gameData).await()
-            }*/
-
             true
         }catch (e: Exception){
             e.printStackTrace()

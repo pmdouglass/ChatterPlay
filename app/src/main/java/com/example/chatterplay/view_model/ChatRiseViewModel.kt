@@ -27,48 +27,391 @@ class ChatRiseViewModel: ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val chatRepository = ChatRiseRepository()
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
-
-
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
+
+
+
+    /**
+     *  User Management
+     */
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> = _userProfile
-    private val _rankingStatus = MutableStateFlow<String?>("View")
-    val rankingStatus: StateFlow<String?> = _rankingStatus
-
-
-
     suspend fun getUserProfile(crRoomId: String){
         viewModelScope.launch {
             val profile = chatRepository.getUserProfile(crRoomId, userId)
             _userProfile.value = profile
         }
     }
-    fun checkUserRankingStatus(crRoomId: String, userId: String){
-        viewModelScope.launch {
-            val status = chatRepository.fetchUserRankingStatus(crRoomId, userId)
-            _rankingStatus.value = status ?: "View"
-        }
-    }
 
-    fun updateToRanking(crRoomId: String, userId: String){
-        viewModelScope.launch {
-            chatRepository.updateUserRankingStatus(crRoomId, userId, "Ranking")
-            chatRepository.resetRanking(crRoomId)
-            checkUserRankingStatus(crRoomId, userId)
-        }
-    }
-    fun saveRanking(crRoomId: String, memberId: String, userId: String, newPoints: Int){
-        viewModelScope.launch {
-            Log.d("ViewModel", "Saving ranking system")
-            chatRepository.saveRanking(crRoomId, memberId, userId, newPoints)
-            chatRepository.updateUserRankingStatus(crRoomId = crRoomId, userId = userId, updatedStatus = "Done")
-            checkUserRankingStatus(crRoomId = crRoomId, userId = userId)
-        }
-    }
+
+
+
+
+
+
+
+    /**
+     *  Game Management
+     */
     private val _isAllDoneWithQuestions = mutableStateOf(false)
     val isAllDoneWithQuestions: State<Boolean> = _isAllDoneWithQuestions
-    fun monitorUntilAllUsersDoneAnsweringQuestions(crRoomId: String, title: String) {
+    private val _gameInfo = MutableStateFlow<Title?>(null)
+    val gameInfo: StateFlow<Title?> = _gameInfo
+    private val _usersAlertStatus = MutableStateFlow<Boolean?>(null)
+    val usersAlertStatus: StateFlow<Boolean?> = _usersAlertStatus
+    private val _gameQuestions = MutableStateFlow<List<Questions>>(emptyList())
+    val gameQuestion: StateFlow<List<Questions>> = _gameQuestions
+    private val _isDoneAnswering = mutableStateOf<Boolean?>(null)
+    val isDoneAnswering: State<Boolean?> = _isDoneAnswering
+    private val _userAnswer = MutableStateFlow<Answers?>(null)
+    val userAnswer: StateFlow<Answers?> = _userAnswer
+    private val _currentQuestion = MutableStateFlow<Questions?>(null)
+    val currentQuestion: StateFlow<Questions?> = _currentQuestion
+
+
+
+    fun generateRandomGameInfo(crRoomId: String, onResult: (Title?) -> Unit){
+        viewModelScope.launch {
+            try {
+                Log.d("ViewModel", "Generating Random Game for room $crRoomId")
+                val randomId = chatRepository.getRandomGameInfo(crRoomId)
+                if (randomId != null){
+                    Log.d("ViewModel", "Random Game Selected: ${randomId.title}")
+                }else {
+                    Log.d("ViewModel", "No games available or found for selection")
+                }
+                onResult(randomId)
+                _isAllDoneWithQuestions.value = false
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to get random title ${e.message}")
+            }
+        }
+    }
+    fun saveGame(crRoomId: String, userIds: List<String>, gameInfo: Title, allMembers: List<UserProfile>? = null){
+        viewModelScope.launch {
+            try {
+                chatRepository.saveGameNameToAllUsers(crRoomId, userIds, gameInfo)
+                chatRepository.saveOrUpdateGame(
+                    crRoomId = crRoomId,
+                    gameName = gameInfo.title,
+                    allMembers = allMembers
+                )
+
+
+                /*if (gameInfo.title == "Mystery Caller" && allMembers != null){
+                    val generatedPairs = createUserPairs(allMembers)
+                    saveMysterCallerPairs(
+                        crRoomId = crRoomId,
+                        gameName = gameInfo.title,
+                        pairs = generatedPairs
+                    ){
+                        Log.d("ViewModel", "${gameInfo.title} pairs saved successfully.")
+                    }
+                }*/
+                if (gameInfo.title == "Twisted Truths"){
+                    allMembers?.let { nonNullMembers ->
+                        saveAssignQuestionsStatement(
+                            crRoomId = crRoomId,
+                            title = gameInfo.title,
+                            members = nonNullMembers
+                        )
+                    }?: Log.e("ViewModel", "AllMembers is null. Cannot assign questions.")
+                }
+                _gameInfo.value = gameInfo
+                _isAllDoneWithQuestions.value = false
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to add gameName ${e.message}")
+            }
+        }
+    }
+    fun saveAssignQuestionsStatement(crRoomId: String, title: String, members: List<UserProfile>){
+        viewModelScope.launch {
+            try {
+                // get Questions for title in Supabase
+                val supabaseQuestions = chatRepository.getAllQuestions(title)
+
+                if (members.isEmpty() || supabaseQuestions.isEmpty()){
+                    throw IllegalArgumentException("Member IDs or Supabase Questions cannot be empty")
+                }
+
+                val memberIds = members.map { it.userId }
+
+                // filter out already assigned questions from firebase
+                val assignedQuestionIds = chatRepository.getAllAssignedQuestionIds(crRoomId, title)
+                val unassignedQuestions = supabaseQuestions.filter { it.id !in assignedQuestionIds }
+
+                // Randomize the unassigned questions
+                val randomizedQuestions = unassignedQuestions.shuffled()
+
+                // Ensure there are enough questions for members
+                if (randomizedQuestions.size < memberIds.size){
+                    throw IllegalArgumentException("Not enough questions for all members!")
+                }
+
+                // Assign each member a unique question
+                val questionToMemberMap = memberIds.mapIndexed { index, memberId ->
+                    randomizedQuestions[index] to memberId
+                }
+
+                // Store in Firebase
+                questionToMemberMap.forEach { (question, memberId) ->
+                    chatRepository.saveQuestionsToFirebase(
+                        crRoomId = crRoomId,
+                        title = title,
+                        questionId = question.id,
+                        memberId = memberId
+                    )
+                }
+
+                Log.d("ViewModelQ", "Successfully assigned questions to members.")
+
+            }catch (e: java.lang.IllegalArgumentException){
+                Log.e("ViewModelQ", "Validation Error: ${e.message}")
+            } catch (e: Exception){
+                Log.d("ViewModelQ", "Error assigning questionStatement ${e.message}")
+            }
+        }
+    }
+    fun savePairAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title){
+        viewModelScope.launch {
+            try {
+                if (answers.isNotEmpty()){
+                    client.postgrest["answers"].insert(answers)
+                    Log.d("ViewModel", "Saved ${answers.size} answers")
+
+                    answers.first().title
+                    updateHasAnswered(crRoomId)
+                    checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
+                }
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to save pair answers ${e.message}")
+            }
+        }
+    }
+    fun saveQuestionStatement(crRoomId: String, answer: Answers, gameInfo: Title){
+        viewModelScope.launch {
+            try {
+                client.postgrest["answers"].insert(answer)
+                Log.d("ViewModel", "Saved $answer")
+
+                answer.title
+                // update has answered
+                // check for users completed answers
+                //updateHasAnswered(crRoomId)
+                checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error saving questionStatement")
+            }
+        }
+    }
+    private fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null){
+        viewModelScope.launch {
+            try {
+                chatRepository.saveOrUpdateGame(
+                    crRoomId = crRoomId,
+                    gameName = gameName,
+                    userId = userId,
+                    hadAlert = hadAlert,
+                    allAnswered = allAnswered,
+                    allDone = allDone
+                )
+                Log.d("ViewModel", "Updated $gameName")
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to addOrUpdateGame ${e.message}")
+            }
+        }
+    }
+    fun fetchGameInfo(crRoomId: String){
+        viewModelScope.launch {
+            try {
+                val retrievedGameInfo = chatRepository.getGameInfo(crRoomId, userId)
+                if (retrievedGameInfo != null){
+                    _gameInfo.value = retrievedGameInfo
+                    Log.d("ViewModel", "Game info successfully retried: $retrievedGameInfo")
+                }else {
+                    Log.d("ViewModel", "No game info found for crRoomId: $crRoomId")
+                }
+            }catch (e: Exception){
+                Log.e("ViewModel", "Error retrieving game info: ${e.message}", e)
+            }
+        }
+    }
+    fun fetchUsersGameAlert(crRoomId: String, userId: String, gameName: String){
+        viewModelScope.launch {
+            try {
+                val status = chatRepository.getUsersGameAlert(
+                    crRoomId = crRoomId,
+                    userId = userId,
+                    gameName = gameName
+                )
+                _usersAlertStatus.value = status
+                when (status) {
+                    true -> Log.d("ViewModel", "User $userId has been alerted")
+                    false -> Log.d("ViewModel", "User $userId has not been alerted")
+                }
+            }catch (e: Exception){
+                Log.d("ViewModel", "failed to get users game alert status ${e.message}")
+            }
+        }
+    }
+    fun fetchQuestions(title: String){
+        viewModelScope.launch {
+            try {
+                val query = chatRepository.getAllQuestions(title)
+                Log.d("ViewModel", "Fetched ${query.size} questions")
+                _gameQuestions.value = query
+            }catch (e: Exception){
+                Log.d("ViewModel", "failed to fetch questions ${e.message}")
+                _gameQuestions.value = emptyList()
+            }
+        }
+    }
+    fun fetchQuestionForUser(crRoomId: String, title: String){
+        viewModelScope.launch {
+            try {
+                // get questionid from firebase
+                val questionId = chatRepository.getAssignedQuestionId(crRoomId, title, userId)
+
+                if (questionId != null){
+                    // get question details from supabase
+                    val question = chatRepository.getQuestionDetails(questionId)
+                    _currentQuestion.value = question
+                }else {
+                    Log.e("ViewModelQ", "No questionId found for user $userId")
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModelQ", "Error fetching question for user: ${e.message}")
+            }
+        }
+    }
+    @SuppressLint("SuspiciousIndentation")
+    fun fetchAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
+        viewModelScope.launch {
+            try {
+                val response = client.postgrest["answers"]
+                    .select(
+                        filter = {
+                            filter("title", FilterOperator.EQ, title)
+                            filter("crRoomId", FilterOperator.EQ, crRoomId)
+                        }
+                    )
+                    .decodeList<Answers>()
+
+                Log.d("ViewModel", "Fetched ${response.size}")
+                onComplete(response)
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching answers ${e.message}")
+                onComplete(emptyList())
+            }
+        }
+    }
+    @SuppressLint("SuspiciousIndentation")
+    fun fetchUsersAnswers(crRoomId: String, title: String){
+        viewModelScope.launch {
+            try {
+                val response = client.postgrest["answers"]
+                    .select(
+                        filter = {
+                            filter("title", FilterOperator.EQ, title)
+                            filter("crRoomId", FilterOperator.EQ, crRoomId)
+                            filter("userId", FilterOperator.EQ, userId)
+                        }
+                    )
+                    .decodeSingle<Answers>()
+
+                Log.d("ViewModel", "Fetched $response")
+                _userAnswer.value = response
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching answers ${e.message}")
+            }
+        }
+    }
+    suspend fun checkUserForAllCompleteAnswers(crRoomId: String, title: String): Boolean{
+        return try {
+            if (title.isEmpty()){
+                Log.d("ViewModel", "title is empty; skipping check for completed answers.")
+                _isDoneAnswering.value = null
+                return false
+            }
+
+            // check if answers exist for this user in supabase
+            Log.d("ViewModel", "Checking for completed answers")
+            val response = client.postgrest["answers"]
+                .select(
+                    filter = {
+                        filter("title", FilterOperator.EQ, title)
+                        filter("userId", FilterOperator.EQ, userId)
+                        filter("crRoomId", FilterOperator.EQ, crRoomId)
+                    }
+                )
+                .decodeList<Answers>()
+
+            val answeredOrNot = response.isNotEmpty()
+
+            if (answeredOrNot){
+                crGameRoomsCollection
+                    .document(crRoomId)
+                    .collection("Users")
+                    .document(userId)
+                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
+                    .await()
+                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
+            }else {
+                Log.d("ViewModel", "User has not answered: $answeredOrNot")
+            }
+            _isDoneAnswering.value = answeredOrNot
+            Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
+            answeredOrNot
+        }catch (e: Exception){
+            Log.d("ViewModel", "Error checking user answers: ${e.message}")
+            _isDoneAnswering.value = null
+            false
+        }
+    }
+    suspend fun checkForUsersCompleteAnswer(crRoomId: String, title: String): Boolean{
+        return try {
+            if (title.isEmpty()){
+                Log.d("ViewModel", "title is empty; skipping check for completed answers.")
+                _isDoneAnswering.value = null
+                return false
+            }
+
+            // check if answer exist for this user in supabase
+            Log.d("ViewModel", "Checking for completed answers")
+            val response = client.postgrest["answers"]
+                .select(
+                    filter = {
+                        filter("title", FilterOperator.EQ, title)
+                        filter("userId", FilterOperator.EQ, userId)
+                        filter("crRoomId", FilterOperator.EQ, crRoomId)
+                    }
+                )
+                .decodeSingleOrNull<Answers>()
+
+            val answeredOrNot = response != null
+
+            if (answeredOrNot){
+                crGameRoomsCollection
+                    .document(crRoomId)
+                    .collection("Users")
+                    .document(userId)
+                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
+                    .await()
+                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
+            }else {
+                Log.d("ViewModel", "User has not answered: $answeredOrNot")
+            }
+            _isDoneAnswering.value = answeredOrNot
+            Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
+            answeredOrNot
+        }catch (e: Exception){
+            Log.d("ViewModel", "Error checking user answers: ${e.message}")
+            _isDoneAnswering.value = null
+            false
+        }
+    }
+    fun monitorUntilAllUsersDoneAnswering(crRoomId: String, title: String) {
         viewModelScope.launch {
             try {
                 Log.d("ViewModel", "monitoring until all users are done anxwering")
@@ -86,7 +429,7 @@ class ChatRiseViewModel: ViewModel() {
 
                         }
                         if (_isAllDoneWithQuestions.value){
-                            addOrUpdateGame(
+                            saveOrUpdateGame(
                                 crRoomId = crRoomId,
                                 gameName = title,
                                 allAnswered = true
@@ -99,12 +442,111 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
+    fun updateGameAlert(crRoomId: String, gameName: String, hadAlert: Boolean){
+        viewModelScope.launch {
+            try {
+                val status = chatRepository.updateUserGameAlert(crRoomId, userId, gameName, hadAlert)
+                _usersAlertStatus.value = status
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error updating user $userId to gameAlert $hadAlert: ${e.message}")
+            }
+        }
+    }
+    private fun updateHasAnswered(crRoomId: String){
+        viewModelScope.launch {
+            try {
+                val success = chatRepository.updateHasAnswered(crRoomId, userId, true)
+                if (success){
+                    _isDoneAnswering.value = true
+                    Log.d("ViewModel", "Update hasAnswered to true successful")
+                }else {
+                    Log.d("ViewModel", "Failed to update hasAnswered to true")
+                }
+                Log.d("ViewModel", "Updated hasAnswered to true")
+            }catch (e: Exception){
+                Log.d("ViewModel", "failed to update game status to true: ${e.message}")
+            }
+        }
+    }
+    fun resetGames(crRoomId: String, userIds: List<String>, gameName: String){
+        viewModelScope.launch {
+            try {
+                chatRepository.resetGameNameFromAllUsers(crRoomId, userIds)
+                _isAllDoneWithQuestions.value = false
+                chatRepository.saveOrUpdateGame(
+                    crRoomId = crRoomId,
+                    gameName = gameName,
+                    allDone = true
+                )
 
+                val retrievedGameInfo = chatRepository.getGameInfo(crRoomId, userId)
+                _gameInfo.value = retrievedGameInfo
+
+            }catch (e: Exception){
+                Log.d("ViewModel", "Failed to delete games ${e.message}")
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+    /**
+     *  Ranking Management
+     */
+    private val _rankingStatus = MutableStateFlow<String?>("View")
+    val rankingStatus: StateFlow<String?> = _rankingStatus
+    private val _rankedUsers = MutableStateFlow<List<Pair<UserProfile, Int>>>(emptyList())
+    val rankedUsers: StateFlow<List<Pair<UserProfile, Int>>> = _rankedUsers
+    fun saveRanking(crRoomId: String, memberId: String, userId: String, newPoints: Int){
+        viewModelScope.launch {
+            Log.d("ViewModel", "Saving ranking system")
+            chatRepository.saveRanking(crRoomId, memberId, userId, newPoints)
+            chatRepository.updateUserRankingStatus(crRoomId = crRoomId, userId = userId, updatedStatus = "Done")
+            checkUserRankingStatus(crRoomId = crRoomId, userId = userId)
+        }
+    }
+    fun fetchAndSortRankings(crRoomId: String){
+        viewModelScope.launch {
+            try {
+                val rankingSnapshot = chatRepository.getRanks(crRoomId)
+                val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
+                    val userId = document.id
+                    val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
+                    val userProfile = chatRepository.getUserProfile(crRoomId, userId)
+                    userProfile?.let { Pair(it, totalPoints) }
+                }
+                // Sort by decending
+                val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
+
+                _rankedUsers.value = sortedUserPointsList
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching and sorting")
+            }
+        }
+    }
+    fun checkUserRankingStatus(crRoomId: String, userId: String){
+        viewModelScope.launch {
+            val status = chatRepository.getUserRankingStatus(crRoomId, userId)
+            _rankingStatus.value = status ?: "View"
+        }
+    }
+    fun updateToRanking(crRoomId: String, userId: String){
+        viewModelScope.launch {
+            chatRepository.updateUserRankingStatus(crRoomId, userId, "Ranking")
+            chatRepository.resetRanking(crRoomId)
+            checkUserRankingStatus(crRoomId, userId)
+        }
+    }
     fun setAllVotesToDone(crRoomId: String){
         viewModelScope.launch {
             try {
                 // check all users in room
-                val usersSnapshot = chatRepository.getAllUsersInRoom(crRoomId)
+                val usersSnapshot = chatRepository.getAllUsers(crRoomId)
                 val usersNotDone = mutableListOf<String>()
                 val usersDone = mutableListOf<String>()
 
@@ -191,620 +633,6 @@ class ChatRiseViewModel: ViewModel() {
             }
         }
     }
-    private val _rankedUsers = MutableStateFlow<List<Pair<UserProfile, Int>>>(emptyList())
-    val rankedUsers: StateFlow<List<Pair<UserProfile, Int>>> = _rankedUsers
-    fun fetchAndSortRankings(crRoomId: String){
-        viewModelScope.launch {
-            try {
-                val rankingSnapshot = chatRepository.getAllRankingsInRoom(crRoomId)
-                val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
-                    val userId = document.id
-                    val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
-                    val userProfile = chatRepository.getUserProfile(crRoomId, userId)
-                    userProfile?.let { Pair(it, totalPoints) }
-                }
-                // Sort by decending
-                val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
-
-                _rankedUsers.value = sortedUserPointsList
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error fetching and sorting")
-            }
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-    //                        Supabase Games
-    fun generateRandomGameInfo(crRoomId: String, onResult: (Title?) -> Unit){
-        viewModelScope.launch {
-            try {
-                Log.d("ViewModel", "Generating Random Game for room $crRoomId")
-                val randomId = chatRepository.fetchRandomGameInfo(crRoomId)
-                if (randomId != null){
-                    Log.d("ViewModel", "Random Game Selected: ${randomId.title}")
-                }else {
-                    Log.d("ViewModel", "No games available or found for selection")
-                }
-                onResult(randomId)
-                _isAllDoneWithQuestions.value = false
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to get random title ${e.message}")
-            }
-        }
-    }
-    fun addGame(crRoomId: String, userIds: List<String>, gameInfo: Title, allMembers: List<UserProfile>? = null){
-        viewModelScope.launch {
-            try {
-                chatRepository.addGameNameToAllUserProfile(crRoomId, userIds, gameInfo)
-                chatRepository.addOrUpdateGame(
-                    crRoomId = crRoomId,
-                    gameName = gameInfo.title,
-                    allMembers = allMembers
-                )
-                /*if (gameInfo.title == "Mystery Caller" && allMembers != null){
-                    val generatedPairs = createUserPairs(allMembers)
-                    saveMysterCallerPairs(
-                        crRoomId = crRoomId,
-                        gameName = gameInfo.title,
-                        pairs = generatedPairs
-                    ){
-                        Log.d("ViewModel", "${gameInfo.title} pairs saved successfully.")
-                    }
-                }*/
-                if (gameInfo.title == "Twisted Truths"){
-                    allMembers?.let { nonNullMembers ->
-                        assignQuestionsStatement(
-                            crRoomId = crRoomId,
-                            title = gameInfo.title,
-                            members = nonNullMembers
-                        )
-                    }?: Log.e("ViewModel", "AllMembers is null. Cannot assign questions.")
-                }
-                _gameInfo.value = gameInfo
-                _isAllDoneWithQuestions.value = false
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to add gameName ${e.message}")
-            }
-        }
-    }
-    fun deleteGames(crRoomId: String, userIds: List<String>, gameName: String){
-        viewModelScope.launch {
-            try {
-                chatRepository.deleteGameNameFromAllUsers(crRoomId, userIds)
-                _isAllDoneWithQuestions.value = false
-                chatRepository.addOrUpdateGame(
-                    crRoomId = crRoomId,
-                    gameName = gameName,
-                    allDone = true
-                )
-
-                val retrievedGameInfo = chatRepository.fetchGameInfo(crRoomId, userId)
-                _gameInfo.value = retrievedGameInfo
-
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to delete games ${e.message}")
-            }
-        }
-    }
-    fun updateGameAlertStatus(crRoomId: String, gameName: String, hadAlert: Boolean){
-        viewModelScope.launch {
-            try {
-                val status = chatRepository.updateGameAlertStatus(crRoomId, userId, gameName, hadAlert)
-                _usersAlertStatus.value = status
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error updating user $userId to gameAlert $hadAlert: ${e.message}")
-            }
-        }
-    }
-
-    private val _gameInfo = MutableStateFlow<Title?>(null)
-    val gameInfo: StateFlow<Title?> = _gameInfo
-    fun getGameInfo(crRoomId: String){
-        viewModelScope.launch {
-            try {
-                val retrievedGameInfo = chatRepository.fetchGameInfo(crRoomId, userId)
-                if (retrievedGameInfo != null){
-                    _gameInfo.value = retrievedGameInfo
-                    Log.d("ViewModel", "Game info successfully retried: $retrievedGameInfo")
-                }else {
-                    Log.d("ViewModel", "No game info found for crRoomId: $crRoomId")
-                }
-            }catch (e: Exception){
-                Log.e("ViewModel", "Error retrieving game info: ${e.message}", e)
-            }
-        }
-    }
-    private val _usersAlertStatus = MutableStateFlow<Boolean?>(null)
-    val usersAlertStatus: StateFlow<Boolean?> = _usersAlertStatus
-    fun getUsersGameAlert(crRoomId: String, userId: String, gameName: String){
-        viewModelScope.launch {
-            try {
-                val status = chatRepository.checkUsersGameAlert(
-                    crRoomId = crRoomId,
-                    userId = userId,
-                    gameName = gameName
-                )
-                _usersAlertStatus.value = status
-                when (status) {
-                    true -> Log.d("ViewModel", "User $userId has been alerted")
-                    false -> Log.d("ViewModel", "User $userId has not been alerted")
-                }
-            }catch (e: Exception){
-                Log.d("ViewModel", "failed to get users game alert status ${e.message}")
-            }
-        }
-    }
-    private fun addOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null){
-        viewModelScope.launch {
-            try {
-                chatRepository.addOrUpdateGame(
-                    crRoomId = crRoomId,
-                    gameName = gameName,
-                    userId = userId,
-                    hadAlert = hadAlert,
-                    allAnswered = allAnswered,
-                    allDone = allDone
-                )
-                Log.d("ViewModel", "Updated $gameName")
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to addOrUpdateGame ${e.message}")
-            }
-        }
-    }
-    private fun updateHasAnswered(crRoomId: String){
-        viewModelScope.launch {
-            try {
-                val success = chatRepository.updateHasAnswered(crRoomId, userId, true)
-                if (success){
-                    _isDoneAnswering.value = true
-                    Log.d("ViewModel", "Update hasAnswered to true successful")
-                }else {
-                    Log.d("ViewModel", "Failed to update hasAnswered to true")
-                }
-                Log.d("ViewModel", "Updated hasAnswered to true")
-            }catch (e: Exception){
-                Log.d("ViewModel", "failed to update game status to true: ${e.message}")
-            }
-        }
-    }
-    private val _gameQuestions = MutableStateFlow<List<Questions>>(emptyList())
-    val gameQuestion: StateFlow<List<Questions>> = _gameQuestions
-    fun fetchQuestions(title: String){
-        viewModelScope.launch {
-            try {
-                val query = chatRepository.getAllQuestions(title)
-                Log.d("ViewModel", "Fetched ${query.size} questions")
-                _gameQuestions.value = query
-            }catch (e: Exception){
-                Log.d("ViewModel", "failed to fetch questions ${e.message}")
-                _gameQuestions.value = emptyList()
-            }
-        }
-    }
-    private val _isDoneAnswering = mutableStateOf<Boolean?>(null)
-    val isDoneAnswering: State<Boolean?> = _isDoneAnswering
-    suspend fun checkUserForAllCompleteAnswers(crRoomId: String, title: String): Boolean{
-        return try {
-            if (title.isEmpty()){
-                Log.d("ViewModel", "title is empty; skipping check for completed answers.")
-                _isDoneAnswering.value = null
-                return false
-            }
-
-            // check if answers exist for this user in supabase
-            Log.d("ViewModel", "Checking for completed answers")
-            val response = client.postgrest["answers"]
-                .select(
-                    filter = {
-                        filter("title", FilterOperator.EQ, title)
-                        filter("userId", FilterOperator.EQ, userId)
-                        filter("crRoomId", FilterOperator.EQ, crRoomId)
-                    }
-                )
-                .decodeList<Answers>()
-
-            val answeredOrNot = response.isNotEmpty()
-
-            if (answeredOrNot){
-                crGameRoomsCollection
-                    .document(crRoomId)
-                    .collection("Users")
-                    .document(userId)
-                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
-                    .await()
-                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
-            }else {
-                Log.d("ViewModel", "User has not answered: $answeredOrNot")
-            }
-            _isDoneAnswering.value = answeredOrNot
-            Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
-            answeredOrNot
-        }catch (e: Exception){
-            Log.d("ViewModel", "Error checking user answers: ${e.message}")
-            _isDoneAnswering.value = null
-            false
-        }
-    }
-    suspend fun checkForUsersSingleCompleteAnswer(crRoomId: String, title: String): Boolean{
-        return try {
-            if (title.isEmpty()){
-                Log.d("ViewModel", "title is empty; skipping check for completed answers.")
-                _isDoneAnswering.value = null
-                return false
-            }
-
-            // check if answer exist for this user in supabase
-            Log.d("ViewModel", "Checking for completed answers")
-            val response = client.postgrest["answers"]
-                .select(
-                    filter = {
-                        filter("title", FilterOperator.EQ, title)
-                        filter("userId", FilterOperator.EQ, userId)
-                        filter("crRoomId", FilterOperator.EQ, crRoomId)
-                    }
-                )
-                .decodeSingleOrNull<Answers>()
-
-            val answeredOrNot = response != null
-
-            if (answeredOrNot){
-                crGameRoomsCollection
-                    .document(crRoomId)
-                    .collection("Users")
-                    .document(userId)
-                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
-                    .await()
-                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
-            }else {
-                Log.d("ViewModel", "User has not answered: $answeredOrNot")
-            }
-            _isDoneAnswering.value = answeredOrNot
-            Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
-            answeredOrNot
-        }catch (e: Exception){
-            Log.d("ViewModel", "Error checking user answers: ${e.message}")
-            _isDoneAnswering.value = null
-            false
-        }
-    }
-
-    fun savePairAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title){
-        viewModelScope.launch {
-            try {
-                if (answers.isNotEmpty()){
-                    client.postgrest["answers"].insert(answers)
-                    Log.d("ViewModel", "Saved ${answers.size} answers")
-
-                    answers.first().title
-                    updateHasAnswered(crRoomId)
-                    checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
-                }
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to save pair answers ${e.message}")
-            }
-        }
-    }
-    @SuppressLint("SuspiciousIndentation")
-    fun fetchAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
-        viewModelScope.launch {
-            try {
-            val response = client.postgrest["answers"]
-                .select(
-                    filter = {
-                        filter("title", FilterOperator.EQ, title)
-                        filter("crRoomId", FilterOperator.EQ, crRoomId)
-                    }
-                )
-                .decodeList<Answers>()
-
-                Log.d("ViewModel", "Fetched ${response.size}")
-                onComplete(response)
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error fetching answers ${e.message}")
-                onComplete(emptyList())
-            }
-        }
-    }
-    private val _userAnswer = MutableStateFlow<Answers?>(null)
-    val userAnswer: StateFlow<Answers?> = _userAnswer
-    @SuppressLint("SuspiciousIndentation")
-    fun fetchSingleUsersAnswers(crRoomId: String, title: String){
-        viewModelScope.launch {
-            try {
-                val response = client.postgrest["answers"]
-                    .select(
-                        filter = {
-                            filter("title", FilterOperator.EQ, title)
-                            filter("crRoomId", FilterOperator.EQ, crRoomId)
-                            filter("userId", FilterOperator.EQ, userId)
-                        }
-                    )
-                    .decodeSingle<Answers>()
-
-                Log.d("ViewModel", "Fetched $response")
-                _userAnswer.value = response
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error fetching answers ${e.message}")
-                null
-            }
-        }
-    }
-
-
-
-    /*
-    //               supabase anon questions
-    private val _theyHaveAsked = MutableStateFlow(false)
-    val theyHaveAsked: StateFlow<Boolean> = _theyHaveAsked.asStateFlow()
-    private val _youHaveAsked = MutableStateFlow(false)
-    val youHaveAsked: StateFlow<Boolean> = _youHaveAsked.asStateFlow()
-    private val _theyHaveAnswered = MutableStateFlow(false)
-    val theyHaveAnswered: StateFlow<Boolean> = _theyHaveAnswered.asStateFlow()
-    private val _youHaveAnswered = MutableStateFlow(false)
-    val youHaveAnswered: StateFlow<Boolean> = _youHaveAnswered.asStateFlow()
-
-    fun saveTargetQuestion(crRoomId: String, title: String, question: askQuestion, userId: String, toUserId: String){
-        viewModelScope.launch {
-            try {
-                client.postgrest["askQuestion"].insert(question)
-                Log.d("ViewModel", "Saved 1 Question from $userId")
-
-                chatRepository.updateHasAsked(
-                    crRoomId = crRoomId,
-                    gameName = title,
-                    userId = userId,
-                    onSuccess = {
-                        fetchToUserQuestion(crRoomId, userId = userId, toUserId = toUserId)
-                        Log.d("ViewModel", "Successfully updated hasAsked for user $userId")
-                    },
-                    onError = {exception ->
-                        Log.e("ViewModel", "error updating hasAsked for user $userId: ${exception.message}")
-                    }
-                )
-
-                //updateHasAnswered(crRoomId)
-                //checkForUsersCompleteAnswers(crRoomId, gameInfo.title)
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to save pair answers ${e.message}")
-            }
-        }
-    }
-    private val _yourAnonQuestion = mutableStateOf<askQuestion?>(null)
-    val yourAnonQuestion: State<askQuestion?> = _yourAnonQuestion
-    private val _yourQuestion= mutableStateOf<askQuestion?>(null)
-    val yourQuestion: State<askQuestion?> = _yourQuestion
-    fun fetchToUserQuestion(crRoomId: String, userId: String, toUserId: String){
-        viewModelScope.launch {
-            Log.d("ViewModel", "Launching fetchToUserQuestion")
-            // you are targeting
-            try {
-                val response = client.postgrest["askQuestion"]
-                    .select(
-                        filter = {
-                            filter("userId", FilterOperator.EQ, userId)
-                            filter("toUserId", FilterOperator.EQ, toUserId)
-                            filter("crRoomId", FilterOperator.EQ, crRoomId)
-                        }
-                    )
-                    .decodeSingleOrNull<askQuestion>()
-
-                _yourAnonQuestion.value = response
-                Log.d("ViewModel", "Successfully got question: $response from $userId to $toUserId")
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to check Users Question ${e.message}")
-            }
-
-        }
-    }
-    fun fetchTargetQuestion(crRoomId: String, userId: String){
-        viewModelScope.launch {
-            Log.d("ViewModel", "Launching fetchTargetQuestion")
-            // you are targeted
-            try {
-                val response = client.postgrest["askQuestion"]
-                    .select(
-                        filter = {
-                            filter("toUserId", FilterOperator.EQ, userId)
-                            filter("crRoomId", FilterOperator.EQ, crRoomId)
-                        }
-                    )
-                    .decodeSingleOrNull<askQuestion>()
-
-                _yourQuestion.value = response
-                Log.d("ViewModel", "Successfully got target question: $response for $userId")
-            }catch (e: Exception){
-                Log.d("ViewModel", "Failed to get Users targeted Anon Question ${e.message}")
-            }
-        }
-    }
-    fun createUserPairs(users: List<UserProfile>): List<Pair<String, String>>{
-        val shuffledUsers = users.shuffled()
-        val pairs = mutableListOf<Pair<String, String>>()
-
-        for (i in shuffledUsers.indices){
-            val currentUser = shuffledUsers[i].userId
-            val nextUser = shuffledUsers[(i + 1) % shuffledUsers.size].userId
-            pairs.add(currentUser to nextUser)
-        }
-        return pairs
-    }
-    fun saveMysterCallerPairs(
-        crRoomId: String,
-        gameName: String,
-        pairs: List<Pair<String, String>>,
-        onSuccess: () -> Unit
-    ){
-        chatRepository.saveMysterCallerPairs(
-            crRoomId = crRoomId,
-            gameName = gameName,
-            pairs = pairs,
-            onSuccess = onSuccess,
-            onError = { exception ->
-                Log.d("ViewModel", "Error saving Mystery Caller pairs: ${exception.message}")
-            }
-        )
-    }
-    private val _userPairs = MutableStateFlow<List<Pair<String, String>>>(emptyList())
-    val userPairs: StateFlow<List<Pair<String, String>>> = _userPairs
-    fun fetchMysteryCallerPairs(
-        crRoomId: String,
-        gameName: String
-    ){
-        chatRepository.fetchMysteryCallerPairs(
-            crRoomId = crRoomId,
-            onComplete = { pairs ->
-                         _userPairs.value = pairs
-                Log.d("ViewModel", "Fetched $gameName pairs successfully: $pairs")
-            },
-            gameName = gameName,
-            onError = {exception ->
-                Log.e("ViewModel", "Error fetchign Myster Caller pairs: ${exception.message}")
-            }
-        )
-    }
-
-    fun fetchUserProfile(crRoomId: String, userId: String, onComplete: (UserProfile?) -> Unit){
-        viewModelScope.launch {
-            val userProfile = chatRepository.getSelectedUserProfile(crRoomId, userId)
-            onComplete(userProfile)
-        }
-    }
-
-    fun saveAnonAnswer(question: Answers){
-        viewModelScope.launch {
-            try {
-                client.postgrest["answers"].insert(question)
-
-                Log.d("ViewModel", "Anonymous answer saved succesffylly: $question")
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error saving anon answer ${e.message}")
-            }
-        }
-    }
-    private val _hadAnsweredAnonQuestion = mutableStateOf(false)
-    val hasAnsweredAnonQuestion: State<Boolean> = _hadAnsweredAnonQuestion
-    fun fetchAnonAnswer(crRoomId: String, question: String){
-        viewModelScope.launch {
-            try {
-                val response = client.postgrest["answers"]
-                    .select(
-                        filter = {
-                            filter("userId", FilterOperator.EQ, userId)
-                            filter("crRoomId", FilterOperator.EQ, crRoomId)
-                            filter("question", FilterOperator.EQ, question)
-                        }
-                    )
-                    .decodeList<Answers>()
-
-                _hadAnsweredAnonQuestion.value = response.isNotEmpty()
-
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error fetching anon answer ${e.message}")
-            }
-        }
-    }
-
-
-    private val _QnAState = MutableStateFlow<String>("")
-    val QnAState: StateFlow<String> = _QnAState
-
-
-     */
-
-    fun assignQuestionsStatement(crRoomId: String, title: String, members: List<UserProfile>){
-        viewModelScope.launch {
-            try {
-                // get Questions for title in Supabase
-                val supabaseQuestions = chatRepository.getAllQuestions(title)
-
-                if (members.isEmpty() || supabaseQuestions.isEmpty()){
-                    throw IllegalArgumentException("Member IDs or Supabase Questions cannot be empty")
-                }
-
-                val memberIds = members.map { it.userId }
-
-                // filter out already assigned questions from firebase
-                val assignedQuestionIds = chatRepository.getAssignedQuestionId(crRoomId, title)
-                val unassignedQuestions = supabaseQuestions.filter { it.id !in assignedQuestionIds }
-
-                // Randomize the unassigned questions
-                val randomizedQuestions = unassignedQuestions.shuffled()
-
-                // Ensure there are enough questions for members
-                if (randomizedQuestions.size < memberIds.size){
-                    throw IllegalArgumentException("Not enough questions for all members!")
-                }
-
-                // Assign each member a unique question
-                val questionToMemberMap = memberIds.mapIndexed { index, memberId ->
-                    randomizedQuestions[index] to memberId
-                }
-
-                // Store in Firebase
-                questionToMemberMap.forEach { (question, memberId) ->
-                    chatRepository.assignQuestionsToFirebase(
-                        crRoomId = crRoomId,
-                        title = title,
-                        questionId = question.id,
-                        memberId = memberId
-                    )
-                }
-
-                Log.d("ViewModelQ", "Successfully assigned questions to members.")
-
-            }catch (e: java.lang.IllegalArgumentException){
-                Log.e("ViewModelQ", "Validation Error: ${e.message}")
-            } catch (e: Exception){
-                Log.d("ViewModelQ", "Error assigning questionStatement ${e.message}")
-            }
-        }
-    }
-    private val _currentQuestion = MutableStateFlow<Questions?>(null)
-    val currentQuestion: StateFlow<Questions?> = _currentQuestion
-    fun getQuestionForUser(crRoomId: String, title: String){
-        viewModelScope.launch {
-            try {
-                // get questionid from firebase
-                val questionId = chatRepository.getQuestionIdForUser(crRoomId, title, userId)
-
-                if (questionId != null){
-                    // get question details from supabase
-                    val question = chatRepository.getQuestionDetailsFromSupabase(questionId)
-                    _currentQuestion.value = question
-                }else {
-                    Log.e("ViewModelQ", "No questionId found for user $userId")
-                }
-            } catch (e: Exception) {
-                Log.e("ViewModelQ", "Error fetching question for user: ${e.message}")
-            }
-        }
-    }
-    fun saveQuestionStatement(crRoomId: String, answer: Answers, gameInfo: Title){
-        viewModelScope.launch {
-            try {
-                client.postgrest["answers"].insert(answer)
-                Log.d("ViewModel", "Saved $answer")
-
-                answer.title
-                // update has answered
-                // check for users completed answers
-                //updateHasAnswered(crRoomId)
-                checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error saving questionStatement")
-            }
-        }
-    }
-
-
 
 
 }

@@ -83,6 +83,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -132,7 +133,7 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
     val alternateProfile = alternateState ?: UserProfile()
 
     LaunchedEffect(Unit) {
-        viewModel.getUserProfile(userId = userId)
+        viewModel.fetchUserProfile(userId = userId)
     }
     return  Pair(personalProfile, alternateProfile)
 
@@ -153,6 +154,7 @@ fun ChatRiseThumbnail(
     roomCreate: RoomCreationViewModel = viewModel(),
     navController: NavController
 ) {
+    val context = LocalContext.current
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -184,10 +186,10 @@ fun ChatRiseThumbnail(
         crRoomId?.let { roomId ->
             if (roomId.isNotEmpty()){
                 if (gameInfo == null){
-                    crViewModel.getGameInfo(roomId) // initialize gameInfo
+                    crViewModel.fetchGameInfo(roomId) // initialize gameInfo
                 }else {
                     gameInfo?.let { game ->
-                        crViewModel.getUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
+                        crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
                         crViewModel.checkUserForAllCompleteAnswers(roomId, game.title) // initialize isDoneAnswering
                     }
                 }
@@ -195,7 +197,7 @@ fun ChatRiseThumbnail(
         }
     }
 
-    val temperaryCrRoomId = crRoomId
+
     val isReadyToDisplay by remember {
         derivedStateOf {
             crRoomId != null &&
@@ -453,8 +455,8 @@ fun ChatRiseThumbnail(
                                         altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
                                         else -> { alternateProfile}
                                     }
-                                    viewModel.saveUserProfile(userId = currentUser?.uid ?: "", userProfile = updatedProfile, game = false)
-                                    viewModel.saveUserProfile(userId = currentUser?.uid ?: "", userProfile = altUpdatedProfile, game = true)
+                                    viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = updatedProfile, game = false)
+                                    viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = altUpdatedProfile, game = true)
                                     roomCreate.setToPending()
                                 },
                                     modifier = Modifier
@@ -1170,7 +1172,6 @@ fun NavigationRow(
 ) {
     val selectedColor = Color.White
     val unselectedColor = Color.Gray
-    val disabledColor = Color.Red
 
     TabRow(
         selectedTabIndex = selectedTabIndex,
@@ -1415,6 +1416,7 @@ fun PrivateDrawerRoomList(
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, game: Boolean, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
+    val context = LocalContext.current
     val userId = userProfile.userId
     var editFname by remember { mutableStateOf(userProfile.fname)}
     var editLname by remember { mutableStateOf(userProfile.lname)}
@@ -1870,7 +1872,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                               }
                               else -> { userProfile }
                           }
-                          viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
+                          viewModel.saveUserProfile(context = context, userId = userId, userProfile = saveChangedProfile, game = game)
                           onDismiss()
 
                       },

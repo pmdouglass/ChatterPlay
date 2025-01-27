@@ -46,6 +46,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -73,13 +74,14 @@ fun ChatLazyColumn(
     mainChat: Boolean,
     viewModel: ChatViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
     // Fetch chat messages when roomId or game changes
     LaunchedEffect(roomId, game) {
-        viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
+        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
     }
 
 
@@ -128,13 +130,14 @@ fun ChatMainPreviewLazyColumn(
     roomId: String,
     viewModel: ChatViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
 
     // Fetch chat messages when roomId or game changes
     LaunchedEffect(roomId) {
-        viewModel.fetchChatMessages(crRoomId = crRoomId, roomId = roomId, game = true, mainChat = true)
+        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = roomId, game = true, mainChat = true)
     }
 
 
@@ -308,14 +311,23 @@ fun ChatBubble(
 
 }
 @Composable
-fun ChatInput(viewModel: ChatViewModel = viewModel(), crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
+fun ChatInput(viewModel: ChatViewModel = viewModel(), memberCount: Int, crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     Log.d("Debug-Message", "Current user: ${currentUser?.uid}")
     var input by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     fun send(){
         if (input.isNotBlank()) {
-            viewModel.sendMessage(crRoomId = crRoomId, roomId = roomId, message = input, game = game, mainChat = mainChat)
+            viewModel.sendMessage(
+                context = context,
+                crRoomId = crRoomId,
+                roomId = roomId,
+                message = input,
+                memberCount = memberCount,
+                game = game,
+                mainChat = mainChat
+            )
             input = ""
         }
     }
@@ -426,7 +438,7 @@ fun AlertDialogSplash(
                     when{
                         game -> {
                             gameInfo?.let { game ->
-                                crViewModel.updateGameAlertStatus(
+                                crViewModel.updateGameAlert(
                                     crRoomId = crRoomId,
                                     gameName = game.title,
                                     hadAlert = true

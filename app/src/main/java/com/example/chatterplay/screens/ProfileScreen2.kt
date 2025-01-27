@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
@@ -48,14 +49,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 enum class profileInfo (val string: String){
     pname("Name"),
@@ -92,6 +98,19 @@ fun ProfileScreen2(
             roomId = fetchedRoomId
         }
     }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "GameProfileScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "GameProfileScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("GameProfileScreen"))
 
 
     Column (

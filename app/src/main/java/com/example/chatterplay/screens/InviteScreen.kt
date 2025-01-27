@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,12 +48,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.darkPurple
@@ -88,6 +93,20 @@ import com.google.firebase.auth.FirebaseAuth
             if (contains(user)) remove(user) else add(user)
         }
     }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "RoomSelectInviteScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "RoomSelectInviteScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("RoomSelectInviteScreen"))
+
 
 
     Scaffold(
@@ -355,7 +374,7 @@ fun InviteSelectScreen(
     }
 
     LaunchedEffect(crRoomId) {
-        viewModel.getAllRisers(crRoomId)
+        viewModel.fetchAllRisers(crRoomId)
     }
 
     val users = if (game) viewModel.allRisers.collectAsState().value else viewModel.allUsers.collectAsState().value
@@ -366,6 +385,18 @@ fun InviteSelectScreen(
         }
     }
 
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ChatRiseInviteScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "ChatRiseInviteScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ChatRiseInviteScreen"))
 
 
     fun toggleUserSelection(user: UserProfile){

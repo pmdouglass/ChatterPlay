@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 import android.os.Build
+import android.os.Bundle
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
@@ -37,10 +38,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.AlertDialogSplash
@@ -81,6 +86,7 @@ fun MainScreen(
     val profile = rememberCRProfile(crRoomId = crRoomId)
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
+    val memberCount by viewModel.chatRoomMembersCount.collectAsState()
 
 
     // Navigation tab Icons 'Description to Icon'
@@ -95,7 +101,8 @@ fun MainScreen(
 
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
-        crViewModel.getGameInfo(crRoomId) // initialize 'gameInfo
+        viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
+        crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
 
 
     }
@@ -103,10 +110,25 @@ fun MainScreen(
         Log.d("MainScreen", "gameInfo: $gameInfo")
         if (gameInfo != null)
             gameInfo?.let { game ->
-                crViewModel.getUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
+                crViewModel.fetchUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
                 crViewModel.checkUserForAllCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
             }
     }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ChatRiseScreen")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "ChatRiseScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ChatRiseScreen"))
+
+
 
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
@@ -175,6 +197,7 @@ fun MainScreen(
                             ChatInput(
                                 crRoomId = crRoomId,
                                 roomId = crRoomId,
+                                memberCount = memberCount,
                                 game = true,
                                 mainChat = true
                             )
@@ -206,12 +229,23 @@ fun MainScreen(
 
                                         selectedGame?.let {game ->
                                             Log.d("MainChat", "Attempting to add game: ${game.title} for users: $userIds")
-                                            crViewModel.addGame(
+                                            crViewModel.saveGame(
                                                 crRoomId = crRoomId,
                                                 userIds = userIds,
                                                 gameInfo = game,
                                                 allMembers = allChatRoomMembers
                                             )
+
+                                            coroutineScope.launch {
+                                                // Log the event in Firebase Analytics
+                                                val params = Bundle().apply {
+                                                    putString("cr_room_id", crRoomId)
+                                                    putString("game_name", game.title)
+                                                    putString("game_mode", game.mode)
+                                                }
+                                                AnalyticsManager.getInstance(context).logEvent("game_started", params)
+
+                                            }
                                         }
                                     } else {
                                         Log.d("MainChat", "No game was returned for generateRandomGameInfo, skipping addGame")
@@ -226,7 +260,7 @@ fun MainScreen(
                                 val userIds: List<String> = allChatRoomMembers.map { it.userId }
                                 if (gameInfo != null){
                                     gameInfo?.let { game->
-                                        crViewModel.deleteGames(crRoomId, userIds, game.title)
+                                        crViewModel.resetGames(crRoomId, userIds, game.title)
                                     }
                                 } else {
                                     Log.e("MainScreen", "gameInfo is null update")
@@ -365,6 +399,18 @@ fun RiseMainChat(
     profile: UserProfile,
     navController: NavController
 ){
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ChatRiseMainChat")
+            putString("user_id", userId)
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
