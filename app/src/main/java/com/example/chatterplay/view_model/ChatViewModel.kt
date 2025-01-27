@@ -215,12 +215,7 @@ class ChatViewModel: ViewModel() {
         }
     }
 
-    fun selectUploadAndGetImage(
-        game: Boolean,
-        userId: String,
-        byteArray: ByteArray,
-        onResult: (url: String?, error: String?) -> Unit
-    ) {
+    fun selectUploadAndGetImage(game: Boolean, userId: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit) {
         viewModelScope.launch {
             _userState.value = UserState.Loading
             try {
@@ -255,12 +250,7 @@ class ChatViewModel: ViewModel() {
         }
     }
 
-    suspend fun uploadImage(
-        context: Context,
-        userId: String,
-        uri: Uri,
-        game: Boolean
-    ): String {
+    suspend fun uploadImage(context: Context, userId: String, uri: Uri, game: Boolean): String {
         return try {
             Log.d("ChatViewModel", "Starting image upload for userId: $userId, game: $game")
 
@@ -411,7 +401,24 @@ class ChatViewModel: ViewModel() {
 
                 val messageId = UUID.randomUUID().toString()
                 val senderType = "player"
-                val roomType = if (memberCount == 2) "private" else "group"
+                val roomType =
+                    if (mainChat){
+                        if (roomId != crRoomId){
+                            if (memberCount == 2) {
+                                "ChatRise/Private"
+                            }else {
+                                "ChatRise/Group"
+                            }
+                        } else {
+                            "ChatRise"
+                        }
+                    }else {
+                        if (memberCount == 2){
+                            "Private"
+                        }else {
+                            "Group"
+                        }
+                    }
                 val appVersion = context.packageManager
                     .getPackageInfo(context.packageName, 0).versionName
 

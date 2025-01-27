@@ -1,5 +1,8 @@
 package com.example.chatterplay.repository
 
+import android.os.Bundle
+import androidx.compose.ui.platform.LocalContext
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
@@ -12,6 +15,7 @@ class RoomCreateRepository {
     // Simulated database (key: userId, value: UserProfile)
     private val userCollection = firestore.collection("Users")
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
+    val context = LocalContext.current
 
 
     // Fetch user profile by userId
@@ -123,26 +127,11 @@ class RoomCreateRepository {
             )
             crGameRoomsCollection.document(newRoom.roomId).set(newRoom).await()
 
-
-            //                            ADD Collections
-
-            /*// add Games Collection
-            val gameDocs = listOf(
-                "AskMeAnything",
-                "PopQuiz",
-                "YesOrNo",
-                "Mojojojo",
-                "PickAnImage"
-            )
-            val gameSubCollection = crGameRoomsCollection.document(newRoom.roomId).collection("Games")
-            gameDocs.forEach{ gameName ->
-                val gameData = GameData(
-                    gameName = gameName,
-                    gameStatus = "NotPlayedYet",
-                    hasViewed = false
-                )
-                gameSubCollection.document(gameName).set(gameData).await()
-            }*/
+            // Log the event in Firebase Analytics
+            val params = Bundle().apply {
+                putString("game_type", roomName)
+            }
+            AnalyticsManager.getInstance(context).logEvent("new_game", params)
 
             true
         }catch (e: Exception){

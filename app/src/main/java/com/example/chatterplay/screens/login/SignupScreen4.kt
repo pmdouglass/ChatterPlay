@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens.login
 
 import android.net.Uri
+import android.os.Bundle
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,12 +41,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.launch
 
 
 @Composable
@@ -66,7 +70,7 @@ fun SignupScreen4(
 ) {
 
     val space = 15
-
+    val coroutineScope = rememberCoroutineScope()
     var showPopUp by remember { mutableStateOf(false)}
 
     val context = LocalContext.current
@@ -201,6 +205,15 @@ fun SignupScreen4(
                                                 userProfile = newUserProfile,
                                                 game = false
                                             )
+                                            coroutineScope.launch {
+                                                // Log the event in Firebase Analytics
+                                                val params = Bundle().apply {
+                                                    putString("age", age)
+                                                    putString("gender", gender)
+                                                    putString("location", location)
+                                                }
+                                                AnalyticsManager.getInstance(context).logEvent("new_user_created", params)
+                                            }
                                             navController.navigate("loginScreen") {
                                                 popUpTo("signupScreen1") { inclusive = true }
                                             }
@@ -212,6 +225,7 @@ fun SignupScreen4(
                                 Log.d("Test Message", "Error creating account: ${task.exception?.localizedMessage}")
                             }
                         }
+
 
                 } else {
                     if (byteArray != null){
@@ -238,6 +252,15 @@ fun SignupScreen4(
                                     userProfile = exsistingUserProfile,
                                     game = true
                                 )
+                                coroutineScope.launch {
+                                    // Log the event in Firebase Analytics
+                                    val params = Bundle().apply {
+                                        putString("age", age)
+                                        putString("gender", gender)
+                                        putString("location", location)
+                                    }
+                                    AnalyticsManager.getInstance(context).logEvent("alternate_profile_created", params)
+                                }
                                 repeat(3) {
                                     navController.popBackStack()
                                 }
