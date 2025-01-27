@@ -1,9 +1,15 @@
 package com.example.chatterplay.view_model
 
+
+/*
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.room.Room
 import com.example.chatterplay.data_class.AppDatabase
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class LocalViewModel: ViewModel() {
 
@@ -15,7 +21,7 @@ class LocalViewModel: ViewModel() {
         "chat_app_database"
     ).build()
 
-/*
+
     private val repository = LocalRepository()
 
     fun saveUserProfile(profile: UserProfileStorage){
@@ -33,5 +39,7 @@ class LocalViewModel: ViewModel() {
         }
     }
 
- */
+
 }
+
+*/

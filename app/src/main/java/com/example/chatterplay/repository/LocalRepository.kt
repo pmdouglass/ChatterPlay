@@ -1,5 +1,5 @@
 package com.example.chatterplay.repository
-
+/*
 import com.example.chatterplay.data_class.UserProfileDao
 import com.example.chatterplay.data_class.UserProfileStorage
 
@@ -15,3 +15,5 @@ class LocalRepository(
         return userProfileDao.getUserProfile(userId)
     }
 }
+
+ */
