@@ -132,7 +132,7 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
     val alternateProfile = alternateState ?: UserProfile()
 
     LaunchedEffect(Unit) {
-        viewModel.getUserProfile(userId = userId)
+        viewModel.fetchUserProfile(userId = userId)
     }
     return  Pair(personalProfile, alternateProfile)
 
@@ -195,7 +195,7 @@ fun ChatRiseThumbnail(
         }
     }
 
-    val temperaryCrRoomId = crRoomId
+
     val isReadyToDisplay by remember {
         derivedStateOf {
             crRoomId != null &&
@@ -1170,7 +1170,6 @@ fun NavigationRow(
 ) {
     val selectedColor = Color.White
     val unselectedColor = Color.Gray
-    val disabledColor = Color.Red
 
     TabRow(
         selectedTabIndex = selectedTabIndex,

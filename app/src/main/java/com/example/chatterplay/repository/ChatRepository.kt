@@ -24,8 +24,9 @@ class ChatRepository {
 
 
 
-    fun getChatRooms() = chatRoomsCollection
-    fun getRiserRoom() = crGameRoomsCollection
+    /**
+     *  User Management
+     */
     suspend fun saveUserProfile(userId: String, userProfile: UserProfile, game: Boolean) {
         if (!game) {
             usersCollection.document(userId)
@@ -123,6 +124,23 @@ class ChatRepository {
         }
         return userProfiles
     }
+    suspend fun getUsersStatus(userId: String): String?{
+        return try {
+            val documentSnapshot = usersCollection.document(userId).get().await()
+            documentSnapshot.getString("pending")
+        }catch (e: Exception) {
+            null
+        }
+    }
+
+
+
+    /**
+     *  Chat Room Management
+     */
+
+    fun getChatRooms() = chatRoomsCollection
+    fun getRiserRoom() = crGameRoomsCollection
     suspend fun checkIfChatRoomExists(crRoomId: String, members: List<String>): String? {
         val sortedMembers = members.sorted()
         if (crRoomId == "0") {
@@ -228,12 +246,7 @@ class ChatRepository {
             usersPath.document(memberId).get().await().toObject(UserProfile::class.java)
         } ?: emptyList()
     }
-    suspend fun getMembersforGame(
-        crRoomId: String,
-        roomId: String,
-        game: Boolean,
-        mainChat: Boolean
-    ): List<UserProfile> {
+    suspend fun getMembersforGame(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
         // which path
         // which room
         // collect members
@@ -292,7 +305,6 @@ class ChatRepository {
             }
         }
     }
-
     suspend fun getSingleChatRoom(roomId: String): ChatRoom? {
         return try {
             val documentSnapshot = chatRoomsCollection.document(roomId).get().await()
@@ -395,12 +407,7 @@ class ChatRepository {
         }
 
     }
-    fun observeChatMessages(
-        userId: String,
-        roomId: String,
-        game: Boolean,
-        onMessagesChanged: (List<ChatMessage>) -> Unit
-    ){
+    fun observeChatMessages(userId: String, roomId: String, game: Boolean, onMessagesChanged: (List<ChatMessage>) -> Unit){
         val room = if (game) crGameRoomsCollection else chatRoomsCollection
         room.document(roomId)
             .collection("messages")
@@ -421,14 +428,6 @@ class ChatRepository {
                     onMessagesChanged(messages)
                 }
             }
-    }
-    suspend fun getUsersStatus(userId: String): String?{
-        return try {
-            val documentSnapshot = usersCollection.document(userId).get().await()
-            documentSnapshot.getString("pending")
-        }catch (e: Exception) {
-            null
-        }
     }
 }
 

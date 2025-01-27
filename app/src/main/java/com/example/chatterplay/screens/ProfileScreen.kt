@@ -78,7 +78,7 @@ fun ProfileScreen(
 
     
     LaunchedEffect(Unit) {
-        viewModel.getUserProfile(userId = userId)
+        viewModel.fetchUserProfile(userId = userId)
     }
 
     Scaffold(
