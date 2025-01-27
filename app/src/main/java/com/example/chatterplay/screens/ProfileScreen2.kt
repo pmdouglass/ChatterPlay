@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
@@ -109,6 +110,7 @@ fun ProfileScreen2(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "GameProfileScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("GameProfileScreen"))
 
 
     Column (

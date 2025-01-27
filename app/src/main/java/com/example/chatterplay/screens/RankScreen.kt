@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
@@ -98,6 +99,7 @@ fun RankingScreen(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "RankingScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("RankingScreen"))
 
 
     Column(

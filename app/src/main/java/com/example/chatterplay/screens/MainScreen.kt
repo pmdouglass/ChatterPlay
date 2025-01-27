@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Title
@@ -125,6 +126,9 @@ fun MainScreen(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "ChatRiseScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ChatRiseScreen"))
+
+
 
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
@@ -240,6 +244,7 @@ fun MainScreen(
                                                     putString("game_mode", game.mode)
                                                 }
                                                 AnalyticsManager.getInstance(context).logEvent("game_started", params)
+
                                             }
                                         }
                                     } else {

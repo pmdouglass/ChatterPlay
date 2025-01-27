@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Answers
@@ -133,6 +134,8 @@ fun ChoiceGameScreen(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "ChoiceGameScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ChoiceGameScreen"))
+
 
     if (gameInfo != null){
         Column(

@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.UserProfile
@@ -82,6 +83,7 @@ fun SignupScreen4(
         byteArray = uri?.uriToByteArray(context)
     }
 
+    (context as? MainActivity)?.setCurrentScreen(("SignupScreen4"))
 
     Column (
         verticalArrangement = Arrangement.Top,

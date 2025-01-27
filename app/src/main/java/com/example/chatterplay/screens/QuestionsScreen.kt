@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.R
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
@@ -92,6 +93,9 @@ fun QuestionsScreen(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "QuestionsScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("QuestionsScreen"))
+
+
 
     /*val isLoading = remember {
         question == null ||

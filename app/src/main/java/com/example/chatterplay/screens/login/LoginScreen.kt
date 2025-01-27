@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.google.firebase.auth.FirebaseAuth
@@ -50,6 +51,8 @@ fun LoginScreen(navController: NavController) {
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    (context as? MainActivity)?.setCurrentScreen(("LoginScreen"))
+
 
     fun login(){
         FirebaseAuth.getInstance().signInWithEmailAndPassword(email, password)

@@ -23,6 +23,16 @@ import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
+
+    private var currentScreenName: String = "unknown_screen"
+
+    fun setCurrentScreen(name: String){
+        currentScreenName = name
+    }
+
+    fun getCurrentScreen(): String {
+        return currentScreenName
+    }
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

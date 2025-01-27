@@ -22,10 +22,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.ui.theme.CRAppTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +50,11 @@ fun SignupScreen3(
     val space = 15
 
     var about by remember { mutableStateOf("") }
+
+
+    val context = LocalContext.current
+    (context as? MainActivity)?.setCurrentScreen(("SignupScreen3"))
+
 
     Column (
         verticalArrangement = Arrangement.Top,

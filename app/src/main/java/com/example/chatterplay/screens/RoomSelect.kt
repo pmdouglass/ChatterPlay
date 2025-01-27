@@ -54,6 +54,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.R
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
@@ -93,6 +94,7 @@ fun MainRoomSelect(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "RoomSelectScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("RoomSelectionScreen"))
 
 
     ModalNavigationDrawer(

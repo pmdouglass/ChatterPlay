@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.google.firebase.auth.FirebaseAuth
@@ -28,11 +29,13 @@ fun TermsAndConditionsScreen(navController: NavController) {
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
-            putString("screen_name", "AboutChatRise")
+            putString("screen_name", "TermsAndConditionsScreen")
             putString("user_id", userId)
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+    (context as? MainActivity)?.setCurrentScreen(("TermsAndConditionsScreen"))
+
 
     Column (
         verticalArrangement = Arrangement.Center,

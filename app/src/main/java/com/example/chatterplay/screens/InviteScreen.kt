@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
@@ -104,6 +105,9 @@ import com.google.firebase.auth.FirebaseAuth
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "RoomSelectInviteScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("RoomSelectInviteScreen"))
+
+
 
     Scaffold(
         topBar = {
@@ -392,6 +396,7 @@ fun InviteSelectScreen(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
     ScreenPresenceLogger(screenName = "ChatRiseInviteScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ChatRiseInviteScreen"))
 
 
     fun toggleUserSelection(user: UserProfile){

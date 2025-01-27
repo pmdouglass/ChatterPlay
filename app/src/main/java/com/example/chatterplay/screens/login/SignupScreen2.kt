@@ -30,11 +30,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
 import java.time.LocalDate
@@ -89,6 +91,9 @@ fun SignupScreen2(email: String, password: String, navController: NavController,
     val randomDay = rndDay.random()
     val randomLName = rdmLName.random()
 
+
+    val context = LocalContext.current
+    (context as? MainActivity)?.setCurrentScreen(("SignupScreen2"))
 
 
 
