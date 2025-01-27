@@ -1,11 +1,14 @@
 package com.example.chatterplay.view_model
 
+import android.content.Context
 import android.net.Uri
+import android.os.Bundle
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.SupabaseClient.client
@@ -17,6 +20,7 @@ import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 
 class ChatViewModel: ViewModel() {
@@ -32,22 +36,13 @@ class ChatViewModel: ViewModel() {
     val isUploading: State<Boolean> = _isUploading
 
 
-
-
-
-
-
-
-
-
-
     init {
         viewModelScope.launch {
             fetchAllUsers()
             //getChatRoomsWithUnreadCount()
             fetchAllChatRooms()
             //fetchCRUnreadMessageCount()
-            fetchUnreadMessageCount()
+            //fetchUnreadMessageCount()
             fetchUsersStatus()
         }
     }
@@ -93,104 +88,212 @@ class ChatViewModel: ViewModel() {
 
 
 
-    fun saveUserProfile(userId: String, userProfile: UserProfile, game: Boolean){
+    fun saveUserProfile(context: Context, userId: String, userProfile: UserProfile, game: Boolean) {
         viewModelScope.launch {
-            if (!game){
-                chatRepository.saveUserProfile(userId = userId, userProfile = userProfile, game = false)
-                _userProfile.value = userProfile
-            }else {
-                chatRepository.saveUserProfile(userId = userId, userProfile = userProfile,game = true)
-                _alternateUserProfile.value = userProfile
+            try {
+                Log.d("ChatViewModel", "Attempting to save user profile for userId: $userId, game: $game")
+
+                if (!game) {
+                    chatRepository.saveUserProfile(userId = userId, userProfile = userProfile, game = false)
+                    _userProfile.value = userProfile
+                    Log.d("ChatViewModel", "User profile successfully saved for userId: $userId (Personal Profile)")
+
+                    // Log the event in Firebase Analytics
+                    val params = Bundle().apply {
+                        putString("userId", userId)
+                        putString("age", userProfile.age)
+                        putString("location", userProfile.location)
+                        putString("gender", userProfile.gender)
+                    }
+                    AnalyticsManager.getInstance(context).logEvent("user_profile", params)
+                } else {
+                    chatRepository.saveUserProfile(userId = userId, userProfile = userProfile, game = true)
+                    _alternateUserProfile.value = userProfile
+                    Log.d("ChatViewModel", "User profile successfully saved for userId: $userId (Game Profile)")
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error saving user profile for userId: $userId - ${e.message}", e)
             }
-
         }
     }
-    suspend fun fetchUserProfile(userId: String){
+
+
+    suspend fun fetchUserProfile(userId: String) {
         viewModelScope.launch {
-            val profile = chatRepository.getUserProfile(userId, false)
-            _userProfile.value = profile
-            val crProfile = chatRepository.getUserProfile(userId, true)
-            _alternateUserProfile.value = crProfile
+            try {
+                Log.d("ChatViewModel", "Fetching user profile for userId: $userId")
 
+                // Fetch personal profile
+                val profile = chatRepository.getUserProfile(userId, false)
+                _userProfile.value = profile
+                if (profile != null) {
+                    Log.d("ChatViewModel", "Successfully fetched personal profile for userId: $userId")
+                } else {
+                    Log.d("ChatViewModel", "No personal profile found for userId: $userId")
+                }
+
+                // Fetch game profile
+                val crProfile = chatRepository.getUserProfile(userId, true)
+                _alternateUserProfile.value = crProfile
+                if (crProfile != null) {
+                    Log.d("ChatViewModel", "Successfully fetched game profile for userId: $userId")
+                } else {
+                    Log.d("ChatViewModel", "No game profile found for userId: $userId")
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching user profile for userId: $userId - ${e.message}", e)
+            }
         }
     }
+
     private suspend fun fetchAllUsers() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
-            val users = chatRepository.getAllUsers()
-            val filterUsers = users.filter { it.userId != currentUser?.uid }
-            _allUsers.value = filterUsers
-            Log.d("ProfileViewModel", "Fetched ${filterUsers.size} users")
+            try {
+                Log.d("ChatViewModel", "Fetching all users, excluding current user: ${currentUser?.uid}")
+
+                // Fetch all users from the repository
+                val users = chatRepository.getAllUsers()
+                val filterUsers = users.filter { it.userId != currentUser?.uid }
+                _allUsers.value = filterUsers
+
+                Log.d("ChatViewModel", "Successfully fetched ${filterUsers.size} users")
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching all users - ${e.message}", e)
+            }
         }
     }
-    suspend fun fetechAllRisers(crRoomId: String) {
+
+    suspend fun fetchAllRisers(crRoomId: String) {
         val currentUser = FirebaseAuth.getInstance().currentUser
         viewModelScope.launch {
             _userState.value = UserState.Loading
             try {
+                Log.d("ChatViewModel", "Fetching all risers for crRoomId: $crRoomId, excluding current user: ${currentUser?.uid}")
+
+                // Fetch risers from the repository
                 val users = chatRepository.getAllRisers(crRoomId = crRoomId)
                 val filterUsers = users.filter { it.userId != currentUser?.uid }
                 _allRisers.value = filterUsers
-                Log.d("Risers", "Fetched ${filterUsers.size} users")
-            }catch (e: Exception){
-                _userState.value = UserState.Error("Error fetching ${e.message}")
-            }
 
-        }
-    }
-    fun fetchUsersStatus(){
-        Log.d("ChatRise ViewModel", " fetching user Status")
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        currentUser?.let { user->
-            viewModelScope.launch {
-                val status = chatRepository.getUsersStatus(user.uid)
-                _usersStatus.value =  status ?: "Unknown"
+                Log.d("ChatViewModel", "Successfully fetched ${filterUsers.size} risers")
+
+                // Update user state
+                _userState.value = UserState.Success("Successfully fetched all risers")
+
+            } catch (e: Exception) {
+                val errorMessage = "Error fetching risers for crRoomId: $crRoomId - ${e.message}"
+                Log.e("ChatViewModel", errorMessage, e)
+                _userState.value = UserState.Error(errorMessage)
             }
         }
     }
-    fun selectUploadAndGetImage(game: Boolean, userId: String, byteArray: ByteArray, onResult: (url: String?, error: String?) -> Unit){
+
+    fun fetchUsersStatus() {
+        Log.d("ChatViewModel", "Fetching user status")
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        currentUser?.let { user ->
+            viewModelScope.launch {
+                try {
+                    Log.d("ChatViewModel", "Fetching status for userId: ${user.uid}")
+
+                    // Fetch user status from the repository
+                    val status = chatRepository.getUsersStatus(user.uid)
+                    _usersStatus.value = status ?: "Unknown"
+
+                    Log.d("ChatViewModel", "User status fetched successfully: ${_usersStatus.value}")
+
+                } catch (e: Exception) {
+                    Log.e("ChatViewModel", "Error fetching user status for userId: ${user.uid} - ${e.message}", e)
+                    _usersStatus.value = "Unknown"
+                }
+            }
+        } ?: run {
+            Log.d("ChatViewModel", "No current user logged in; unable to fetch user status.")
+        }
+    }
+
+    fun selectUploadAndGetImage(
+        game: Boolean,
+        userId: String,
+        byteArray: ByteArray,
+        onResult: (url: String?, error: String?) -> Unit
+    ) {
         viewModelScope.launch {
             _userState.value = UserState.Loading
             try {
+                Log.d("ChatViewModel", "Starting image upload for userId: $userId, game: $game")
 
                 val bucket = client.storage["ProfilePictures"]
                 val fileName = if (!game) "Personal$userId" else "Alternate$userId"
                 val path = if (!game) "Personal/$fileName.jpg" else "Alternate/$fileName.jpg"
 
+                Log.d("ChatViewModel", "Uploading image to path: $path")
                 bucket.upload(path, byteArray, true)
 
                 val publicUrl = bucket.publicUrl(path)
+                Log.d("ChatViewModel", "Image uploaded successfully. Public URL: $publicUrl")
 
                 _userState.value = UserState.Success("Image uploaded and URL retrieved")
                 if (!game) {
                     _personalImage.value = publicUrl
-                }else {
+                } else {
                     _alternateImage.value = publicUrl
                 }
+
                 onResult(publicUrl, null)
-            }catch (e: Exception){
+            } catch (e: Exception) {
+                val errorMessage = "Error uploading image for userId: $userId - ${e.message}"
+                Log.e("ChatViewModel", errorMessage, e)
+
                 _userState.value = UserState.Error("Error: ${e.message}")
+
                 onResult(null, e.message)
             }
         }
     }
-    suspend fun uploadImage(userId: String, uri: Uri, fname: String, lname: String, game: Boolean): String {
-        val imageUrl = chatRepository.uploadImage(userId, uri, game)
-        if (imageUrl.isNotEmpty()) {
-            if (!game) {
-                _userProfile.value = _userProfile.value?.copy(imageUrl = imageUrl)
-                _userProfile.value?.let {
-                    saveUserProfile(userId = userId, userProfile = it, game =  false)
+
+    suspend fun uploadImage(
+        context: Context,
+        userId: String,
+        uri: Uri,
+        game: Boolean
+    ): String {
+        return try {
+            Log.d("ChatViewModel", "Starting image upload for userId: $userId, game: $game")
+
+            // Upload the image via the repository
+            val imageUrl = chatRepository.uploadImage(userId, uri, game)
+            if (imageUrl.isNotEmpty()) {
+                Log.d("ChatViewModel", "Image uploaded successfully. URL: $imageUrl")
+
+                // Update user profile with the uploaded image URL
+                if (!game) {
+                    _userProfile.value = _userProfile.value?.copy(imageUrl = imageUrl)
+                    _userProfile.value?.let {
+                        saveUserProfile(context = context, userId = userId, userProfile = it, game = false)
+                    }
+                } else {
+                    _alternateUserProfile.value = _alternateUserProfile.value?.copy(imageUrl = imageUrl)
+                    _alternateUserProfile.value?.let {
+                        saveUserProfile(context = context, userId = userId, userProfile = it, game = true)
+                    }
                 }
+
             } else {
-                _alternateUserProfile.value = _alternateUserProfile.value?.copy(imageUrl = imageUrl)
-                _alternateUserProfile.value?.let {
-                    saveUserProfile(userId = userId, userProfile = it, game =  true)
-                }
+                Log.d("ChatViewModel", "Image upload returned an empty URL for userId: $userId")
             }
+
+            imageUrl
+        } catch (e: Exception) {
+            val errorMessage = "Error uploading image for userId: $userId - ${e.message}"
+            Log.e("ChatViewModel", errorMessage, e)
+            ""
         }
-        return imageUrl
     }
+
 
 
 
@@ -222,188 +325,438 @@ class ChatViewModel: ViewModel() {
     private var isListenerAdded = false
 
 
-    fun createAndInviteToChatRoom(crRoomId: String, memberIds: List<String>, roomName: String, onRoomCreated: (String) -> Unit){
+    fun createAndInviteToChatRoom(
+        crRoomId: String,
+        memberIds: List<String>,
+        roomName: String,
+        onRoomCreated: (String) -> Unit
+    ) {
         viewModelScope.launch {
-            val currentUser = FirebaseAuth.getInstance().currentUser ?: return@launch
-            val allMemberIds = (memberIds + currentUser.uid).sorted()
-
-            val existingRoomId = chatRepository.checkIfChatRoomExists(crRoomId = crRoomId, members = allMemberIds)
-
-            if (existingRoomId != null){
-                onRoomCreated(existingRoomId)
-            } else {
-                val roomId = chatRepository.createChatRoom(crRoomId = crRoomId, members = allMemberIds,roomName = roomName)
-                memberIds.forEach { memberIds ->
-                    chatRepository.addMemberToRoom(crRoomId = crRoomId, roomId = roomId,memberId = memberIds)
+            try {
+                val currentUser = FirebaseAuth.getInstance().currentUser ?: run {
+                    Log.e("ChatViewModel", "No current user found. Cannot create or invite to chat room.")
+                    return@launch
                 }
-                onRoomCreated(roomId)
+
+                val allMemberIds = (memberIds + currentUser.uid).sorted()
+                Log.d("ChatViewModel", "Creating or fetching chat room for members: $allMemberIds")
+
+                // Check if a chat room already exists
+                val existingRoomId = chatRepository.checkIfChatRoomExists(crRoomId = crRoomId, members = allMemberIds)
+
+                if (existingRoomId != null) {
+                    Log.d("ChatViewModel", "Existing chat room found with ID: $existingRoomId")
+                    onRoomCreated(existingRoomId)
+
+                } else {
+                    // Create a new chat room
+                    val roomId = chatRepository.createChatRoom(
+                        crRoomId = crRoomId,
+                        members = allMemberIds,
+                        roomName = roomName
+                    )
+                    Log.d("ChatViewModel", "New chat room created with ID: $roomId")
+
+                    // Add members to the newly created chat room
+                    memberIds.forEach { memberId ->
+                        chatRepository.addMemberToRoom(crRoomId = crRoomId, roomId = roomId, memberId = memberId)
+                        Log.d("ChatViewModel", "Member with ID: $memberId added to room: $roomId")
+                    }
+
+                    onRoomCreated(roomId)
+
+                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error creating or inviting to chat room - ${e.message}", e)
             }
         }
     }
-    fun sendMessage(crRoomId: String, roomId: String, message: String, game: Boolean, mainChat: Boolean){
+
+    fun sendMessage(
+        context: Context,
+        crRoomId: String,
+        roomId: String,
+        message: String,
+        memberCount: Int,
+        game: Boolean,
+        mainChat: Boolean
+    ) {
         val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
-            val userProfile = chatRepository.getProfileToSend(userId = currentUser, crRoomId = crRoomId, game = game)
-            if (userProfile == null){
-                Log.d("Debug-Message", "Failed to fetch user profile for userId: ${currentUser}")
-                return@launch
-            }
-            val chatMessage = ChatMessage(
-                senderId = userProfile.userId,
-                senderName = userProfile.fname,
-                message = message,
-                image = userProfile.imageUrl
-            )
-            Log.d("Debug-Message", "Sending message: $chatMessage")
-            chatRepository.sendMessage(crRoomId = crRoomId, roomId = roomId, chatMessage = chatMessage, game = game, mainChat = mainChat)
-            fetchChatMessages(crRoomId, roomId = roomId, game = game, mainChat = mainChat)
-        }
-    }
-    fun fetchChatMessages(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
-        viewModelScope.launch {
-            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-            val messages = chatRepository.getChatMessages(crRoomId = crRoomId, roomId = roomId, userId = userId, game = game, mainChat = mainChat)
-            _messages.value = messages
-        }
-    }
-    fun observeChatMessages(roomId: String, game: Boolean){
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-        chatRepository.observeChatMessages(
-            userId = userId,
-            roomId = roomId,
-            game = game
-        ) { messages ->
-            _fetchedMessages.value = messages
-        }
-    }
-    fun fetchChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean){
-        viewModelScope.launch {
-            val members = chatRepository.getMainChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
-            _allChatRoomMembers.value = members
-            Log.d("riser", "members = $members")
-            _userState.value = UserState.Success("Success fetching Members")
-        }
-    }
-    fun fetchSingleChatRoomMemberCount(roomId: String) {
-        Log.d("Test Message", "Attempting - Fetchedsinglechatroommembercount")
-        viewModelScope.launch {
-            val chatRoom = chatRepository.getSingleChatRoom(roomId)
-            _chatRoomMembersCount.value = chatRoom?.members?.size ?: 0
-            Log.d("Test Message", "Success - Fetchedsinglechatroommembercount")
-        }
-    }
-    fun fetchUnreadMessageCount(){
-        Log.d("Test Message", "Attempting - fetchunreadmessagecount")
+            try {
+                Log.d("ChatViewModel", "Preparing to send message from userId: $currentUser")
 
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
-        viewModelScope.launch {
-            val counts = allChatRooms.value.associate { room ->
-                val count = chatRepository.getUnreadMessageCount(room.roomId, currentUser.uid)
-                room.roomId to count
-            }
-            _unreadMessageCount.value = counts
-            Log.d("Test Message", "Success - fetchunreadmessagecount")
+                // Fetch the user profile for the sender
+                val userProfile = chatRepository.getProfileToSend(userId = currentUser, crRoomId = crRoomId, game = game)
+                if (userProfile == null) {
+                    Log.e("ChatViewModel", "Failed to fetch user profile for userId: $currentUser")
+                    return@launch
+                }
 
+                // Construct the chat message
+                val chatMessage = ChatMessage(
+                    senderId = userProfile.userId,
+                    senderName = userProfile.fname,
+                    message = message,
+                    image = userProfile.imageUrl
+                )
+                Log.d("ChatViewModel", "Sending message: $chatMessage")
+
+                // Send the message via the repository
+                chatRepository.sendMessage(crRoomId = crRoomId, roomId = roomId, chatMessage = chatMessage, game = game, mainChat = mainChat)
+                Log.d("ChatViewModel", "Message sent successfully to roomId: $roomId")
+
+                // Fetch updated messages
+                fetchChatMessages(crRoomId, roomId, game, mainChat)
+
+                val messageId = UUID.randomUUID().toString()
+                val senderType = "player"
+                val roomType = if (memberCount == 2) "private" else "group"
+                val appVersion = context.packageManager
+                    .getPackageInfo(context.packageName, 0).versionName
+
+
+                // Log the event in Firebase Analytics
+                val params = Bundle().apply {
+                    putString("message_id", messageId)
+                    putString("room_id", roomId)
+                    putString("cr_room_id", crRoomId)
+                    putString("sender_id", userId)
+                    putString("sender_type", senderType)
+                    putString("message_type", "text")
+                    putInt("message_length", message.length) // Length of the message text
+                    putBoolean("contains_media", false)
+                    putString("room_type", roomType)
+                    putInt("member_count", memberCount)
+                    putLong("timestamp", System.currentTimeMillis())
+                    putString("device_type", "Android")
+                    putString("app_version", appVersion)
+                }
+                AnalyticsManager.getInstance(context).logEvent("message_sent", params)
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error sending message to roomId: $roomId - ${e.message}", e)
+            }
         }
     }
+
+    fun fetchChatMessages(
+        crRoomId: String,
+        roomId: String,
+        game: Boolean,
+        mainChat: Boolean
+    ) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "Fetching chat messages for roomId: $roomId, crRoomId: $crRoomId")
+
+                val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+                    Log.e("ChatViewModel", "No current user found. Unable to fetch messages.")
+                    return@launch
+                }
+
+                // Fetch messages from the repository
+                val messages = chatRepository.getChatMessages(
+                    crRoomId = crRoomId,
+                    roomId = roomId,
+                    userId = userId,
+                    game = game,
+                    mainChat = mainChat
+                )
+                _messages.value = messages
+
+                Log.d("ChatViewModel", "Successfully fetched ${messages.size} messages for roomId: $roomId")
+
+            } catch (e: Exception) {
+                Log.e(
+                    "ChatViewModel",
+                    "Error fetching chat messages for roomId: $roomId, crRoomId: $crRoomId - ${e.message}",
+                    e
+                )
+
+            }
+        }
+    }
+    fun observeChatMessages(roomId: String, game: Boolean) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: run {
+            Log.e("ChatViewModel", "No current user found. Unable to observe chat messages.")
+            return
+        }
+
+        try {
+            Log.d("ChatViewModel", "Setting up message observer for roomId: $roomId, game: $game")
+
+            chatRepository.observeChatMessages(
+                userId = userId,
+                roomId = roomId,
+                game = game
+            ) { messages ->
+                _fetchedMessages.value = messages
+
+                Log.d("ChatViewModel", "Observed ${messages.size} messages for roomId: $roomId")
+            }
+
+        } catch (e: Exception) {
+            Log.e("ChatViewModel", "Error setting up message observer for roomId: $roomId - ${e.message}", e)
+        }
+    }
+
+    fun fetchChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "Fetching members for roomId: $roomId, crRoomId: $crRoomId, game: $game, mainChat: $mainChat")
+
+                // Fetch members from the repository
+                val members = chatRepository.getMainChatRoomMembers(
+                    crRoomId = crRoomId,
+                    roomId = roomId,
+                    game = game,
+                    mainChat = mainChat
+                )
+                _allChatRoomMembers.value = members
+
+                Log.d("ChatViewModel", "Successfully fetched ${members.size} members for roomId: $roomId")
+
+                // Update the user state
+                _userState.value = UserState.Success("Success fetching Members")
+
+            } catch (e: Exception) {
+                Log.e(
+                    "ChatViewModel",
+                    "Error fetching members for roomId: $roomId, crRoomId: $crRoomId - ${e.message}",
+                    e
+                )
+                _userState.value = UserState.Error("Error fetching members: ${e.message}")
+
+            }
+        }
+    }
+
+    fun fetchChatRoomMemberCount(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
+        Log.d("ChatViewModel", "Attempting to fetch single chat room member count for roomId: $roomId")
+
+        viewModelScope.launch {
+            try {
+                // Fetch the chat room from the repository
+                val chatRoom = chatRepository.getChatRoom(crRoomId, roomId, game, mainChat)
+
+                // Update the member count
+                _chatRoomMembersCount.value = chatRoom?.members?.size ?: 0
+                Log.d("ChatViewModel", "Successfully fetched member count: ${_chatRoomMembersCount.value} for roomId: $roomId")
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching member count for roomId: $roomId - ${e.message}", e)
+
+            }
+        }
+    }
+/*
+    fun fetchUnreadMessageCount() {
+        Log.d("ChatViewModel", "Attempting to fetch unread message counts")
+
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: run {
+            Log.e("ChatViewModel", "No current user found. Unable to fetch unread message counts.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // Fetch unread message counts for all chat rooms
+                val counts = allChatRooms.value.associate { room ->
+                    val count = chatRepository.getUnreadMessageCount(room.roomId, currentUser.uid)
+                    room.roomId to count
+                }
+
+                // Update the unread message count state
+                _unreadMessageCount.value = counts
+
+                Log.d("ChatViewModel", "Successfully fetched unread message counts for ${counts.size} rooms")
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching unread message counts - ${e.message}", e)
+            }
+        }
+    }
+
+ */
+
     private fun fetchAllChatRooms() {
-        Log.d("Test Message", "Attempting - fetchallchatrooms")
+        Log.d("ChatViewModel", "Attempting to fetch all chat rooms")
 
         val currentUser = FirebaseAuth.getInstance().currentUser
         currentUser?.let { user ->
-            chatRepository.getChatRooms()
-                .whereArrayContains("members", user.uid)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        Log.w("ChatViewModel", "listen failed.", e)
-                        return@addSnapshotListener
-                    }
+            try {
+                chatRepository.getChatRooms()
+                    .whereArrayContains("members", user.uid)
+                    .addSnapshotListener { snapshot, e ->
+                        if (e != null) {
+                            Log.e("ChatViewModel", "Error listening for chat rooms - ${e.message}", e)
+                            return@addSnapshotListener
+                        }
 
-                    if (snapshot != null) {
-                        Log.d("Test Message", "snapshot is not null")
-                        val rooms = snapshot.documents.map { document ->
-                            document.toObject(ChatRoom::class.java)!!
-                        }.filter { room ->
-                            !room.hiddenFor.contains(user.uid)
-                        }.sortedBy { it.lastMessageTimestamp }  // Sort in descending order
-                        _allChatRooms.value = rooms
-                        Log.d("Test Message", "Success - fetchallchatrooms")
+                        if (snapshot != null) {
+                            Log.d("ChatViewModel", "Snapshot is not null, processing chat rooms")
+                            val rooms = snapshot.documents.mapNotNull { document ->
+                                document.toObject(ChatRoom::class.java)
+                            }.filter { room ->
+                                !room.hiddenFor.contains(user.uid)
+                            }.sortedByDescending { it.lastMessageTimestamp } // Sort in descending order
+                            _allChatRooms.value = rooms
 
-                        if (!isUnreadMessageCountFetched) {
-                            fetchUnreadMessageCount()
-                            isUnreadMessageCountFetched = true
-                            Log.d("Test Message", "Success - !isunreadmessagecountfetched")
+                            Log.d("ChatViewModel", "Successfully fetched ${rooms.size} chat rooms")
 
+                            /*
+                            // Fetch unread message counts if not already fetched
+                            if (!isUnreadMessageCountFetched) {
+                                fetchUnreadMessageCount()
+                                isUnreadMessageCountFetched = true
+                                Log.d("ChatViewModel", "Unread message count fetched")
+                            }
+
+                             */
                         }
                     }
-                }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Unexpected error fetching chat rooms - ${e.message}", e)
+            }
+        } ?: run {
+            Log.e("ChatViewModel", "No current user found. Unable to fetch chat rooms.")
         }
     }
-    fun fetchSingleRoom(crRoomId: String, otherUserId: String, onResult: (String?) -> Unit){
+
+    fun fetchSingleRoom(
+        crRoomId: String,
+        otherUserId: String,
+        onResult: (String?) -> Unit
+    ) {
         viewModelScope.launch {
-            val roomId = chatRepository.checkIfSingleRoomExists(crRoomId, userId, otherUserId)
-            onResult(roomId)
-            Log.d("riser", "viewmodel roomId is $roomId")
-        }
-    }
-    fun fetchAllRiserRooms(crRoomId: String) {
-        if (isListenerAdded) return
-        isListenerAdded = true
+            try {
+                Log.d("ChatViewModel", "Checking if a single room exists for crRoomId: $crRoomId, otherUserId: $otherUserId")
 
-        Log.d("Riser", "Attempting - fet all riser rooms")
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        currentUser?.let { user ->
-            chatRepository.getRiserRoom().document(crRoomId).collection("Private Chats")
-                .whereArrayContains("members", user.uid)
-                .addSnapshotListener { snapshot, e ->
-                    if (e != null) {
-                        Log.w("ChatViewModel", "listen failed.", e)
-                        return@addSnapshotListener
-                    }
+                // Check if the single room exists in the repository
+                val roomId = chatRepository.checkIfSingleRoomExists(crRoomId, userId, otherUserId)
+                onResult(roomId)
 
-                    if (snapshot != null) {
-                        Log.d("Riser", "snapshot is not null")
-                        val rooms = snapshot.documents.map { document ->
-                            document.toObject(ChatRoom::class.java)!!
-                        }.filter { room ->
-                            !room.hiddenFor.contains(user.uid)
-                        }.sortedBy { it.lastMessageTimestamp }  // Sort in descending order
-                        _allRiserRooms.value = rooms
-                        Log.d("Riser", "Success - fetchallchatrooms")
-                        Log.d("Riser", "Rooms found ${allRiserRooms.value.size}")
+                Log.d("ChatViewModel", "Fetched roomId: $roomId for crRoomId: $crRoomId, otherUserId: $otherUserId")
 
-                        /*if (!isUnreadMessageCountFetched) {
-                            fetchUnreadMessageCount()
-                            isUnreadMessageCountFetched = true
-                            Log.d("Test Message", "Success - !isunreadmessagecountfetched")
-
-                        }*/
-                    }
-                }
-        }
-
-
-    }
-    fun getRoomInfo(crRoomId: String, roomId: String){
-        viewModelScope.launch {
-            val roomInfo = chatRepository.getRoomInfo(crRoomId = crRoomId, roomId = roomId)
-            _roomInfo.value = roomInfo
-        }
-    }
-
-    /*fun fetchCRUnreadMessageCount() {
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
-        viewModelScope.launch {
-            val room = chatRepository.getMainChatRoomForUser(currentUser.uid)
-            room?.let {
-                val unreadCounts = chatRepository.getUnreadMessageCount(it.roomId, currentUser.uid)
-                _unreadCRMessageCount.value = unreadCounts
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching single room for crRoomId: $crRoomId, otherUserId: $otherUserId - ${e.message}", e)
+                onResult(null) // Return null in case of an error
             }
         }
-    }*/
+    }
 
+    fun fetchAllRiserRooms(crRoomId: String) {
+        if (isListenerAdded) {
+            Log.d("ChatViewModel", "Listener already added. Skipping fetch for riser rooms.")
+            return
+        }
+        isListenerAdded = true
 
+        Log.d("ChatViewModel", "Attempting to fetch all riser rooms for crRoomId: $crRoomId")
 
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        currentUser?.let { user ->
+            try {
+                chatRepository.getRiserRoom().document(crRoomId).collection("Private Chats")
+                    .whereArrayContains("members", user.uid)
+                    .addSnapshotListener { snapshot, e ->
+                        if (e != null) {
+                            Log.e("ChatViewModel", "Error listening for riser rooms - ${e.message}", e)
+                            return@addSnapshotListener
+                        }
 
+                        if (snapshot != null) {
+                            Log.d("ChatViewModel", "Snapshot received for riser rooms, processing data")
 
+                            val rooms = snapshot.documents.mapNotNull { document ->
+                                document.toObject(ChatRoom::class.java)
+                            }.filter { room ->
+                                !room.hiddenFor.contains(user.uid)
+                            }.sortedByDescending { it.lastMessageTimestamp } // Sort in descending order
+
+                            _allRiserRooms.value = rooms
+
+                            Log.d("ChatViewModel", "Successfully fetched ${rooms.size} riser rooms for crRoomId: $crRoomId")
+
+                            /*
+                            // Fetch unread message counts if not already fetched
+                            if (!isUnreadMessageCountFetched) {
+                                fetchUnreadMessageCount()
+                                isUnreadMessageCountFetched = true
+                                Log.d("ChatViewModel", "Unread message counts fetched")
+                            }
+
+                             */
+                        }
+                    }
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Unexpected error fetching riser rooms for crRoomId: $crRoomId - ${e.message}", e)
+            }
+        } ?: run {
+            Log.e("ChatViewModel", "No current user found. Unable to fetch riser rooms.")
+        }
+    }
+
+    fun getRoomInfo(crRoomId: String, roomId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "Fetching room info for crRoomId: $crRoomId, roomId: $roomId")
+
+                // Fetch room info from the repository
+                val roomInfo = chatRepository.getRoomInfo(crRoomId = crRoomId, roomId = roomId)
+                _roomInfo.value = roomInfo
+
+                if (roomInfo != null) {
+                    Log.d("ChatViewModel", "Successfully fetched room info for roomId: $roomId")
+                } else {
+                    Log.d("ChatViewModel", "No room info found for roomId: $roomId")
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching room info for crRoomId: $crRoomId, roomId: $roomId - ${e.message}", e)
+
+            }
+        }
+    }
+
+    /*
+    fun fetchCRUnreadMessageCount() {
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: run {
+            Log.e("ChatViewModel", "No current user found. Unable to fetch CR unread message count.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "Fetching main chat room for userId: ${currentUser.uid}")
+
+                // Fetch the main chat room for the current user
+                val room = chatRepository.getMainChatRoomForUser(currentUser.uid)
+
+                if (room != null) {
+                    Log.d("ChatViewModel", "Main chat room found for userId: ${currentUser.uid}, roomId: ${room.roomId}")
+
+                    // Fetch unread message count for the main chat room
+                    val unreadCounts = chatRepository.getUnreadMessageCount(room.roomId, currentUser.uid)
+                    _unreadCRMessageCount.value = unreadCounts
+
+                    Log.d("ChatViewModel", "Unread message count for roomId: ${room.roomId} is $unreadCounts")
+
+                } else {
+                    Log.d("ChatViewModel", "No main chat room found for userId: ${currentUser.uid}")
+
+                }
+            } catch (e: Exception) {
+                Log.e(
+                    "ChatViewModel",
+                    "Error fetching unread message count for main chat room of userId: ${currentUser.uid} - ${e.message}",
+                    e
+                )
+
+            }
+        }
+    }
+
+     */
 }

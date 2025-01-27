@@ -427,7 +427,7 @@ fun EditImageDialog(
                                           byteArray = byteArray!!){ url, error ->
                                           if (url != null){
                                               val savedCopy = userProfile.copy(imageUrl = url)
-                                              viewModel.saveUserProfile(userId = userProfile.userId, userProfile = savedCopy, game = game)
+                                              viewModel.saveUserProfile(context = context, userId = userProfile.userId, userProfile = savedCopy, game = game)
                                               onDismiss()
                                           }
                                       }

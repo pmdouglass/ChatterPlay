@@ -67,7 +67,6 @@ fun SignupScreen4(
 
     val space = 15
 
-
     var showPopUp by remember { mutableStateOf(false)}
 
     val context = LocalContext.current
@@ -196,7 +195,12 @@ fun SignupScreen4(
                                                 imageUrl = url,
                                                 about = about,
                                             )
-                                            viewModel.saveUserProfile(userId = newUserId, userProfile = newUserProfile, game = false)
+                                            viewModel.saveUserProfile(
+                                                context = context,
+                                                userId = newUserId,
+                                                userProfile = newUserProfile,
+                                                game = false
+                                            )
                                             navController.navigate("loginScreen") {
                                                 popUpTo("signupScreen1") { inclusive = true }
                                             }
@@ -229,6 +233,7 @@ fun SignupScreen4(
                                     about = about,
                                 )
                                 viewModel.saveUserProfile(
+                                    context = context,
                                     userId = currentUser,
                                     userProfile = exsistingUserProfile,
                                     game = true

@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.AndroidViewModel
-import com.example.chatterplay.dataStore
+import com.example.chatterplay.analytics.dataStore
 import kotlinx.coroutines.flow.map
 
 

@@ -81,6 +81,7 @@ fun MainScreen(
     val profile = rememberCRProfile(crRoomId = crRoomId)
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
+    val memberCount by viewModel.chatRoomMembersCount.collectAsState()
 
 
     // Navigation tab Icons 'Description to Icon'
@@ -95,6 +96,7 @@ fun MainScreen(
 
     LaunchedEffect(crRoomId){
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
+        viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
         crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
 
 
@@ -175,6 +177,7 @@ fun MainScreen(
                             ChatInput(
                                 crRoomId = crRoomId,
                                 roomId = crRoomId,
+                                memberCount = memberCount,
                                 game = true,
                                 mainChat = true
                             )

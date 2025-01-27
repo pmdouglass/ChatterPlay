@@ -355,7 +355,7 @@ fun InviteSelectScreen(
     }
 
     LaunchedEffect(crRoomId) {
-        viewModel.fetechAllRisers(crRoomId)
+        viewModel.fetchAllRisers(crRoomId)
     }
 
     val users = if (game) viewModel.allRisers.collectAsState().value else viewModel.allUsers.collectAsState().value

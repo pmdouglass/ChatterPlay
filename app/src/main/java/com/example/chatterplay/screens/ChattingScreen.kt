@@ -54,7 +54,7 @@ fun ChattingScreen(
 
     LaunchedEffect(crRoomId, roomId) {
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = roomId, game = game, mainChat = mainChat)
-        viewModel.fetchSingleChatRoomMemberCount(roomId)
+        viewModel.fetchChatRoomMemberCount(crRoomId, roomId, game, mainChat)
         viewModel.getRoomInfo(crRoomId = crRoomId, roomId = roomId)
         Log.d("examp", "Chat room members: $allChatRoomMembers")
 
@@ -129,7 +129,8 @@ fun ChattingScreen(
                 crRoomId = crRoomId,
                 roomId = roomId,
                 game = game,
-                mainChat = false
+                mainChat = false,
+                memberCount = membersCount
             )
         }
     ){paddingValues ->

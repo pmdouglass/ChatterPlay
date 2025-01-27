@@ -1,23 +1,24 @@
 package com.example.chatterplay
 
-import android.app.Application
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
 import androidx.compose.material3.Surface
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.dataStore
 import com.example.chatterplay.navigation.AppNavHost
 import com.example.chatterplay.ui.theme.CRAppTheme
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-val Application.dataStore by preferencesDataStore(name = "settings")
+//val Application.dataStore by preferencesDataStore(name = "settings")
+//val Context.dataStore by preferencesDataStore(name = "settings")
+
 
 class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)

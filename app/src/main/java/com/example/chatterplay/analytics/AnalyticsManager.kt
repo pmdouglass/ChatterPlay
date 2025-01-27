@@ -9,11 +9,12 @@ import com.google.firebase.analytics.FirebaseAnalytics
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-private val Context.dataStore by preferencesDataStore(name = "settings")
-class AnalyticsManager private constructor(context: Context) {
+// Define the DataStore as an extension property for Context
+val Context.dataStore by preferencesDataStore(name = "settings")
+
+class AnalyticsManager private constructor(private val context: Context) {
 
     private val firebaseAnalytics: FirebaseAnalytics = FirebaseAnalytics.getInstance(context)
-    private val dataStore = context.applicationContext.dataStore
 
     companion object {
         @Volatile
@@ -27,24 +28,26 @@ class AnalyticsManager private constructor(context: Context) {
     }
 
     // Public method to enable or disable analytics collection
-    fun setAnalyticsCollectionEnabled(isenabled: Boolean) {
-        firebaseAnalytics.setAnalyticsCollectionEnabled(isenabled)
+    fun setAnalyticsCollectionEnabled(isEnabled: Boolean) {
+        firebaseAnalytics.setAnalyticsCollectionEnabled(isEnabled)
     }
 
     suspend fun logEvent(eventName: String, params: Bundle) {
-        val isAnalyticsEnabled = dataStore.data
+        // Retrieve the current analytics enabled state from DataStore
+        val isAnalyticsEnabled = context.dataStore.data
             .map { preferences ->
                 preferences[PreferencesKeys.ANALYTICS_ENABLED] ?: true
             }
             .first()
 
+        // Log the event if analytics is enabled
         if (isAnalyticsEnabled) {
             firebaseAnalytics.logEvent(eventName, params)
         }
     }
 
     suspend fun setAnalyticsEnabled(enabled: Boolean) {
-        dataStore.edit { preferences ->
+        context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.ANALYTICS_ENABLED] = enabled
         }
     }
