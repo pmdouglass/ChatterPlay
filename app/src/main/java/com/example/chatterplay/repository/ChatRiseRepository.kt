@@ -37,6 +37,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         return alertType
     }
 
+
     /**
      *  User Management
      */

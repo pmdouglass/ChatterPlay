@@ -1,6 +1,8 @@
 package com.example.chatterplay.view_model
 
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -8,12 +10,24 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class RoomCreationViewModel: ViewModel(){
+class EntryViewModelFactory(
+    private val sharedPreferences: SharedPreferences
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(RoomCreationViewModel::class.java)) {
+            return RoomCreationViewModel(sharedPreferences) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): ViewModel(){
 
 
     val viewModel = ChatViewModel()
 
-    private val userRepository = RoomCreateRepository()
+    private val userRepository = RoomCreateRepository(sharedPreferences)
     // User state flow ("NotPending", "Pending", "InGame")
     private val _userState = MutableStateFlow<String?>(null)
     val userStatus: StateFlow<String?> = _userState
@@ -58,8 +72,13 @@ class RoomCreationViewModel: ViewModel(){
     }
     private fun checkcrRoomId(){
         viewModelScope.launch {
-            val status = userRepository.fetchcrRoomId(userId)
-            _crRoomId.value = status ?: "0"
+            val usercrRoomId = userRepository.loadUserLocalcrRoomId(userId)
+            if (usercrRoomId != null){
+                _crRoomId.value = usercrRoomId
+            }else {
+                val status = userRepository.fetchcrRoomId(userId)
+                _crRoomId.value = status ?: "0"
+            }
         }
     }
 
@@ -96,6 +115,7 @@ class RoomCreationViewModel: ViewModel(){
                             val roomId = userRepository.getcrRoomId(userId)
                             if (roomId != null){
                                 val addRoomId = userRepository.updateUserGameRoomId(userIds = usersToUpdate, roomId = roomId)
+                                userRepository.saveUserLocalcrRoomId(userId, roomId)
                                 // add users document
                                 userRepository.createCRSelectedProfileUsers(crRoomId = roomId, userIds = usersToUpdate)
                                 if (addRoomId){

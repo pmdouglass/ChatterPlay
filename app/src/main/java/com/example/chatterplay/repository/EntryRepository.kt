@@ -1,17 +1,31 @@
 package com.example.chatterplay.repository
 
+import android.content.SharedPreferences
+import android.util.Log
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.UserProfile
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
-class RoomCreateRepository {
+class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
 
     private val firestore = FirebaseFirestore.getInstance()
     // Simulated database (key: userId, value: UserProfile)
     private val userCollection = firestore.collection("Users")
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
+
+
+
+    fun saveUserLocalcrRoomId(userId: String, crRoomId: String){
+        sharedPreferences.edit().putString("crRoomId_$userId", crRoomId).apply()
+        Log.d("ChatRiseRepository", "crRoomId saving to $userId")
+    }
+    fun loadUserLocalcrRoomId(userId: String): String? {
+        val crRoomId = sharedPreferences.getString("crRoomId_$userId", null)
+        Log.d("ChatRiseRepository", "crRoomId loading as $userId")
+        return crRoomId
+    }
 
 
     // Fetch user profile by userId
