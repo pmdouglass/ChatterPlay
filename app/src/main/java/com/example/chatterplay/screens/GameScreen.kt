@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -52,6 +53,7 @@ import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
@@ -102,9 +104,16 @@ fun notes(){
 @Composable
 fun ChoiceGameScreen(
     crRoomId: String,
-    allChatRoomMembers: List<UserProfile>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    allChatRoomMembers: List<UserProfile>
 ){
+// Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
 
     val isAllDoneWithQuestions by crViewModel.isAllDoneWithQuestions // waits until everyone done with answers
     val questions by crViewModel.gameQuestion.collectAsState()  // gets questions from supabase "questions" table
@@ -124,7 +133,6 @@ fun ChoiceGameScreen(
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
@@ -204,9 +212,17 @@ fun ChoiceGameScreen(
 fun ChoiceQuestions(
     crRoomId: String,
     gameInfo: Title,
-    questions: List<Questions>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    questions: List<Questions>
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val currentQuestionIndex = remember { mutableStateOf(0) }
     val recordedAnswers = remember { mutableStateListOf<Answers>()}
@@ -473,9 +489,17 @@ fun ChoiceAnswerScreen(
     crRoomId: String,
     gameInfo: Title,
     questions: List<Questions>,
-    allChatRoomMembers: List<UserProfile>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    allChatRoomMembers: List<UserProfile>
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
     val userProfiles = remember { mutableStateOf<Map<String, UserProfile>>(emptyMap())}
     val currentQuestionIndex = remember { mutableStateOf(0)}

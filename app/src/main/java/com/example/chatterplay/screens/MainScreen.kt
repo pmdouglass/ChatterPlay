@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -46,9 +47,10 @@ import androidx.navigation.NavController
 import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
+import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.seperate_composables.AlertDialogSplash
+import com.example.chatterplay.seperate_composables.AlertingScreen
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatInput
 import com.example.chatterplay.seperate_composables.ChatLazyColumn
@@ -60,6 +62,7 @@ import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
@@ -70,9 +73,21 @@ fun MainScreen(
     crRoomId: String,
     navController: NavController,
     viewModel: ChatViewModel = viewModel(),
-    crViewModel: ChatRiseViewModel = viewModel()
 ) {
 
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
+
+    val usersAlertType by crViewModel.usersAlertType.collectAsState()
+    val systemsAlertType by crViewModel.systemAlertType.collectAsState()
 
     val currentUser = FirebaseAuth.getInstance().currentUser
     val coroutineScope = rememberCoroutineScope()
@@ -82,7 +97,7 @@ fun MainScreen(
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
     var selectedGame by remember { mutableStateOf<Title?>(null)}
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-    val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
+    val showAlert by crViewModel.showAlert.collectAsState()
     val profile = rememberCRProfile(crRoomId = crRoomId)
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
@@ -103,20 +118,30 @@ fun MainScreen(
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
         crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
+        //crViewModel.fetchAlertStatus(crRoomId) // initialize usersAlertStatus
+        crViewModel.loadUserLocalAlertType(currentUser?.uid ?: "")
+        crViewModel.fetchSystemAlertType(crRoomId)
+        crViewModel.checkforAlert(crRoomId)
+
+        val gameName = gameInfo?.title ?: ""
+        //crViewModel.monitorAlertType(crRoomId, gameName = gameName, context = context)
 
 
     }
+    LaunchedEffect(systemsAlertType){
+        crViewModel.checkforAlert(crRoomId)
+    }
     LaunchedEffect(gameInfo){
         Log.d("MainScreen", "gameInfo: $gameInfo")
+
         if (gameInfo != null)
             gameInfo?.let { game ->
-                crViewModel.fetchUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
+                //crViewModel.fetchUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
                 crViewModel.checkUserForAllCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
             }
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
@@ -132,21 +157,21 @@ fun MainScreen(
 
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
-            gameInfo != null && usersGameAlertStatus == false /* || */}
+            gameInfo != null && showAlert == false /* || */}
     }
     val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
     Log.d("MainScreen", "isDoneAnswering: $isDoneAnswering")
     val startIndex by remember {
         derivedStateOf {
             when {
-                isDoneAnswering == false -> 2
+                //isDoneAnswering == false -> 2
                 else -> 0
             }
         }
     }
 
     Log.d("MainScreen", "startIndex: $startIndex")
-    var selectedTabindex by remember { mutableIntStateOf(startIndex) }
+    var selectedTabindex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(startIndex){
         selectedTabindex = startIndex
@@ -269,6 +294,13 @@ fun MainScreen(
                             }){
                                 Text("update allDone")
                             }
+                            Button(onClick = {
+                                Log.d("MainScreen", "Alert to game button clicked")
+                                crViewModel.updateSystemAlertType(crRoomId, AlertType.game, context)
+
+                            }){
+                                Text("alert to game")
+                            }
 
                         }
                         Row(
@@ -276,14 +308,56 @@ fun MainScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                         ){
+                            Button(onClick = {
+                                Log.d("MainScreen", "Alert to game button clicked")
+                                crViewModel.updateSystemAlertType(crRoomId, AlertType.ranking, context)
 
+
+                            }){
+                                Text("alert to rank")
+                            }
+                            Button(onClick = {
+                                Log.d("MainScreen", "Alert to game button clicked")
+                                crViewModel.updateSystemAlertType(crRoomId, AlertType.none, context)
+
+
+                            }){
+                                Text("alert to none")
+                            }
+
+                            Button(onClick = {
+                                crViewModel.checkforAlert(crRoomId)
+                            }){
+                                if (usersAlertType != null){
+                                    Text("$usersAlertType")
+                                }else {
+                                    Text("null")
+                                }
+                            }
 
 
                         }
 
 
 
-                        if (thereIsAnAlertMessage){
+                        if (showAlert == true){
+                            AlertingScreen(
+                                crRoomId = crRoomId,
+                                onDone = {
+                                    crViewModel.updateShowAlert(crRoomId, false)
+                                    when (systemsAlertType){
+                                        AlertType.none.string -> {selectedTabindex = 0}
+                                        AlertType.new_player.string -> {selectedTabindex = 0}
+                                        AlertType.game.string -> {selectedTabindex = 2}
+                                        AlertType.game_results.string -> {selectedTabindex = 2}
+                                        AlertType.ranking.string -> {selectedTabindex = 3}
+                                        AlertType.rank_results.string -> {selectedTabindex = 3}
+                                        AlertType.blocking.string -> {selectedTabindex = 0}
+                                        else -> {selectedTabindex = 0}
+                                    }
+                                }
+                            )
+                            /*
                             gameInfo?.let { game ->
                                 AlertDialogSplash(
                                     crRoomId = crRoomId,
@@ -295,6 +369,8 @@ fun MainScreen(
                                 )
                             }
 
+                             */
+
                         }
 
 
@@ -304,13 +380,17 @@ fun MainScreen(
                             onTabSelected = {index ->
                                 selectedTabindex = index
                             },
+                            /*
                             disabledTabIndices =
                             when {
+
                                 gameInfo == null -> listOf(2)
                                 isDoneAnswering == false -> listOf(0)
                                 isDoneAnswering == true -> emptyList()
                                 else -> emptyList()
                             }
+
+                             */
                         )
 
                         when (selectedTabindex){

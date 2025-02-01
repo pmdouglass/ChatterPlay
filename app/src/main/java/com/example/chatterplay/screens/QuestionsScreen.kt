@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -55,15 +56,24 @@ import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun QuestionsScreen(
     crRoomId: String,
     gameInfo: Title,
-    done: Boolean,
-    crViewModel: ChatRiseViewModel = viewModel()
+    done: Boolean
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     Log.d("QuestionsScreen", "Inside QuestionsScreen")
     val question by crViewModel.currentQuestion.collectAsState()
     val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
@@ -83,7 +93,6 @@ fun QuestionsScreen(
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
@@ -213,9 +222,17 @@ fun skdf(){
 fun questionSend(
     crRoomId: String,
     gameInfo: Title,
-    question: String,
-    crViewModel: ChatRiseViewModel = viewModel()
+    question: String
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val currentUser = FirebaseAuth.getInstance().currentUser
     Log.d("Debug-Message", "Current user: ${currentUser?.uid}")
     var input by remember { mutableStateOf("") }

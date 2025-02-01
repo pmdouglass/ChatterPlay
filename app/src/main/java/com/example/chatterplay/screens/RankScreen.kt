@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.content.Context
 import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -51,15 +52,24 @@ import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 
 
 @Composable
 fun RankingScreen(
     crRoomId: String,
-    allChatRoomMembers: List<UserProfile>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    allChatRoomMembers: List<UserProfile>
 ){
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
 
     val currentMode by crViewModel.rankingStatus.collectAsState()
 
@@ -89,7 +99,6 @@ fun RankingScreen(
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {

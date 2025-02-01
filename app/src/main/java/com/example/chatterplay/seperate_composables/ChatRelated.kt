@@ -1,5 +1,6 @@
 package com.example.chatterplay.seperate_composables
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
@@ -56,12 +57,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
+import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
@@ -366,15 +369,82 @@ fun ChatInput(viewModel: ChatViewModel = viewModel(), memberCount: Int, crRoomId
 
 }
 @Composable
+fun AlertingScreen(
+    crRoomId: String,
+    onDone: () -> Unit
+){
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
+    val systemAlertType by crViewModel.systemAlertType.collectAsState()
+
+    LaunchedEffect(Unit){
+        crViewModel.fetchSystemAlertType(crRoomId)
+    }
+
+
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable {
+                onDone()
+            }
+    ){
+        when (systemAlertType){
+            AlertType.none.string -> {
+                Text("None Alerted")
+            }
+            AlertType.new_player.string -> {
+                Text("New Player Alerted")
+            }
+            AlertType.game.string -> {
+                Text("Game Alerted")
+            }
+            AlertType.game_results.string -> {
+                Text("Game Results are in")
+            }
+            AlertType.ranking.string -> {
+                Text ("Ranking Alerted")
+            }
+            AlertType.rank_results.string -> {
+                Text("Ranking Results are in")
+            }
+            AlertType.blocking.string -> {
+                Text("Player Blocked")
+            }
+            else -> {
+                Text("Alerted")
+            }
+        }
+    }
+}
+@Composable
 fun AlertDialogSplash(
     crRoomId: String,
     game: Boolean = false,
     rank: Boolean = false,
     system: Boolean = false,
     gameInfo: Title? = null,
-    onDone: () -> Unit,
-    crViewModel: ChatRiseViewModel = viewModel()
+    onDone: () -> Unit
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val pitch0 = "Alert!"
     val pitch1 =
         when{
@@ -437,11 +507,14 @@ fun AlertDialogSplash(
                     onDone()
                     when{
                         game -> {
+                            crViewModel.updateShowAlert(
+                                crRoomId = crRoomId,
+                                alertStatus = true
+                            )
                             gameInfo?.let { game ->
                                 crViewModel.updateGameAlert(
                                     crRoomId = crRoomId,
-                                    gameName = game.title,
-                                    hadAlert = true
+                                    gameName = game.title
                                 )
                             }
                         }

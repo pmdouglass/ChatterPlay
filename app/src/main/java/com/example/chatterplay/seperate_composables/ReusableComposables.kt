@@ -2,6 +2,7 @@
 
 package com.example.chatterplay.seperate_composables
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -110,6 +111,7 @@ import com.example.chatterplay.screens.login.calculateBDtoAge
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
 import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -139,7 +141,18 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
 
 }
 @Composable
-fun rememberCRProfile(crRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
+fun rememberCRProfile(
+    crRoomId: String
+): UserProfile{
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val viewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val profileState by viewModel.userProfile.collectAsState()
     val profile = profileState ?: UserProfile()
     LaunchedEffect(Unit){
@@ -150,11 +163,18 @@ fun rememberCRProfile(crRoomId: String, viewModel: ChatRiseViewModel = viewModel
 @Composable
 fun ChatRiseThumbnail(
     viewModel: ChatViewModel = viewModel(),
-    crViewModel: ChatRiseViewModel = viewModel(),
     roomCreate: RoomCreationViewModel = viewModel(),
     navController: NavController
 ) {
+    // Create SharedPreferences
     val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -174,7 +194,7 @@ fun ChatRiseThumbnail(
     val hasAlternateProfile = alternateProfile.fname.isNotBlank()
 
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-    val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
+    val usersGameAlertStatus by crViewModel.usersGameAlertStatus.collectAsState()
     val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
@@ -202,8 +222,8 @@ fun ChatRiseThumbnail(
         derivedStateOf {
             crRoomId != null &&
                     crRoomId!!.isNotEmpty() &&
-                    gameInfo != null &&
-                    isDoneAnswering != null &&
+                    //gameInfo != null &&
+                    //isDoneAnswering != null &&
                     userStatus != null
         }
     }

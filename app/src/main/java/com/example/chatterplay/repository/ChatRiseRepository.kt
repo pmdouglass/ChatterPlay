@@ -1,6 +1,8 @@
 package com.example.chatterplay.repository
 
+import android.content.SharedPreferences
 import android.util.Log
+import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
@@ -13,7 +15,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.encodeToString
 
 
-class ChatRiseRepository {
+class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     private val firestore = FirebaseFirestore.getInstance()
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
 
@@ -21,6 +23,19 @@ class ChatRiseRepository {
     private val games = "Games"
     private val ranking = "Ranksings"
 
+
+    /**
+     *  Shared Preferences
+     */
+    fun saveUserLocalAlertType(userId: String, alertType: String){
+        sharedPreferences.edit().putString("AlertType_$userId", alertType).apply()
+        Log.d("ChatRiseRepository", "AlertType saving to $alertType")
+    }
+    fun loadUserLocalAlertType(userId: String): String? {
+        val alertType = sharedPreferences.getString("AlertType_$userId", null)
+        Log.d("ChatRiseRepository", "AlertType loading as: $alertType")
+        return alertType
+    }
 
     /**
      *  User Management
@@ -35,6 +50,20 @@ class ChatRiseRepository {
     }
     suspend fun getAllUsers(crRoomId: String) =
         crGameRoomsCollection.document(crRoomId).collection(users).get().await()!!
+    suspend fun getCRRoomMembers(crRoomId: String): List<UserProfile>{
+        return try {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .get().await()
+            val members = snapshot.toObjects(UserProfile::class.java)
+            Log.d("ChatRiseRepository", "Got members: ${members.map { it.userId }}")
+            members
+        }catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error getting members: ${e.message}")
+            emptyList()
+        }
+    }
 
 
 
@@ -56,33 +85,46 @@ class ChatRiseRepository {
         collection.set(questions, SetOptions.merge())
 
     }
-    suspend fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null): Boolean{
+    suspend fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null): Boolean {
         return try {
             val gameDocRef = crGameRoomsCollection
                 .document(crRoomId)
                 .collection("Games")
                 .document(gameName)
 
-            // check if document exists
-            val gameSnapshot = gameDocRef.get().await()
-            if (gameSnapshot.exists()){
-                val updates = mutableMapOf<String, Any>()
-                allAnswered?.let { updates["allAnswered"] = it }
-                allDone?.let { updates["allDone"] = it }
+            Log.d("ChatRiseRepository", "Accessing document: $crRoomId -> Games -> $gameName")
 
-                if (userId != null && hadAlert != null){
+            // Check if the document exists
+            val gameSnapshot = gameDocRef.get().await()
+            if (gameSnapshot.exists()) {
+                Log.d("ChatRiseRepository", "Game document exists for $gameName. Preparing to update.")
+
+                val updates = mutableMapOf<String, Any>()
+                allAnswered?.let {
+                    updates["allAnswered"] = it
+                    Log.d("ChatRiseRepository", "Updating allAnswered to: $it")
+                }
+                allDone?.let {
+                    updates["allDone"] = it
+                    Log.d("ChatRiseRepository", "Updating allDone to: $it")
+                }
+
+                if (userId != null && hadAlert != null) {
                     val currentHadAlertMap = gameSnapshot.get("hadAlert") as? MutableMap<String, Boolean> ?: mutableMapOf()
                     currentHadAlertMap[userId] = hadAlert
                     updates["hadAlert"] = currentHadAlertMap
+                    Log.d("ChatRiseRepository", "Updating hadAlert for user $userId to: $hadAlert")
                 }
 
-                if (updates.isNotEmpty()){
+                if (updates.isNotEmpty()) {
                     gameDocRef.update(updates).await()
-                    Log.d("Repository", "Game updated successfully")
-                }else {
-                    Log.d("Repository", "no fields to update")
+                    Log.d("ChatRiseRepository", "Game updated successfully for $gameName.")
+                } else {
+                    Log.d("ChatRiseRepository", "No fields to update for $gameName.")
                 }
             } else {
+                Log.d("ChatRiseRepository", "Game document does not exist for $gameName. Creating new document.")
+
                 val hadAlertMap = allMembers?.associate { it.userId to false } ?: emptyMap()
 
                 val gameData = mapOf(
@@ -93,40 +135,54 @@ class ChatRiseRepository {
                 )
 
                 gameDocRef.set(gameData).await()
+                Log.d("ChatRiseRepository", "Game document created successfully for $gameName.")
             }
 
             true
-        }catch (e: Exception){
-            Log.d("Repository", "Failed to add game ${e.message}")
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error in saveOrUpdateGame: ${e.message}", e)
             false
         }
     }
-    suspend fun saveGameNameToAllUsers(crRoomId: String, members: List<String>, gameInfo: Title){
+
+    suspend fun saveGameNameToAllUsers(crRoomId: String, members: List<String>, gameInfo: Title) {
         try {
             // Serialize the Title object to JSON
             val gameInfoJson = kotlinx.serialization.json.Json.encodeToString(gameInfo)
+            Log.d("ChatRiseRepository", "Serialized gameInfo: $gameInfoJson")
+
             val roomRef = crGameRoomsCollection
                 .document(crRoomId)
                 .collection(users)
 
-
             firestore.runTransaction { transaction ->
                 members.forEach { userId ->
                     val userDocRef = roomRef.document(userId)
-                    transaction.update(
-                        userDocRef,
-                        mapOf(
-                            "gameInfo" to gameInfoJson,
-                            "hasAnswered" to false
+
+                    try {
+                        transaction.update(
+                            userDocRef,
+                            mapOf(
+                                "gameInfo" to gameInfoJson,
+                                "hasAnswered" to false
+                            )
                         )
-                    )
+                        Log.d("ChatRiseRepository", "Updated gameInfo for user: $userId")
+                    } catch (e: Exception) {
+                        Log.e(
+                            "ChatRiseRepository",
+                            "Error updating gameInfo for user: $userId, ${e.message}",
+                            e
+                        )
+                    }
                 }
             }.await()
-            Log.d("Repository", "UserProfiles updated with gameName $gameInfoJson")
-        }catch (e: Exception){
-            Log.e("Repository", "Failed to add gamename to userProfile ${e.message}")
+            Log.d("ChatRiseRepository", "Successfully updated gameInfo for all users.")
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Failed to save gameName to all users: ${e.message}", e)
         }
     }
+
     suspend fun getRandomGameInfo(crRoomId: String): Title?{
         return try {
             // fetch all documents from "Games" in firestore
@@ -157,6 +213,28 @@ class ChatRiseRepository {
             null
         }
     }
+    suspend fun getAlertStatus(crRoomId: String, userId: String): Boolean {
+        return try {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .document(userId)
+                .get()
+                .await()
+
+            if (snapshot.exists()) {
+                val alert = snapshot.getBoolean("hadAlert")
+                alert ?: false // Return false if AlertStatus is null
+            } else {
+                Log.d("ChatRiseRepository", "Document for user $userId does not exist in room $crRoomId.")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Failed to check user alert status: ${e.message}", e)
+            false
+        }
+    }
+
     suspend fun getUsersGameAlert(crRoomId: String, userId: String, gameName: String): Boolean{
         return try {
             val gameDocRef = crGameRoomsCollection
@@ -268,6 +346,52 @@ class ChatRiseRepository {
             null
         }
     }
+    suspend fun getSystemAlertType(crRoomId: String): String?{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .get().await()
+
+            val type = collection.getString("AlertType")
+
+            type?.let {
+                try {
+                    AlertType.valueOf(it).toString()
+                }catch (e: IllegalArgumentException){
+                    Log.d("ChatRiseRepository", "Invalid System AlertType value: $it")
+                    null
+                }
+
+            }
+        }catch (e: Exception){
+            Log.d("ChatRiseRepository", "Error fetching AlertType: ${e.message}")
+            null
+        }
+    }
+    suspend fun getUsersAlertType(crRoomId: String, userId: String): AlertType?{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .document(userId)
+                .get().await()
+
+            val type = collection.getString("AlertType")
+
+            type?.let {
+                try {
+                    AlertType.valueOf(it)
+                }catch (e: IllegalArgumentException){
+                    Log.d("ChatRiseRepository", "Invalid User AlertType value: $it")
+                    null
+                }
+            }
+        }catch (e: Exception){
+            Log.d("ChatRiseRepository", "Error fetching AlertType: ${e.message}")
+            null
+        }
+    }
+
     fun updateHasAnswered(crRoomId: String, userId: String, questionsComplete: Boolean): Boolean{
         return try {
             val collection = crGameRoomsCollection
@@ -283,7 +407,7 @@ class ChatRiseRepository {
             false
         }
     }
-    suspend fun updateUserGameAlert(crRoomId: String, userId: String, gameName: String, hadAlert: Boolean): Boolean?{
+    suspend fun updateUserGameAlert(crRoomId: String, userId: String, gameName: String): Boolean?{
         return try {
             val gameDocRef = crGameRoomsCollection
                 .document(crRoomId)
@@ -293,11 +417,11 @@ class ChatRiseRepository {
             val gameSnapshot = gameDocRef.get().await()
             if (gameSnapshot.exists()){
                 val currentHadAlertMap = gameSnapshot.get("hadAlert") as? MutableMap<String, Boolean> ?: mutableMapOf()
-                currentHadAlertMap[userId] = hadAlert
+                currentHadAlertMap[userId] = true
 
                 val update = mapOf("hadAlert" to currentHadAlertMap)
                 gameDocRef.update(update).await()
-                Log.d("Repository", "Successfully updated hadAlert for user $userId in game $gameName to $hadAlert")
+                Log.d("Repository", "Successfully updated hadAlert for user $userId in game $gameName to true")
                 true
             }else {
                 Log.d("Repository", "Game document does not exist for $gameName")
@@ -305,6 +429,49 @@ class ChatRiseRepository {
             }
         }catch (e: Exception){
             Log.e("Repository", "Error updating game alert ${e.message}", e)
+            false
+        }
+    }
+    fun updateSystemAlertType(crRoomId: String, alertType: AlertType): Boolean{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+
+            collection.set(mapOf("AlertType" to alertType.string), SetOptions.merge())
+            Log.d("Repository", "user profile updated AlertType: ${alertType.string}")
+            true
+        }catch (e: Exception){
+            Log.d("Repository", "Error updating AlertType ${e.message}")
+            false
+        }
+    }
+    fun updateUsersAlertType(crRoomId: String, userId: String, alertType: AlertType): Boolean{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .document(userId)
+
+            collection.set(mapOf("AlertType" to alertType.string), SetOptions.merge())
+            Log.d("Repository", "user profile updated AlertType: ${alertType.string}")
+            true
+        }catch (e: Exception){
+            Log.d("Repository", "Error updating AlertType ${e.message}")
+            false
+        }
+    }
+    fun updateAlertStatus(crRoomId: String, userId: String, alertStatus: Boolean): Boolean{
+        return try {
+            val collection = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Users")
+                .document(userId)
+
+            collection.set(mapOf("hadAlert" to alertStatus), SetOptions.merge())
+            Log.d("Repository", "user profile updated AlertStatus: $alertStatus")
+            true
+        }catch (e: Exception){
+            Log.d("Repository", "Error updating AlertStatus ${e.message}")
             false
         }
     }
