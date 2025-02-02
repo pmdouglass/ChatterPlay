@@ -128,6 +128,7 @@ fun MainScreen(
     }
     val allMembersHasAnswered by crViewModel.allMembersHasAnswered // sees if current user done with answers
     val userHasAnswered by crViewModel.userDoneAnswering
+
     Log.d("MainScreen", "isDoneAnswering: $allMembersHasAnswered")
 
     LaunchedEffect(systemsAlertType){
@@ -160,7 +161,6 @@ fun MainScreen(
         derivedStateOf {
             when {
                 userHasAnswered == false -> 2
-                allMembersHasAnswered == true -> 2
                 else -> 0
             }
         }
@@ -315,7 +315,7 @@ fun MainScreen(
                                 Text("alert to rank")
                             }
                             Button(onClick = {
-                                Log.d("MainScreen", "Alert to game button clicked")
+                                Log.d("MainScreen", "Alert to rank button clicked")
                                 crViewModel.updateSystemAlertType(crRoomId, AlertType.none, context)
 
 
@@ -335,6 +335,19 @@ fun MainScreen(
 
 
                         }
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ){
+                            Button(onClick = {
+                                Log.d("MainScreen", "Alert to game button clicked")
+                                crViewModel.updateSystemAlertType(crRoomId, AlertType.game_results, context)
+
+                            }){
+                                Text("alert to gameResults")
+                            }
+                        }
 
 
 
@@ -353,6 +366,7 @@ fun MainScreen(
                                         else -> {selectedTabindex = 0}
                                     }
                                     crViewModel.updateShowAlert(crRoomId, false)
+                                    //crViewModel.updateAlertChangeToFalse()
                                 }
                             )
                             /*

@@ -92,78 +92,50 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         collection.set(questions, SetOptions.merge())
 
     }
-    suspend fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null, context: Context): Boolean {
+    suspend fun saveGame(
+        crRoomId: String,
+        gameName: String,
+        allMembers: List<UserProfile>,
+        context: Context
+    ): Boolean {
         return try {
             val gameDocRef = crGameRoomsCollection
                 .document(crRoomId)
                 .collection("Games")
                 .document(gameName)
 
-            Log.d("ChatRiseRepository", "Accessing document: $crRoomId -> Games -> $gameName")
+            Log.d("ChatRiseRepository", "Creating game document: $crRoomId -> Games -> $gameName")
 
-            // Check if the document exists
-            val gameSnapshot = gameDocRef.get().await()
-            if (gameSnapshot.exists()) {
-                Log.d("ChatRiseRepository", "Game document exists for $gameName. Preparing to update.")
+            // Initialize hasAnswered map for all members
+            val hasAnsweredMap = allMembers.associate { it.userId to false }
 
-                val updates = mutableMapOf<String, Any>()
-                allAnswered?.let {
-                    updates["allAnswered"] = it
-                    Log.d("ChatRiseRepository", "Updating allAnswered to: $it")
+            val gameData = mapOf(
+                "gameName" to gameName,
+                "hasAnswered" to hasAnsweredMap,
+                "allAnswered" to false,
+                "allDone" to false
+            )
+
+            // Save the new game document
+            gameDocRef.set(gameData).await()
+
+            // Log the event in Firebase Analytics
+            CoroutineScope(Dispatchers.IO).launch {
+                val params = Bundle().apply {
+                    putString("game_name", gameName)
+                    putString("timestamp", System.currentTimeMillis().toString())
                 }
-                allDone?.let {
-                    updates["allDone"] = it
-                    Log.d("ChatRiseRepository", "Updating allDone to: $it")
-                }
-
-                if (userId != null && hadAlert != null) {
-                    val currentHadAlertMap = gameSnapshot.get("hadAlert") as? MutableMap<String, Boolean> ?: mutableMapOf()
-                    currentHadAlertMap[userId] = hadAlert
-                    updates["hadAlert"] = currentHadAlertMap
-                    Log.d("ChatRiseRepository", "Updating hadAlert for user $userId to: $hadAlert")
-                }
-
-                if (updates.isNotEmpty()) {
-                    gameDocRef.update(updates).await()
-                    Log.d("ChatRiseRepository", "Game updated successfully for $gameName.")
-                } else {
-                    Log.d("ChatRiseRepository", "No fields to update for $gameName.")
-                }
-            } else {
-                Log.d("ChatRiseRepository", "Game document does not exist for $gameName. Creating new document.")
-
-                val hadAlertMap = allMembers?.associate { it.userId to false } ?: emptyMap()
-
-                val gameData = mapOf(
-                    "gameName" to gameName,
-                    "hadAlert" to hadAlertMap,
-                    "hasAnswered" to hadAlertMap,
-                    "allAnswered" to false,
-                    "allDone" to false
-                )
-
-                gameDocRef.set(gameData).await()
-
-                CoroutineScope(Dispatchers.IO).launch {
-                    // Log the event in Firebase Analytics
-                    val params = Bundle().apply {
-                        putString("game_name", gameName)
-                        putString("user_id", userId)
-                        putString("timestamp", System.currentTimeMillis().toString())
-                    }
-                    AnalyticsManager.getInstance(context).logEvent("game_created", params)
-                }
-
-
-                Log.d("ChatRiseRepository", "Game document created successfully for $gameName.")
+                AnalyticsManager.getInstance(context).logEvent("game_created", params)
             }
 
+            Log.d("ChatRiseRepository", "Game document created successfully for $gameName.")
             true
         } catch (e: Exception) {
-            Log.e("ChatRiseRepository", "Error in saveOrUpdateGame: ${e.message}", e)
+            Log.e("ChatRiseRepository", "Error in saveGame: ${e.message}", e)
             false
         }
     }
+
     suspend fun updateUsersHasAnswered(crRoomId: String, gameName: String, userId: String, context: Context): Boolean {
         return try {
             val gameDocRef = crGameRoomsCollection
@@ -369,6 +341,37 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("ChatRiseRepository", "Failed to save gameName to all users: ${e.message}", e)
         }
     }
+    suspend fun saveGameNameToRoom(crRoomId: String, gameInfo: Title) {
+        try {
+            // Serialize the Title object to JSON
+            val gameInfoJson = kotlinx.serialization.json.Json.encodeToString(gameInfo)
+            Log.d("ChatRiseRepository", "Serialized gameInfo: $gameInfoJson")
+
+            val roomRef = crGameRoomsCollection.document(crRoomId)
+
+            firestore.runTransaction { transaction ->
+                try {
+                    transaction.update(
+                        roomRef,
+                        mapOf(
+                            "gameInfo" to gameInfoJson
+                        )
+                    )
+                    Log.d("ChatRiseRepository", "Updated gameInfo for room: $crRoomId")
+                } catch (e: Exception) {
+                    Log.e(
+                        "ChatRiseRepository",
+                        "Error updating gameInfo for room: $crRoomId, ${e.message}",
+                        e
+                    )
+                }
+            }.await()
+            Log.d("ChatRiseRepository", "Successfully updated gameInfo for the room.")
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Failed to save gameName to room: ${e.message}", e)
+        }
+    }
+
 
     suspend fun getRandomGameInfo(crRoomId: String): Title?{
         return try {
@@ -445,12 +448,10 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             false
         }
     }
-    suspend fun getGameInfo(crRoomId: String, userId: String): Title? {
+    suspend fun getGameInfo(crRoomId: String): Title? {
         return try {
             val collection = crGameRoomsCollection
                 .document(crRoomId)
-                .collection(users)
-                .document(userId)
                 .get().await()
 
             val gameInfoJson = collection.getString("gameInfo")
@@ -609,31 +610,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         }
 
     }
-    suspend fun updateUserGameAlert(crRoomId: String, userId: String, gameName: String): Boolean?{
-        return try {
-            val gameDocRef = crGameRoomsCollection
-                .document(crRoomId)
-                .collection("Games")
-                .document(gameName)
 
-            val gameSnapshot = gameDocRef.get().await()
-            if (gameSnapshot.exists()){
-                val currentHadAlertMap = gameSnapshot.get("hadAlert") as? MutableMap<String, Boolean> ?: mutableMapOf()
-                currentHadAlertMap[userId] = true
-
-                val update = mapOf("hadAlert" to currentHadAlertMap)
-                gameDocRef.update(update).await()
-                Log.d("Repository", "Successfully updated hadAlert for user $userId in game $gameName to true")
-                true
-            }else {
-                Log.d("Repository", "Game document does not exist for $gameName")
-                false
-            }
-        }catch (e: Exception){
-            Log.e("Repository", "Error updating game alert ${e.message}", e)
-            false
-        }
-    }
     fun updateSystemAlertType(crRoomId: String, alertType: AlertType): Boolean{
         return try {
             val collection = crGameRoomsCollection
@@ -677,29 +654,25 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             false
         }
     }
-    suspend fun resetGameNameFromAllUsers(crRoomId: String, members: List<String>){
+    suspend fun removeGameNameFromRoom(crRoomId: String) {
         try {
-            val roomRef = crGameRoomsCollection
-                .document(crRoomId)
-                .collection(users)
+            val roomDocRef = crGameRoomsCollection.document(crRoomId)
 
             firestore.runTransaction { transaction ->
-                members.forEach { userId ->
-                    val userDocRef = roomRef.document(userId)
-                    transaction.update(
-                        userDocRef,
-                        mapOf(
-                            "gameInfo" to com.google.firebase.firestore.FieldValue.delete(),
-                            "hasAnswered" to com.google.firebase.firestore.FieldValue.delete()
-                        )
+                transaction.update(
+                    roomDocRef,
+                    mapOf(
+                        "gameInfo" to com.google.firebase.firestore.FieldValue.delete()
                     )
-                }
+                )
             }.await()
-            Log.d("Repository", "Fields deleted sucessfully from all userprofiles")
-        }catch (e: Exception){
-            Log.e("Repsoitory", "Failed to delete fields from userprofiles: ${e.message}", e)
+
+            Log.d("Repository", "Successfully deleted game info from room: $crRoomId")
+        } catch (e: Exception) {
+            Log.e("Repository", "Failed to delete game info from room: ${e.message}", e)
         }
     }
+
 
 
 

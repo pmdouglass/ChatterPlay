@@ -59,7 +59,6 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.ChatMessage
-import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -383,12 +382,11 @@ fun AlertingScreen(
         factory = ChatRiseViewModelFactory(sharedPreferences)
     )
 
-    val systemAlertType by crViewModel.systemAlertType.collectAsState()
-    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-
+    val systemAlertType by crViewModel.systemAlertType.collectAsState() // checks what AlertType it is
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from room
 
     LaunchedEffect(Unit){
-        crViewModel.fetchSystemAlertType(crRoomId)
+        crViewModel.fetchSystemAlertType(crRoomId) // initialize systemAlertType
 
     }
     LaunchedEffect(systemAlertType){
@@ -409,7 +407,7 @@ fun AlertingScreen(
                 gameInfo?.let { game ->
                     "You will now Play\n\n\n${game.title}"
                 } ?: "Game Information Not Available"
-            AlertType.game_results.string -> {""}
+            AlertType.game_results.string -> {"The results are in"}
             AlertType.ranking.string -> "It's time to rank your fellow players and decide who stands out in the game."
             AlertType.rank_results.string -> {""}
             AlertType.blocking.string -> {""}
@@ -427,7 +425,9 @@ fun AlertingScreen(
                         else -> "You will be presented with a series of Questions"
                     }
                 } ?: "Game Information Not Available"
-            AlertType.game_results.string -> {""}
+            AlertType.game_results.string -> gameInfo?.let {game ->
+                "See what everyone else answered for\n\n${game.title}"
+            } ?: "Game Information Not Available"
             AlertType.ranking.string -> "Your rankings will shape the competition, so choose wisely and strategically."
             AlertType.rank_results.string -> {""}
             AlertType.blocking.string -> {""}
@@ -444,7 +444,7 @@ fun AlertingScreen(
                     else -> "nothing"
                 }
             } ?: "Game Information Not Available"
-            AlertType.game_results.string -> {""}
+            AlertType.game_results.string -> {"The results May suprize you!"}
             AlertType.ranking.string -> "Remember, your decisions remain confidential, but your choices could change everything."
             AlertType.rank_results.string -> {""}
             AlertType.blocking.string -> {""}
@@ -486,6 +486,7 @@ fun AlertingScreen(
         )
     }
 }
+/*
 @Composable
 fun AlertDialogSplash(
     crRoomId: String,
@@ -570,12 +571,6 @@ fun AlertDialogSplash(
                                 crRoomId = crRoomId,
                                 alertStatus = true
                             )
-                            gameInfo?.let { game ->
-                                crViewModel.updateGameAlert(
-                                    crRoomId = crRoomId,
-                                    gameName = game.title
-                                )
-                            }
                         }
                         rank -> {
 
@@ -604,4 +599,6 @@ fun AlertDialogSplash(
         )
     }
 }
+
+ */
 
