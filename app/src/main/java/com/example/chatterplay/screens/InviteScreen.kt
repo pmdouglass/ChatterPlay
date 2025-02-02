@@ -101,6 +101,7 @@ import com.google.firebase.auth.FirebaseAuth
         val params = Bundle().apply {
             putString("screen_name", "RoomSelectInviteScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -392,6 +393,7 @@ fun InviteSelectScreen(
         val params = Bundle().apply {
             putString("screen_name", "ChatRiseInviteScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }

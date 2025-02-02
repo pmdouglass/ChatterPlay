@@ -64,7 +64,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             Log.d("ChatRiseViewModel", "Loading $alert")
         }
     }
-    fun checkforAlert(crRoomId: String){
+    fun checkforUserAlert(crRoomId: String){
         viewModelScope.launch {
             val usersAlertType = chatRepository.loadUserLocalAlertType(userId)
             val roomAlertType = chatRepository.getSystemAlertType(crRoomId)
@@ -78,6 +78,17 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 Log.d("ChatRiseViewModel", "changed to new player")
             } else {
                 Log.d("ChatRiseviewModel", "Same AlertType no action taken.")
+            }
+        }
+    }
+    fun checkForAlert(crRoomId: String){
+        viewModelScope.launch {
+            val usersAlertType = chatRepository.loadUserLocalAlertType(userId)
+            val roomAlertType = chatRepository.getSystemAlertType(crRoomId)
+            if (usersAlertType != roomAlertType){
+                _showAlert.value = true
+            }else {
+                _showAlert.value = false
             }
         }
     }
@@ -118,6 +129,9 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     val gameQuestion: StateFlow<List<Questions>> = _gameQuestions
     private val _isDoneAnswering = mutableStateOf<Boolean?>(null)
     val isDoneAnswering: State<Boolean?> = _isDoneAnswering
+    private val _isAllDoneAnswering = mutableStateOf<Boolean?>(null)
+    val isAllDoneAnswering: State<Boolean?> = _isAllDoneAnswering
+
     private val _userAnswer = MutableStateFlow<Answers?>(null)
     val userAnswer: StateFlow<Answers?> = _userAnswer
     private val _currentQuestion = MutableStateFlow<Questions?>(null)
@@ -145,14 +159,15 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
-    fun saveGame(crRoomId: String, userIds: List<String>, gameInfo: Title, allMembers: List<UserProfile>? = null){
+    fun saveGame(crRoomId: String, userIds: List<String>, gameInfo: Title, allMembers: List<UserProfile>? = null, context: Context){
         viewModelScope.launch {
             try {
                 chatRepository.saveGameNameToAllUsers(crRoomId, userIds, gameInfo)
                 chatRepository.saveOrUpdateGame(
                     crRoomId = crRoomId,
                     gameName = gameInfo.title,
-                    allMembers = allMembers
+                    allMembers = allMembers,
+                    context = context
                 )
 
 
@@ -230,7 +245,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
-    fun savePairAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title){
+    fun savePairAnswers(crRoomId: String, answers: List<Answers>, gameInfo: Title, context: Context){
         viewModelScope.launch {
             try {
                 if (answers.isNotEmpty()){
@@ -239,14 +254,18 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
 
                     answers.first().title
                     updateHasAnswered(crRoomId)
-                    checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
+                    updateUsersHasAnswered(
+                        crRoomId = crRoomId,
+                        title = gameInfo.title,
+                        context = context)
+                    checkUserForAllCompleteAnswers(crRoomId, gameInfo.title, context)
                 }
             }catch (e: Exception){
                 Log.d("ViewModel", "Failed to save pair answers ${e.message}")
             }
         }
     }
-    fun saveQuestionStatement(crRoomId: String, answer: Answers, gameInfo: Title){
+    fun saveQuestionStatement(crRoomId: String, answer: Answers, gameInfo: Title, context: Context){
         viewModelScope.launch {
             try {
                 client.postgrest["answers"].insert(answer)
@@ -256,13 +275,13 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 // update has answered
                 // check for users completed answers
                 //updateHasAnswered(crRoomId)
-                checkUserForAllCompleteAnswers(crRoomId, gameInfo.title)
+                checkUserForAllCompleteAnswers(crRoomId, gameInfo.title, context)
             }catch (e: Exception){
                 Log.d("ViewModel", "Error saving questionStatement")
             }
         }
     }
-    private fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null){
+    private fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null, context: Context){
         viewModelScope.launch {
             try {
                 chatRepository.saveOrUpdateGame(
@@ -271,7 +290,8 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     userId = userId,
                     hadAlert = hadAlert,
                     allAnswered = allAnswered,
-                    allDone = allDone
+                    allDone = allDone,
+                    context = context
                 )
                 Log.d("ViewModel", "Updated $gameName")
             }catch (e: Exception){
@@ -318,6 +338,18 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             _showAlert.value = status
         }
     }
+
+
+
+
+
+
+
+
+
+
+
+
     fun fetchQuestions(title: String){
         viewModelScope.launch {
             try {
@@ -348,6 +380,158 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
+
+
+
+
+
+
+    /*
+    done answering - check and confirm then updatate has answered
+    monitor all firebase users hasanswered
+    if all true then
+     */
+
+
+    private val _userDoneAnswering = mutableStateOf<Boolean?>(null)
+    val userDoneAnswering: State<Boolean?> = _userDoneAnswering
+    private val _allMembersHasAnswered = mutableStateOf<Boolean?>(null)
+    val allMembersHasAnswered: State<Boolean?> = _allMembersHasAnswered
+
+
+    fun updateUsersHasAnswered(crRoomId: String, title: String, context: Context) {
+        viewModelScope.launch {
+            try {
+                Log.d("ViewModel", "Starting updateUsersHasAnswered for crRoomId: $crRoomId, title: $title, userId: $userId")
+
+                val response = if (title == "Twisted Truths") {
+                    try {
+                        Log.d("ViewModel", "Decoding single answer for title: $title")
+                        client.postgrest["answers"]
+                            .select(
+                                filter = {
+                                    filter("crRoomId", FilterOperator.EQ, crRoomId)
+                                    filter("userId", FilterOperator.EQ, userId)
+                                    filter("title", FilterOperator.EQ, title)
+                                }
+                            )
+                            .decodeSingleOrNull<Answers>()?.let { listOf(it) } ?: emptyList()
+                    } catch (e: Exception) {
+                        Log.e("ViewModel", "Error decoding single answer: ${e.message}", e)
+                        emptyList()
+                    }
+                } else {
+                    try {
+                        Log.d("ViewModel", "Decoding list of answers for title: $title")
+                        client.postgrest["answers"]
+                            .select(
+                                filter = {
+                                    filter("crRoomId", FilterOperator.EQ, crRoomId)
+                                    filter("userId", FilterOperator.EQ, userId)
+                                    filter("title", FilterOperator.EQ, title)
+                                }
+                            )
+                            .decodeList<Answers>()
+                    } catch (e: Exception) {
+                        Log.e("ViewModel", "Error decoding list of answers: ${e.message}", e)
+                        emptyList()
+                    }
+                }
+
+                when {
+                    response.isNotEmpty() -> {
+                        Log.d("ViewModel", "Fetched ${response.size} answers for userId: $userId")
+                        chatRepository.updateUsersHasAnswered(
+                            crRoomId = crRoomId,
+                            gameName = title,
+                            userId = userId,
+                            context = context
+                        )
+                        Log.d("ViewModel", "Successfully updated hasAnswered for userId: $userId in game: $title")
+                        checkUsersHasAnswered(crRoomId, title, context)
+                    }
+                    else -> {
+                        Log.d("ViewModel", "No answers found for userId: $userId in game: $title")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModel", "Error fetching answers: ${e.message}", e)
+            }
+        }
+    }
+
+    fun checkUsersHasAnswered(crRoomId: String, title: String, context: Context) {
+        viewModelScope.launch {
+            try {
+                Log.d("ViewModel", "Starting checkUsersHasAnswered for crRoomId: $crRoomId, title: $title, userId: $userId")
+
+                val hasAnswered = chatRepository.checkUsersHasAnswered(
+                    crRoomId = crRoomId,
+                    gameName = title,
+                    userId = userId
+                )
+
+                if (hasAnswered == true) {
+                    _userDoneAnswering.value = hasAnswered
+                    Log.d("ViewModel", "User $userId has already answered for game: $title in room: $crRoomId")
+                } else {
+                    _userDoneAnswering.value = hasAnswered
+                    Log.d("ViewModel", "User $userId has not answered yet for game: $title in room: $crRoomId")
+                }
+            } catch (e: Exception) {
+                Log.e("ViewModel", "Error checking if user has answered: ${e.message}", e)
+            }
+        }
+    }
+
+    fun monitoringAllMembersHasAnswered(crRoomId: String, title: String, allMembers: List<UserProfile>, context: Context) {
+        chatRepository.monitorAllMembersHasAnswered(
+            crRoomId = crRoomId,
+            gameName = title,
+            allMembers = allMembers,
+            onCheck = { allAnswered ->
+                Log.d("ViewModel", "HasAnswered updates received: $allAnswered")
+
+                if (allAnswered){
+                    _allMembersHasAnswered.value = allAnswered
+                    //updateSystemAlertType(crRoomId, AlertType.game_results, context)
+                    Log.d("ChatRiseViewModel", "allAnswered: $allAnswered")
+                    Log.d("ChatRiseViewModel", "All members have answered! Proceeding to the next step")
+                } else {
+                    Log.d("ChatRiseViewModel", "Not alll members have answered yet.")
+                }
+            },
+            onError = { error ->
+                Log.e("ViewModel", "Error monitoring all members' hasAnswered: ${error.message}", error)
+                _allMembersHasAnswered.value = null // Reset to null on error
+            }
+        )
+
+    }
+    fun areAllMembersAnswered(crRoomId: String, title: String, context: Context){
+        viewModelScope.launch {
+            val response = chatRepository.areAllMembersAnswered(crRoomId, title)
+            _allMembersHasAnswered.value = response
+            if (response){
+                updateSystemAlertType(crRoomId = crRoomId, alertType = AlertType.game_results, context = context)
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     @SuppressLint("SuspiciousIndentation")
     fun fetchAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
         viewModelScope.launch {
@@ -390,11 +574,11 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
-    suspend fun checkUserForAllCompleteAnswers(crRoomId: String, title: String): Boolean{
+    suspend fun checkUserForAllCompleteAnswers(crRoomId: String, title: String, context: Context): Boolean{
         return try {
             if (title.isEmpty()){
                 Log.d("ViewModel", "title is empty; skipping check for completed answers.")
-                _isDoneAnswering.value = null
+                _isAllDoneAnswering.value = null
                 return false
             }
 
@@ -404,7 +588,6 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 .select(
                     filter = {
                         filter("title", FilterOperator.EQ, title)
-                        filter("userId", FilterOperator.EQ, userId)
                         filter("crRoomId", FilterOperator.EQ, crRoomId)
                     }
                 )
@@ -413,22 +596,17 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             val answeredOrNot = response.isNotEmpty()
 
             if (answeredOrNot){
-                crGameRoomsCollection
-                    .document(crRoomId)
-                    .collection("Users")
-                    .document(userId)
-                    .set(mapOf("hasAnswered" to true), SetOptions.merge())
-                    .await()
-                Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
+                //updateSystemAlertType(crRoomId = crRoomId, alertType = AlertType.game_results, context = context)
+                Log.d("ViewModel", "all users has answered: $answeredOrNot - Updated firebase.")
             }else {
-                Log.d("ViewModel", "User has not answered: $answeredOrNot")
+                Log.d("ViewModel", "All User has not answered: $answeredOrNot")
             }
-            _isDoneAnswering.value = answeredOrNot
+            _isAllDoneAnswering.value = answeredOrNot
             Log.d("ViewModel", "isDoneAnswering set to: $answeredOrNot")
             answeredOrNot
         }catch (e: Exception){
             Log.d("ViewModel", "Error checking user answers: ${e.message}")
-            _isDoneAnswering.value = null
+            _isAllDoneAnswering.value = null
             false
         }
     }
@@ -461,6 +639,10 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     .document(userId)
                     .set(mapOf("hasAnswered" to true), SetOptions.merge())
                     .await()
+                crGameRoomsCollection
+                    .document(crRoomId)
+                    .collection("Games")
+                    .document(title)
                 Log.d("ViewModel", "user has answered: $answeredOrNot - Updated firestore.")
             }else {
                 Log.d("ViewModel", "User has not answered: $answeredOrNot")
@@ -474,10 +656,10 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             false
         }
     }
-    fun monitorUntilAllUsersDoneAnswering(crRoomId: String, title: String) {
+    fun monitorUntilAllUsersDoneAnswering(crRoomId: String, title: String, context: Context) {
         viewModelScope.launch {
             try {
-                Log.d("ViewModel", "monitoring until all users are done anxwering")
+                Log.d("ViewModel", "monitoring until all users are done answering")
                 crGameRoomsCollection.document(crRoomId).collection("Users")
                     .addSnapshotListener { snapshot, error ->
                         if (error != null) {
@@ -495,7 +677,8 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                             saveOrUpdateGame(
                                 crRoomId = crRoomId,
                                 gameName = title,
-                                allAnswered = true
+                                allAnswered = true,
+                                context = context
                             )
                             Log.d("ViewModel", "monitor - Updated $title 'allAnswered' to true")
                         }
@@ -505,6 +688,17 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
+
+
+
+
+
+
+
+
+
+
+
     fun updateGameAlert(crRoomId: String, gameName: String){
         viewModelScope.launch {
             try {
@@ -520,7 +714,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             try {
                 val success = chatRepository.updateHasAnswered(crRoomId, userId, true)
                 if (success){
-                    _isDoneAnswering.value = true
+                    _isAllDoneAnswering.value = true
                     Log.d("ViewModel", "Update hasAnswered to true successful")
                 }else {
                     Log.d("ViewModel", "Failed to update hasAnswered to true")
@@ -551,7 +745,8 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                                         crRoomId = crRoomId,
                                         userIds = userIds,
                                         gameInfo = selectedGame,
-                                        allMembers = allMembers
+                                        allMembers = allMembers,
+                                        context = context
                                     )
                                     Log.d("ChatriseViewModel", "game saved successfully.")
 
@@ -765,7 +960,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     }
 
      */
-    fun resetGames(crRoomId: String, userIds: List<String>, gameName: String){
+    fun resetGames(crRoomId: String, userIds: List<String>, gameName: String, context: Context){
         viewModelScope.launch {
             try {
                 chatRepository.resetGameNameFromAllUsers(crRoomId, userIds)
@@ -773,7 +968,8 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 chatRepository.saveOrUpdateGame(
                     crRoomId = crRoomId,
                     gameName = gameName,
-                    allDone = true
+                    allDone = true,
+                    context = context
                 )
 
                 val retrievedGameInfo = chatRepository.getGameInfo(crRoomId, userId)

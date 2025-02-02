@@ -56,3 +56,4 @@ class AnalyticsManager private constructor(private val context: Context) {
         val ANALYTICS_ENABLED = booleanPreferencesKey("analytics_enabled")
     }
 }
+

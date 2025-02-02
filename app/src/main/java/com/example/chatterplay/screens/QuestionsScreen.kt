@@ -77,7 +77,7 @@ fun QuestionsScreen(
     Log.d("QuestionsScreen", "Inside QuestionsScreen")
     val question by crViewModel.currentQuestion.collectAsState()
     val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
-    val hasAnswered by crViewModel.isDoneAnswering
+    val hasAnswered by crViewModel.isAllDoneAnswering
     val usersAnswer by crViewModel.userAnswer.collectAsState()
 
 
@@ -98,6 +98,7 @@ fun QuestionsScreen(
         val params = Bundle().apply {
             putString("screen_name", "QuestionsScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -211,13 +212,8 @@ fun QuestionsScreen(
 
     }
 }
-/*
-@Composable
-fun skdf(){
 
-}
 
- */
 @Composable
 fun questionSend(
     crRoomId: String,
@@ -249,7 +245,8 @@ fun questionSend(
         crViewModel.saveQuestionStatement(
             crRoomId = crRoomId,
             answer = answer,
-            gameInfo = gameInfo
+            gameInfo = gameInfo,
+            context = context
         )
         input = ""
         sent = true
@@ -334,7 +331,7 @@ fun AnonBubble(
                             bottomEnd = borderRad
                         )
                     )
-                    .background(Color.Gray)
+                    .background(if (!systemMessage) Color.White else Color.Gray)
                     .then(if (systemMessage)
                         Modifier.border(
                             1.dp,
@@ -354,7 +351,7 @@ fun AnonBubble(
                 ) {
                 Text(
                     text = message ?: "Type your response here. Once submitted, your reply will appear in this space.",
-                    color = Color.Black,
+                    color = if (!systemMessage) Color.Black else Color.White,
                     lineHeight = 23.sp,
                     letterSpacing = 1.sp
                 )

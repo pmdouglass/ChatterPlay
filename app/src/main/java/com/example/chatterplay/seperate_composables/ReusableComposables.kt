@@ -113,6 +113,7 @@ import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
+import com.example.chatterplay.view_model.EntryViewModelFactory
 import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
@@ -163,7 +164,6 @@ fun rememberCRProfile(
 @Composable
 fun ChatRiseThumbnail(
     viewModel: ChatViewModel = viewModel(),
-    roomCreate: RoomCreationViewModel = viewModel(),
     navController: NavController
 ) {
     // Create SharedPreferences
@@ -174,6 +174,11 @@ fun ChatRiseThumbnail(
     val crViewModel: ChatRiseViewModel = viewModel(
         factory = ChatRiseViewModelFactory(sharedPreferences)
     )
+    val roomCreate: RoomCreationViewModel = viewModel(
+        factory = EntryViewModelFactory(sharedPreferences)
+    )
+
+
 
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
@@ -183,6 +188,7 @@ fun ChatRiseThumbnail(
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUser?.uid ?: "", viewModel)
     val crRoomId by roomCreate.crRoomId.collectAsState()
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+    val showAlert by crViewModel.showAlert.collectAsState()
 
 
     val width = 100
@@ -194,11 +200,12 @@ fun ChatRiseThumbnail(
     val hasAlternateProfile = alternateProfile.fname.isNotBlank()
 
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-    val usersGameAlertStatus by crViewModel.usersGameAlertStatus.collectAsState()
-    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+    //val usersGameAlertStatus by crViewModel.usersGameAlertStatus.collectAsState()
+    val isDoneAnswering by crViewModel.isAllDoneAnswering // sees if current user done with answers
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
-            gameInfo != null && usersGameAlertStatus == false}
+            //gameInfo != null && usersGameAlertStatus == false
+        }
     }
 
 
@@ -209,11 +216,12 @@ fun ChatRiseThumbnail(
                     crViewModel.fetchGameInfo(roomId) // initialize gameInfo
                 }else {
                     gameInfo?.let { game ->
-                        crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
-                        crViewModel.checkUserForAllCompleteAnswers(roomId, game.title) // initialize isDoneAnswering
+                        //crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
+                        //crViewModel.checkUserForAllCompleteAnswers(roomId, game.title, context) // initialize isDoneAnswering
                     }
                 }
             }
+            crViewModel.checkForAlert(roomId)
         }
     }
 
@@ -222,8 +230,6 @@ fun ChatRiseThumbnail(
         derivedStateOf {
             crRoomId != null &&
                     crRoomId!!.isNotEmpty() &&
-                    //gameInfo != null &&
-                    //isDoneAnswering != null &&
                     userStatus != null
         }
     }
@@ -248,10 +254,6 @@ fun ChatRiseThumbnail(
                 .border(2.dp, CRAppTheme.colorScheme.highlight, RoundedCornerShape(15.dp))
                 .padding(start = 10.dp, end = 10.dp)
         ){
-            /*
-            if (userStatus != null){
-            }
-             */
             Row (
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -566,7 +568,7 @@ fun ChatRiseThumbnail(
                                         }
                                 ) {
 
-                                    if (thereIsAnAlertMessage){
+                                    if (showAlert == true){
                                         Row(
                                             horizontalArrangement = Arrangement.Center,
                                             verticalAlignment = Alignment.CenterVertically,

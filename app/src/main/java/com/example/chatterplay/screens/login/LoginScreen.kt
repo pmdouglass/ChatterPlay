@@ -48,6 +48,7 @@ fun LoginScreen(navController: NavController) {
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
             putString("screen_name", "LoginScreen")
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }

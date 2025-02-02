@@ -384,47 +384,106 @@ fun AlertingScreen(
     )
 
     val systemAlertType by crViewModel.systemAlertType.collectAsState()
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
+
 
     LaunchedEffect(Unit){
         crViewModel.fetchSystemAlertType(crRoomId)
+
+    }
+    LaunchedEffect(systemAlertType){
+        when (systemAlertType){
+            AlertType.game.string -> {
+                crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
+            }
+        }
     }
 
 
+    val pitch0 = "Alert!"
+    val pitch1 =
+        when (systemAlertType){
+            AlertType.none.string -> {""}
+            AlertType.new_player.string -> {""}
+            AlertType.game.string ->
+                gameInfo?.let { game ->
+                    "You will now Play\n\n\n${game.title}"
+                } ?: "Game Information Not Available"
+            AlertType.game_results.string -> {""}
+            AlertType.ranking.string -> "It's time to rank your fellow players and decide who stands out in the game."
+            AlertType.rank_results.string -> {""}
+            AlertType.blocking.string -> {""}
+            else -> {""}
+
+        }
+    val pitch2 =
+        when (systemAlertType) {
+            AlertType.none.string -> {""}
+            AlertType.new_player.string -> {""}
+            AlertType.game.string ->
+                gameInfo?.let { game ->
+                    when (game.mode){
+                        "questions" -> "You will be asked a Question"
+                        else -> "You will be presented with a series of Questions"
+                    }
+                } ?: "Game Information Not Available"
+            AlertType.game_results.string -> {""}
+            AlertType.ranking.string -> "Your rankings will shape the competition, so choose wisely and strategically."
+            AlertType.rank_results.string -> {""}
+            AlertType.blocking.string -> {""}
+            else -> "nothing selected"
+        }
+    val pitch3 =
+        when (systemAlertType) {
+            AlertType.none.string -> {""}
+            AlertType.game.string -> gameInfo?.let { game ->
+                when(game.type){
+                    "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"
+                    "yes/no" -> "Respond with\n\n\nYes or No"
+                    "anonymousStatement" -> "Your Reply will be kept anonymous"
+                    else -> "nothing"
+                }
+            } ?: "Game Information Not Available"
+            AlertType.game_results.string -> {""}
+            AlertType.ranking.string -> "Remember, your decisions remain confidential, but your choices could change everything."
+            AlertType.rank_results.string -> {""}
+            AlertType.blocking.string -> {""}
+            else -> "Nothing"
+        }
+    val texts = listOf(pitch0, pitch1, pitch2, pitch3)
+    var currentIndex by remember { mutableStateOf(0)}
+    val isLastItem = currentIndex == texts.size -1
+    val transition = updateTransition(currentIndex, label = "Text Transition")
+    val alpha by transition.animateFloat(label = "Alpha Transition") { index ->
+        if (index == currentIndex) 1f else 0f
+    }
+
     Column(
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxSize()
-            .clickable {
-                onDone()
+            .background(CRAppTheme.colorScheme.onGameBackground)
+            .clickable(
+                indication = rememberRipple(false),
+                interactionSource = remember { MutableInteractionSource()}
+            ) {
+                if (isLastItem){
+                    onDone()
+                } else {
+                    currentIndex++
+                }
             }
     ){
-        when (systemAlertType){
-            AlertType.none.string -> {
-                Text("None Alerted")
-            }
-            AlertType.new_player.string -> {
-                Text("New Player Alerted")
-            }
-            AlertType.game.string -> {
-                Text("Game Alerted")
-            }
-            AlertType.game_results.string -> {
-                Text("Game Results are in")
-            }
-            AlertType.ranking.string -> {
-                Text ("Ranking Alerted")
-            }
-            AlertType.rank_results.string -> {
-                Text("Ranking Results are in")
-            }
-            AlertType.blocking.string -> {
-                Text("Player Blocked")
-            }
-            else -> {
-                Text("Alerted")
-            }
-        }
+        Text(
+            texts[currentIndex],
+            style = if (texts[currentIndex] == pitch0) CRAppTheme.typography.H7 else CRAppTheme.typography.H4,
+            textAlign = TextAlign.Center,
+            color = Color.Red,
+            modifier = Modifier
+                .alpha(alpha)
+                .padding(horizontal = 16.dp)
+        )
     }
 }
 @Composable

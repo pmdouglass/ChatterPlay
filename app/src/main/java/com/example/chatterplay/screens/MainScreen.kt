@@ -118,26 +118,27 @@ fun MainScreen(
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
         crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
-        //crViewModel.fetchAlertStatus(crRoomId) // initialize usersAlertStatus
         crViewModel.loadUserLocalAlertType(currentUser?.uid ?: "")
         crViewModel.fetchSystemAlertType(crRoomId)
-        crViewModel.checkforAlert(crRoomId)
+        crViewModel.checkforUserAlert(crRoomId)
 
-        val gameName = gameInfo?.title ?: ""
-        //crViewModel.monitorAlertType(crRoomId, gameName = gameName, context = context)
+
 
 
     }
+    val allMembersHasAnswered by crViewModel.allMembersHasAnswered // sees if current user done with answers
+    val userHasAnswered by crViewModel.userDoneAnswering
+    Log.d("MainScreen", "isDoneAnswering: $allMembersHasAnswered")
+
     LaunchedEffect(systemsAlertType){
-        crViewModel.checkforAlert(crRoomId)
+        crViewModel.checkforUserAlert(crRoomId)
     }
     LaunchedEffect(gameInfo){
         Log.d("MainScreen", "gameInfo: $gameInfo")
-
         if (gameInfo != null)
             gameInfo?.let { game ->
-                //crViewModel.fetchUsersGameAlert(crRoomId, currentUser?.uid ?: "", game.title) // initialize 'userGameAlertStatus'
-                crViewModel.checkUserForAllCompleteAnswers(crRoomId, game.title) // initialize 'isDoneAnswering'
+                crViewModel.checkUsersHasAnswered(crRoomId = crRoomId, title = game.title, context = context) // initialize userHasAnswered
+                crViewModel.areAllMembersAnswered(crRoomId, game.title, context)
             }
     }
 
@@ -147,6 +148,7 @@ fun MainScreen(
         val params = Bundle().apply {
             putString("screen_name", "ChatRiseScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -154,17 +156,11 @@ fun MainScreen(
     (context as? MainActivity)?.setCurrentScreen(("ChatRiseScreen"))
 
 
-
-    val thereIsAnAlertMessage by remember {
-        derivedStateOf {
-            gameInfo != null && showAlert == false /* || */}
-    }
-    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
-    Log.d("MainScreen", "isDoneAnswering: $isDoneAnswering")
     val startIndex by remember {
         derivedStateOf {
             when {
-                //isDoneAnswering == false -> 2
+                userHasAnswered == false -> 2
+                allMembersHasAnswered == true -> 2
                 else -> 0
             }
         }
@@ -172,6 +168,7 @@ fun MainScreen(
 
     Log.d("MainScreen", "startIndex: $startIndex")
     var selectedTabindex by remember { mutableIntStateOf(0) }
+
 
     LaunchedEffect(startIndex){
         selectedTabindex = startIndex
@@ -258,7 +255,8 @@ fun MainScreen(
                                                 crRoomId = crRoomId,
                                                 userIds = userIds,
                                                 gameInfo = game,
-                                                allMembers = allChatRoomMembers
+                                                allMembers = allChatRoomMembers,
+                                                context = context
                                             )
 
                                             coroutineScope.launch {
@@ -285,7 +283,7 @@ fun MainScreen(
                                 val userIds: List<String> = allChatRoomMembers.map { it.userId }
                                 if (gameInfo != null){
                                     gameInfo?.let { game->
-                                        crViewModel.resetGames(crRoomId, userIds, game.title)
+                                        crViewModel.resetGames(crRoomId, userIds, game.title, context = context)
                                     }
                                 } else {
                                     Log.e("MainScreen", "gameInfo is null update")
@@ -326,7 +324,7 @@ fun MainScreen(
                             }
 
                             Button(onClick = {
-                                crViewModel.checkforAlert(crRoomId)
+                                crViewModel.checkforUserAlert(crRoomId)
                             }){
                                 if (usersAlertType != null){
                                     Text("$usersAlertType")
@@ -344,7 +342,6 @@ fun MainScreen(
                             AlertingScreen(
                                 crRoomId = crRoomId,
                                 onDone = {
-                                    crViewModel.updateShowAlert(crRoomId, false)
                                     when (systemsAlertType){
                                         AlertType.none.string -> {selectedTabindex = 0}
                                         AlertType.new_player.string -> {selectedTabindex = 0}
@@ -355,6 +352,7 @@ fun MainScreen(
                                         AlertType.blocking.string -> {selectedTabindex = 0}
                                         else -> {selectedTabindex = 0}
                                     }
+                                    crViewModel.updateShowAlert(crRoomId, false)
                                 }
                             )
                             /*
@@ -380,17 +378,18 @@ fun MainScreen(
                             onTabSelected = {index ->
                                 selectedTabindex = index
                             },
-                            /*
                             disabledTabIndices =
                             when {
+                                // emptylist() == none disabled
+                                // listOf(?) == tab disabled
 
                                 gameInfo == null -> listOf(2)
-                                isDoneAnswering == false -> listOf(0)
-                                isDoneAnswering == true -> emptyList()
+                                userHasAnswered == false -> emptyList()
+                                userHasAnswered == true -> emptyList()
+                                allMembersHasAnswered == false -> emptyList()
+                                allMembersHasAnswered == true -> listOf(0)
                                 else -> emptyList()
                             }
-
-                             */
                         )
 
                         when (selectedTabindex){
@@ -487,6 +486,7 @@ fun RiseMainChat(
         val params = Bundle().apply {
             putString("screen_name", "ChatRiseMainChat")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }

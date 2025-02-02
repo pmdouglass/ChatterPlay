@@ -36,6 +36,7 @@ fun ScreenPresenceLogger(screenName: String, userId: String) {
                             putString("screen_name", screenName)
                             putString("userId", userId)
                             putLong("screen_duration", duration)
+                            putString("timestamp", System.currentTimeMillis().toString())
                         }
                         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
                     }

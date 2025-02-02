@@ -1,7 +1,10 @@
 package com.example.chatterplay.repository
 
+import android.content.Context
 import android.content.SharedPreferences
+import android.os.Bundle
 import android.util.Log
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
@@ -11,6 +14,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.encodeToString
 
@@ -86,7 +92,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         collection.set(questions, SetOptions.merge())
 
     }
-    suspend fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null): Boolean {
+    suspend fun saveOrUpdateGame(crRoomId: String, gameName: String, userId: String? = null, allMembers: List<UserProfile>? = null, hadAlert: Boolean? = null, allAnswered: Boolean? = null, allDone: Boolean? = null, context: Context): Boolean {
         return try {
             val gameDocRef = crGameRoomsCollection
                 .document(crRoomId)
@@ -131,11 +137,24 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                 val gameData = mapOf(
                     "gameName" to gameName,
                     "hadAlert" to hadAlertMap,
+                    "hasAnswered" to hadAlertMap,
                     "allAnswered" to false,
                     "allDone" to false
                 )
 
                 gameDocRef.set(gameData).await()
+
+                CoroutineScope(Dispatchers.IO).launch {
+                    // Log the event in Firebase Analytics
+                    val params = Bundle().apply {
+                        putString("game_name", gameName)
+                        putString("user_id", userId)
+                        putString("timestamp", System.currentTimeMillis().toString())
+                    }
+                    AnalyticsManager.getInstance(context).logEvent("game_created", params)
+                }
+
+
                 Log.d("ChatRiseRepository", "Game document created successfully for $gameName.")
             }
 
@@ -145,6 +164,173 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             false
         }
     }
+    suspend fun updateUsersHasAnswered(crRoomId: String, gameName: String, userId: String, context: Context): Boolean {
+        return try {
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            Log.d("ChatRiseRepository", "Accessing document: $crRoomId -> Games -> $gameName")
+
+            // Check if the document exists
+            val gameSnapshot = gameDocRef.get().await()
+            if (gameSnapshot.exists()) {
+                Log.d("ChatRiseRepository", "Game document exists for $gameName. Preparing to update hasAnswered.")
+
+                // Fetch existing hasAnswered map or initialize a new one
+                val currentHasAnsweredMap = gameSnapshot.get("hasAnswered") as? MutableMap<String, Boolean> ?: mutableMapOf()
+                currentHasAnsweredMap[userId] = true
+
+                // Update the hasAnswered field in Firestore
+                gameDocRef.update("hasAnswered", currentHasAnsweredMap).await()
+                Log.d("ChatRiseRepository", "Updated hasAnswered for user $userId to true in game $gameName.")
+
+            }
+
+            // Log the update in Firebase Analytics
+            CoroutineScope(Dispatchers.IO).launch {
+                val params = Bundle().apply {
+                    putString("cr_room_id", crRoomId)
+                    putString("game_name", gameName)
+                    putString("user_id", userId)
+                    putString("timestamp", System.currentTimeMillis().toString())
+                }
+                AnalyticsManager.getInstance(context).logEvent("done_answering_questions", params)
+            }
+
+            true
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error in updateHasAnswered: ${e.message}", e)
+            false
+        }
+    }
+    suspend fun checkUsersHasAnswered(crRoomId: String, gameName: String, userId: String): Boolean? {
+        return try {
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            Log.d("ChatRiseRepository", "Fetching hasAnswered for user $userId in $gameName.")
+
+            // Fetch the document
+            val gameSnapshot = gameDocRef.get().await()
+
+            // Check if the document exists
+            if (gameSnapshot.exists()) {
+                // Retrieve the hasAnswered map
+                val hasAnsweredMap = gameSnapshot.get("hasAnswered") as? Map<String, Boolean>
+
+                // Return the value for the specific userId
+                val hasAnswered = hasAnsweredMap?.get(userId)
+                Log.d("ChatRiseRepository", "User $userId hasAnswered: $hasAnswered")
+                hasAnswered
+            } else {
+                Log.d("ChatRiseRepository", "Game document does not exist for $gameName.")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error checking hasAnswered for user $userId: ${e.message}", e)
+            null
+        }
+    }
+
+    fun monitorAllMembersHasAnswered(
+        crRoomId: String,
+        gameName: String,
+        allMembers: List<UserProfile>,
+        onCheck: (Boolean) -> Unit, // Return a boolean indicating if all members have answered
+        onError: (Exception) -> Unit
+    ) {
+        try {
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            Log.d("ChatRiseRepository", "Starting monitorAllMembersHasAnswered for $gameName in room: $crRoomId.")
+
+            // Listen for real-time updates on the game document
+            gameDocRef.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("ChatRiseRepository", "Error monitoring hasAnswered: ${error.message}", error)
+                    onError(error)
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null && snapshot.exists()) {
+                    // Retrieve the hasAnswered map
+                    val hasAnsweredMap = snapshot.get("hasAnswered") as? Map<String, Boolean>
+
+                    if (hasAnsweredMap != null) {
+                        Log.d("ChatRiseRepository", "Retrieved hasAnswered map: $hasAnsweredMap")
+
+                        // Check if all members' userIds in the hasAnswered map are explicitly true
+                        val allAnswered = allMembers.all { member ->
+                            val hasAnswered = hasAnsweredMap[member.userId] ?: false // Default to false if null
+                            Log.d("ChatRiseRepository", "UserId: ${member.userId}, hasAnswered: $hasAnswered")
+                            hasAnswered
+                        }
+
+                        Log.d("ChatRiseRepository", "All members have answered: $allAnswered")
+                        onCheck(allAnswered)
+                    } else {
+                        Log.d("ChatRiseRepository", "No hasAnswered map found in the document.")
+                        onCheck(false) // If the map is missing, treat it as not all answered
+                    }
+                } else {
+                    Log.d("ChatRiseRepository", "Game document does not exist or has been deleted.")
+                    onCheck(false) // If the document doesn't exist, treat it as not all answered
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error setting up monitorAllMembersHasAnswered: ${e.message}", e)
+            onError(e)
+        }
+    }
+    suspend fun areAllMembersAnswered(crRoomId: String, gameName: String): Boolean {
+        return try {
+            // Access the document in Firestore
+            val gameDocRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Games")
+                .document(gameName)
+
+            Log.d("ChatRiseRepository", "Checking if all members have answered for $gameName in room: $crRoomId.")
+
+            // Fetch the document
+            val gameSnapshot = gameDocRef.get().await()
+
+            if (gameSnapshot.exists()) {
+                // Retrieve the hasAnswered map
+                val hasAnsweredMap = gameSnapshot.get("hasAnswered") as? Map<String, Boolean>
+
+                if (hasAnsweredMap != null) {
+                    // Check if all values in the map are true
+                    val allAnswered = hasAnsweredMap.all { (_, hasAnswered) ->
+                        hasAnswered == true // Ensure each value is true
+                    }
+
+                    Log.d("ChatRiseRepository", "All members have answered: $allAnswered")
+                    allAnswered
+                } else {
+                    Log.d("ChatRiseRepository", "No hasAnswered map found in the document.")
+                    false // If the map is missing, return false
+                }
+            } else {
+                Log.d("ChatRiseRepository", "Game document does not exist for $gameName.")
+                false // If the document doesn't exist, return false
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error checking if all members have answered: ${e.message}", e)
+            false // On exception, return false
+        }
+    }
+
+
+
+
 
     suspend fun saveGameNameToAllUsers(crRoomId: String, members: List<String>, gameInfo: Title) {
         try {
@@ -354,10 +540,13 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                 .get().await()
 
             val type = collection.getString("AlertType")
+            Log.d("ChatRiseRepository", "Fetched AlertType: $type")
 
             type?.let {
                 try {
-                    AlertType.valueOf(it).toString()
+                    val alertType = AlertType.valueOf(it).toString()
+                    Log.d("ChatRiseRepository", "Valid AlertType: $alertType")
+                    alertType
                 }catch (e: IllegalArgumentException){
                     Log.d("ChatRiseRepository", "Invalid System AlertType value: $it")
                     null
@@ -407,6 +596,18 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.d("Repository", "Error updating game status ${e.message}")
             false
         }
+    }
+    suspend fun updateUsersHadAnswered(crRoomId: String, userId: String, title: String){
+        val collection = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Games")
+            .document(title)
+
+        val snapshot = collection.get().await()
+        if (snapshot.exists()){
+
+        }
+
     }
     suspend fun updateUserGameAlert(crRoomId: String, userId: String, gameName: String): Boolean?{
         return try {
