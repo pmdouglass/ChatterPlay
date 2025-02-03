@@ -1,6 +1,7 @@
 package com.example.chatterplay.view_model
 
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -95,6 +96,8 @@ class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): V
         }
     }
 
+
+
     // Monitor the backend for room readiness
     private fun monitorPendingUsers() {
         viewModelScope.launch {
@@ -114,8 +117,7 @@ class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): V
                             // get roomID
                             val roomId = userRepository.getcrRoomId(userId)
                             if (roomId != null){
-                                val addRoomId = userRepository.updateUserGameRoomId(userIds = usersToUpdate, roomId = roomId)
-                                userRepository.saveUserLocalcrRoomId(userId, roomId)
+                                val addRoomId = userRepository.updateUsersGameRoomId(userIds = usersToUpdate, roomId = roomId)
                                 // add users document
                                 userRepository.createCRSelectedProfileUsers(crRoomId = roomId, userIds = usersToUpdate)
                                 if (addRoomId){

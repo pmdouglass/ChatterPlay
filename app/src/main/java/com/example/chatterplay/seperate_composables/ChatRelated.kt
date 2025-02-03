@@ -402,7 +402,8 @@ fun AlertingScreen(
     val pitch1 =
         when (systemAlertType){
             AlertType.none.string -> {""}
-            AlertType.new_player.string -> {""}
+            AlertType.new_player.string -> {"The game just got more interesting!"}
+            AlertType.fresh_player.string -> {"You've officially joined the group!"}
             AlertType.game.string ->
                 gameInfo?.let { game ->
                     "You will now Play\n\n\n${game.title}"
@@ -417,7 +418,8 @@ fun AlertingScreen(
     val pitch2 =
         when (systemAlertType) {
             AlertType.none.string -> {""}
-            AlertType.new_player.string -> {""}
+            AlertType.new_player.string -> {"A new member has arrived"}
+            AlertType.fresh_player.string -> {"Alliances have been formed and rivalries exist."}
             AlertType.game.string ->
                 gameInfo?.let { game ->
                     when (game.mode){
@@ -436,6 +438,8 @@ fun AlertingScreen(
     val pitch3 =
         when (systemAlertType) {
             AlertType.none.string -> {""}
+            AlertType.new_player.string -> {"Will they be a friend, an ally, or your next biggest threat?"}
+            AlertType.fresh_player.string -> {"but there's still plenty of room to make your mark."}
             AlertType.game.string -> gameInfo?.let { game ->
                 when(game.type){
                     "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"

@@ -612,7 +612,7 @@ fun InviteSelectScreen(
                                 .clip(CircleShape)
                         )
                         Text(
-                            "${user.fname} ${user.lname}",
+                            if (game) "${user.fname}" else "${user.fname} ${user.lname}",
                             fontWeight = FontWeight.SemiBold,
                             color = if (game) Color.White else Color.Black,
                             modifier = Modifier

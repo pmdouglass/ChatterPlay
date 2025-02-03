@@ -53,13 +53,15 @@ import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
+import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 
 @Composable
 fun RankingScreen(
     crRoomId: String,
-    allChatRoomMembers: List<UserProfile>
+    allChatRoomMembers: List<UserProfile>,
+    viewModel: ChatViewModel = viewModel()
 ){
 
     // Create SharedPreferences
@@ -74,14 +76,10 @@ fun RankingScreen(
     val currentMode by crViewModel.rankingStatus.collectAsState()
 
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val allRisers by viewModel.allRisers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val rankedMembers by crViewModel.rankedUsers.collectAsState()
-    val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(chatRoomMembers.size) {add(null)} }}
-    val leftRiser = remember {
-        mutableStateListOf<UserProfile?>().apply {
-            addAll(chatRoomMembers)
-        }
-    }
+
 
     val selectedAction = remember { mutableStateOf<Int?>(null)}
     val isSwapWithRightMode = remember { mutableStateOf(false) }
@@ -92,12 +90,20 @@ fun RankingScreen(
     val isRightSideClickable = remember { mutableStateOf(true)}
     val selectedImage = remember { mutableStateOf<UserProfile?>(null)}
 
-    isRightSideComplete.value = rightRiser.all { it != null }
 
     LaunchedEffect(crRoomId, currentMode){
+        viewModel.fetchAllRisers(crRoomId)
         crViewModel.checkUserRankingStatus(crRoomId = crRoomId, userId = currentUser?.uid ?: "")
         crViewModel.fetchAndSortRankings(crRoomId)
     }
+    val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(allRisers.size) {add(null)} }}
+    val leftRiser = remember {
+        mutableStateListOf<UserProfile?>().apply {
+            addAll(allRisers)
+        }
+    }
+    isRightSideComplete.value = rightRiser.all { it != null }
+
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     LaunchedEffect(Unit){

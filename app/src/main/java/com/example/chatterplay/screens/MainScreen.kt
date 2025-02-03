@@ -99,10 +99,16 @@ fun MainScreen(
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
     val showAlert by crViewModel.showAlert.collectAsState()
     val profile = rememberCRProfile(crRoomId = crRoomId)
+    val allRisers by viewModel.allRisers.collectAsState()
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val memberCount by viewModel.chatRoomMembersCount.collectAsState()
 
+    val RisersAll = allRisers
+        .toMutableList()
+        .apply {
+            add(profile)
+        }
 
     // Navigation tab Icons 'Description to Icon'
     val tabs = listOf(
@@ -114,7 +120,8 @@ fun MainScreen(
 
     var invite by remember { mutableStateOf(false)}
 
-    LaunchedEffect(crRoomId){
+    LaunchedEffect(crRoomId, showAlert){
+        viewModel.fetchAllRisers(crRoomId)
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
         crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
@@ -122,10 +129,8 @@ fun MainScreen(
         crViewModel.fetchSystemAlertType(crRoomId)
         crViewModel.checkforUserAlert(crRoomId)
 
-
-
-
     }
+    Log.d("MainScreen", "All members $allChatRoomMembers")
     val allMembersHasAnswered by crViewModel.allMembersHasAnswered // sees if current user done with answers
     val userHasAnswered by crViewModel.userDoneAnswering
 
@@ -243,7 +248,7 @@ fun MainScreen(
                                 .fillMaxWidth()
                         ){
                             Button(onClick = {
-                                val userIds: List<String> = allChatRoomMembers.map { it.userId }
+                                val userIds: List<String> = RisersAll.map { it.userId }
                                 crViewModel.generateRandomGameInfo(crRoomId) { randomGame ->
                                     if (randomGame != null){
                                         selectedGame = randomGame
@@ -255,7 +260,7 @@ fun MainScreen(
                                                 crRoomId = crRoomId,
                                                 userIds = userIds,
                                                 gameInfo = game,
-                                                allMembers = allChatRoomMembers,
+                                                allMembers = RisersAll,
                                                 context = context
                                             )
 
@@ -280,7 +285,7 @@ fun MainScreen(
                             }
 
                             Button(onClick = {
-                                val userIds: List<String> = allChatRoomMembers.map { it.userId }
+                                val userIds: List<String> = RisersAll.map { it.userId }
                                 if (gameInfo != null){
                                     gameInfo?.let { game->
                                         crViewModel.resetGames(crRoomId, userIds, game.title, context = context)
@@ -297,8 +302,9 @@ fun MainScreen(
                                 crViewModel.updateSystemAlertType(
                                     crRoomId = crRoomId,
                                     alertType = AlertType.game,
-                                    allMembers = allChatRoomMembers,
-                                    context = context
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = userId
                                 )
 
                             }){
@@ -316,8 +322,9 @@ fun MainScreen(
                                 crViewModel.updateSystemAlertType(
                                     crRoomId = crRoomId,
                                     alertType = AlertType.ranking,
-                                    allMembers = allChatRoomMembers,
-                                    context = context
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = userId
                                 )
 
 
@@ -329,11 +336,10 @@ fun MainScreen(
                                 crViewModel.updateSystemAlertType(
                                     crRoomId = crRoomId,
                                     alertType = AlertType.none,
-                                    allMembers = allChatRoomMembers,
-                                    context = context
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = userId
                                 )
-
-
                             }){
                                 Text("alert to none")
                             }
@@ -347,8 +353,6 @@ fun MainScreen(
                                     Text("null")
                                 }
                             }
-
-
                         }
                         Row(
                             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -360,8 +364,9 @@ fun MainScreen(
                                 crViewModel.updateSystemAlertType(
                                     crRoomId = crRoomId,
                                     alertType = AlertType.game_results,
-                                    allMembers = allChatRoomMembers,
-                                    context = context
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = userId
                                 )
 
                             }){
@@ -372,11 +377,43 @@ fun MainScreen(
                                 crViewModel.updateSystemAlertType(
                                     crRoomId = crRoomId,
                                     alertType = AlertType.rank_results,
-                                    allMembers = allChatRoomMembers,
-                                    context = context
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = userId
                                 )
                             }){
                                 Text("Alert to RankResults")
+                            }
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ){
+                            Button(onClick = {
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.new_player,
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = userId
+                                )
+                                coroutineScope.launch {
+                                    viewModel.fetchAllRisers(crRoomId)
+                                }
+                            }){
+                                Text("New Player")
+                            }
+                            Button(onClick = {
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.blocking,
+                                    allMembers = RisersAll,
+                                    context = context,
+                                    userId = "xlqEYiw505cY0wElaKzepCTzrVq2"
+                                )
+                            }){
+                                Text("Block Player")
                             }
                         }
 
@@ -444,7 +481,7 @@ fun MainScreen(
                                         selectedMemberProfile = member
                                         showMemberProfile = true
                                     },
-                                    chatRoomMembers = chatRoomMembers,
+                                    chatRoomMembers = allRisers,
                                     crRoomId = crRoomId,
                                     profile = profile,
                                     navController = navController

@@ -527,6 +527,7 @@ class ChatViewModel: ViewModel() {
                     game = game,
                     mainChat = mainChat
                 )
+                Log.d("ChatViewModel", "Fetched room members $members")
                 _allChatRoomMembers.value = members
 
                 Log.d("ChatViewModel", "Successfully fetched ${members.size} members for roomId: $roomId")

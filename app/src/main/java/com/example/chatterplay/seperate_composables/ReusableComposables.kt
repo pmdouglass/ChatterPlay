@@ -48,7 +48,6 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -229,8 +228,6 @@ fun ChatRiseThumbnail(
 
     val isReadyToDisplay by remember {
         derivedStateOf {
-            crRoomId != null &&
-                    crRoomId!!.isNotEmpty() &&
                     userStatus != null &&
                     userDoneAnswering != null &&
                     alertChange != null
@@ -317,192 +314,153 @@ fun ChatRiseThumbnail(
                 }
 
             }
-            if (isReadyToDisplay){
-                when {
-                    userStatus == "NotPending" -> {
-                        Column(
+            when {
+                userStatus == "NotPending" -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                    ){
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                         ){
+                            Column (
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ){
+                                Text(
+                                    "Play as"
+                                )
+                                Row (
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Start,
+                                    modifier = Modifier
+                                ){
+
+                                    Text(
+                                        "Self",
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .width(width.dp)
+                                            .clip(RoundedCornerShape(25.dp))
+                                            .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
+                                            .background(if (selfSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
+                                            .padding(3.dp)
+                                            .clickable {
+                                                selfSelect = true
+                                                altSelect = false
+                                            }
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        "Someone Else",
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .width(width.dp)
+                                            .clip(RoundedCornerShape(25.dp))
+                                            .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
+                                            .background(if (altSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
+                                            .padding(3.dp)
+                                            .clickable {
+                                                selfSelect = false
+                                                altSelect = true
+                                            }
+                                    )
+
+                                }
+                            }
                             Row(
+                                horizontalArrangement = Arrangement.End,
                                 modifier = Modifier
                                     .fillMaxWidth()
                             ){
-                                Column (
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ){
-                                    Text(
-                                        "Play as"
-                                    )
-                                    Row (
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Start,
+                                if (selfSelect){
+                                    Column(
+                                        horizontalAlignment = Alignment.End,
                                         modifier = Modifier
+                                            .padding(end = 20.dp)
                                     ){
-
-                                        Text(
-                                            "Self",
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier
-                                                .width(width.dp)
-                                                .clip(RoundedCornerShape(25.dp))
-                                                .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
-                                                .background(if (selfSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
-                                                .padding(3.dp)
-                                                .clickable {
-                                                    selfSelect = true
-                                                    altSelect = false
-                                                }
+                                        Text(personalProfile.fname,
+                                            fontSize = 10.sp
                                         )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Text(
-                                            "Someone Else",
-                                            textAlign = TextAlign.Center,
-                                            modifier = Modifier
-                                                .width(width.dp)
-                                                .clip(RoundedCornerShape(25.dp))
-                                                .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
-                                                .background(if (altSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
-                                                .padding(3.dp)
-                                                .clickable {
-                                                    selfSelect = false
-                                                    altSelect = true
-                                                }
+                                        Text(personalProfile.age,
+                                            fontSize = 10.sp
                                         )
-
                                     }
-                                }
-                                Row(
-                                    horizontalArrangement = Arrangement.End,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                ){
-                                    if (selfSelect){
+                                    Image(
+                                        painter = rememberAsyncImagePainter(personalProfile.imageUrl),
+                                        contentDescription =null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape)
+                                    )
+                                }else {
+                                    if (hasAlternateProfile){
                                         Column(
                                             horizontalAlignment = Alignment.End,
                                             modifier = Modifier
                                                 .padding(end = 20.dp)
                                         ){
-                                            Text(personalProfile.fname,
+                                            Text(alternateProfile.fname,
                                                 fontSize = 10.sp
                                             )
-                                            Text(personalProfile.age,
+                                            Text(alternateProfile.age,
                                                 fontSize = 10.sp
                                             )
                                         }
                                         Image(
-                                            painter = rememberAsyncImagePainter(personalProfile.imageUrl),
+                                            painter = rememberAsyncImagePainter(alternateProfile.imageUrl),
                                             contentDescription =null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
                                                 .size(40.dp)
                                                 .clip(CircleShape)
-                                        )
-                                    }else {
-                                        if (hasAlternateProfile){
-                                            Column(
-                                                horizontalAlignment = Alignment.End,
-                                                modifier = Modifier
-                                                    .padding(end = 20.dp)
-                                            ){
-                                                Text(alternateProfile.fname,
-                                                    fontSize = 10.sp
-                                                )
-                                                Text(alternateProfile.age,
-                                                    fontSize = 10.sp
-                                                )
-                                            }
-                                            Image(
-                                                painter = rememberAsyncImagePainter(alternateProfile.imageUrl),
-                                                contentDescription =null,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                                    .clip(CircleShape)
-                                                    .clickable {
-                                                        navController.navigate("signupScreen2/${email}/${password}/true")
-                                                    }
-                                            )
-                                        } else {
-                                            Column(
-                                                horizontalAlignment = Alignment.End,
-                                                modifier = Modifier
-                                                    .padding(end = 20.dp)
-                                            ){
-                                                Text("Create a profile",
-                                                    fontSize = 10.sp
-                                                )
-                                                Text("",
-                                                    fontSize = 10.sp
-                                                )
-                                            }
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(40.dp)
-                                            ){
-                                                IconButton(onClick = {
+                                                .clickable {
                                                     navController.navigate("signupScreen2/${email}/${password}/true")
-
-                                                }) {
-                                                    Icon(
-                                                        Icons.Default.PersonAdd,
-                                                        contentDescription = null,
-                                                        modifier = Modifier
-                                                            .fillMaxSize()
-                                                    )
                                                 }
+                                        )
+                                    } else {
+                                        Column(
+                                            horizontalAlignment = Alignment.End,
+                                            modifier = Modifier
+                                                .padding(end = 20.dp)
+                                        ){
+                                            Text("Create a profile",
+                                                fontSize = 10.sp
+                                            )
+                                            Text("",
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Box(
+                                            modifier = Modifier
+                                                .size(40.dp)
+                                        ){
+                                            IconButton(onClick = {
+                                                navController.navigate("signupScreen2/${email}/${password}/true")
+
+                                            }) {
+                                                Icon(
+                                                    Icons.Default.PersonAdd,
+                                                    contentDescription = null,
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                )
                                             }
                                         }
-
                                     }
-                                }
 
-                            }
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                            ){
-                                Image(
-                                    painter = painterResource(id = R.drawable.account_select_person2),
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .weight(1f)
-                                        .size(130.dp)
-
-                                )
-                                Button(onClick = {
-                                    val updatedProfile = when {
-                                        selfSelect -> { personalProfile.copy(selectedProfile = "self")}
-                                        altSelect -> { personalProfile.copy(selectedProfile = "alt")}
-                                        else -> { personalProfile}
-                                    }
-                                    val altUpdatedProfile = when {
-                                        selfSelect -> {alternateProfile.copy(selectedProfile = "self")}
-                                        altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
-                                        else -> { alternateProfile}
-                                    }
-                                    viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = updatedProfile, game = false)
-                                    viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = altUpdatedProfile, game = true)
-                                    roomCreate.setToPending()
-                                },
-                                    modifier = Modifier
-                                        .padding(5.dp)
-                                ) {
-                                    Text("Play")
                                 }
                             }
 
                         }
-                    }
-                    userStatus == "Pending" -> {
-                        Column(
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
                             modifier = Modifier
-                                .fillMaxSize()
+                                .fillMaxWidth()
                         ){
                             Image(
-                                painter = painterResource(id = R.drawable.waiting),
+                                painter = painterResource(id = R.drawable.account_select_person2),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -510,69 +468,107 @@ fun ChatRiseThumbnail(
                                     .size(130.dp)
 
                             )
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                            ){
-
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center
-                                ){
-                                    Image(
-                                        painter = when {
-                                            selfSelect -> { rememberAsyncImagePainter(personalProfile.imageUrl)}
-                                            altSelect -> { rememberAsyncImagePainter(alternateProfile.imageUrl)}
-                                            else -> { painterResource(R.drawable.anonymous)}
-                                        },
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                    )
-                                    Text(
-                                        text = when {
-                                            selfSelect -> {personalProfile.fname}
-                                            altSelect -> {alternateProfile.fname}
-                                            else -> { "No Name"}
-
-                                        },
-                                        fontSize = 10.sp
-                                    )
-
+                            Button(onClick = {
+                                val updatedProfile = when {
+                                    selfSelect -> { personalProfile.copy(selectedProfile = "self")}
+                                    altSelect -> { personalProfile.copy(selectedProfile = "alt")}
+                                    else -> { personalProfile}
                                 }
+                                val altUpdatedProfile = when {
+                                    selfSelect -> {alternateProfile.copy(selectedProfile = "self")}
+                                    altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
+                                    else -> { alternateProfile}
+                                }
+                                viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = updatedProfile, game = false)
+                                viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = altUpdatedProfile, game = true)
+                                roomCreate.setToPending()
+                            },
+                                modifier = Modifier
+                                    .padding(5.dp)
+                            ) {
+                                Text("Play")
+                            }
+                        }
 
-                                Text(
-                                    "Waiting for\nOthers",
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier
-                                        .padding(start = 5.dp, end = 5.dp)
-                                )
-                                AnimatedDots()
+                    }
+                }
+                userStatus == "Pending" -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                    ){
+                        Image(
+                            painter = painterResource(id = R.drawable.waiting),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .size(130.dp)
+
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        ){
+
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ){
                                 Image(
-                                    painter = painterResource(id = R.drawable.person_sillouette),
+                                    painter = when {
+                                        selfSelect -> { rememberAsyncImagePainter(personalProfile.imageUrl)}
+                                        altSelect -> { rememberAsyncImagePainter(alternateProfile.imageUrl)}
+                                        else -> { painterResource(R.drawable.anonymous)}
+                                    },
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(45.dp)
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
                                 )
+                                Text(
+                                    text = when {
+                                        selfSelect -> {personalProfile.fname}
+                                        altSelect -> {alternateProfile.fname}
+                                        else -> { "No Name"}
+
+                                    },
+                                    fontSize = 10.sp
+                                )
+
                             }
+
+                            Text(
+                                "Waiting for\nOthers",
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .padding(start = 5.dp, end = 5.dp)
+                            )
+                            AnimatedDots()
+                            Image(
+                                painter = painterResource(id = R.drawable.person_sillouette),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(45.dp)
+                            )
                         }
                     }
-                    roomReady -> {
-                        if (crRoomId != "0"){
-                            crRoomId?.let { crRoomId ->
-                                Column(
-                                    verticalArrangement = Arrangement.Bottom,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable {
-                                            navController.navigate("mainScreen/$crRoomId")
-                                        }
-                                ) {
+                }
+                roomReady -> {
+                    if (crRoomId != "0"){
+                        crRoomId?.let { crRoomId ->
+                            Column(
+                                verticalArrangement = Arrangement.Bottom,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable {
+                                        navController.navigate("mainScreen/$crRoomId")
+                                    }
+                            ) {
 /*
                                     if (alertChange == true){
                                         Row(
@@ -590,47 +586,50 @@ fun ChatRiseThumbnail(
                                     }
                                     */
 
-                                    if (userDoneAnswering == true){
-                                        ChatMainPreviewLazyColumn(
-                                            crRoomId = crRoomId,
-                                            roomId = crRoomId,
-                                        )
-                                    }else {
-                                        if (gameInfo != null){
-                                            gameInfo?.let { game ->
-                                                Row(
-                                                    horizontalArrangement = Arrangement.Center,
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
-                                                ){
-                                                    Text(
-                                                        "You Must Complete\n\n${game.title}",
-                                                        style = CRAppTheme.typography.H3,
-                                                        color = Color.Black,
-                                                        textAlign = TextAlign.Center
-                                                    )
-                                                }
+                                if (userDoneAnswering == true){
+                                    ChatMainPreviewLazyColumn(
+                                        crRoomId = crRoomId,
+                                        roomId = crRoomId,
+                                    )
+                                }else {
+                                    if (gameInfo != null){
+                                        gameInfo?.let { game ->
+                                            Row(
+                                                horizontalArrangement = Arrangement.Center,
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                            ){
+                                                Text(
+                                                    "You Must Complete\n\n${game.title}",
+                                                    style = CRAppTheme.typography.H3,
+                                                    color = Color.Black,
+                                                    textAlign = TextAlign.Center
+                                                )
                                             }
                                         }
                                     }
-
-
-
-
-
-
                                 }
+
+
+
+
+
+
                             }
                         }
                     }
-                    else -> {
-                        Text("Nothing Selected")
-                    }
-
-
                 }
+                else -> {
+                    Text("Nothing Selected")
+                }
+
+
+            }
+            if (isReadyToDisplay){
+
             }else {
+                /*
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
@@ -638,6 +637,8 @@ fun ChatRiseThumbnail(
                 ){
                     CircularProgressIndicator(color = Color.Black)
                 }
+
+                 */
             }
 
         }

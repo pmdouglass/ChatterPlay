@@ -18,6 +18,7 @@ import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRiseRepository
+import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -45,6 +46,7 @@ class ChatRiseViewModelFactory(
 class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
+    val entryRepository = RoomCreateRepository(sharedPreferences)
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
@@ -79,6 +81,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             } else {
                 Log.d("ChatRiseviewModel", "Same AlertType no action taken.")
             }
+
         }
     }
     fun checkForAlertChange(crRoomId: String) {
@@ -116,6 +119,11 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
         viewModelScope.launch {
             val profile = chatRepository.getUserProfile(crRoomId, userId)
             _userProfile.value = profile
+        }
+    }
+    fun blockSelectedMember(crRoomId: String, userId: String){
+        viewModelScope.launch {
+            chatRepository.blockSelectedPlayer(crRoomId, userId)
         }
     }
 
@@ -653,7 +661,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
-    fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, context: Context){
+    fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, userId: String, context: Context){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")
             try {
@@ -661,6 +669,9 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 Log.d("ChatriseViewModel", "Updating AlertType successfully changed to: $alertType")
                 val newType = chatRepository.getSystemAlertType(crRoomId)
                 when (newType){
+                    AlertType.new_player.string -> {
+                        newPlayerInvite(crRoomId)
+                    }
                     AlertType.game.string -> {
                         generateRandomGameInfo(crRoomId = crRoomId) {game ->
                             if (game != null){
@@ -713,6 +724,9 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     AlertType.rank_results.string -> {
                         setAllVotesToDone(crRoomId)
                         checkUserRankingStatus(crRoomId, userId)
+                    }
+                    AlertType.blocking.string -> {
+                        chatRepository.blockSelectedPlayer(crRoomId, userId)
                     }
                 }
                 _systemAlertType.value = newType
@@ -1123,5 +1137,40 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
         }
     }
 
+    /**
+     * New Player Management
+     */
+    fun newPlayerInvite(crRoomId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("EntryViewModel", "Fetching users in Pending state...")
+
+                val pendingUsers = entryRepository.fetchUsersPendingState()
+                Log.d("EntryViewModel", "Fetched ${pendingUsers.size} pending users.")
+
+                if (pendingUsers.isNotEmpty()) {
+                    val pickedUser = pendingUsers.take(1) // Take one user
+                    Log.d("EntryViewModel", "Picked user for invite: $pickedUser")
+
+                    val success = entryRepository.updateUsersToInGame(pickedUser)
+                    if (success) {
+                        Log.d("EntryViewModel", "User successfully updated to InGame.")
+
+                        entryRepository.updateUsersGameRoomId(userIds = pickedUser, roomId = crRoomId)
+                        Log.d("EntryViewModel", "User's Game Room ID updated to $crRoomId.")
+
+                        entryRepository.createCRSelectedProfileUsers(crRoomId = crRoomId, userIds = pickedUser)
+                        Log.d("EntryViewModel", "CR Selected Profile Users created for room: $crRoomId.")
+                    } else {
+                        Log.e("EntryViewModel", "Error updating user to InGame.")
+                    }
+                } else {
+                    Log.d("EntryViewModel", "No Pending Users found.")
+                }
+            } catch (e: Exception) {
+                Log.e("EntryViewModel", "Error in newPlayerInvite: ${e.message}", e)
+            }
+        }
+    }
 
 }

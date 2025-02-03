@@ -23,6 +23,7 @@ import kotlinx.serialization.encodeToString
 
 class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     private val firestore = FirebaseFirestore.getInstance()
+    private val userCollection = firestore.collection("Users")
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
 
     private val users = "Users"
@@ -71,6 +72,58 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             emptyList()
         }
     }
+    suspend fun blockSelectedPlayer(crRoomId: String, userId: String) {
+        try {
+            Log.d("Firestore", "Starting process to block user $userId from room $crRoomId")
+
+            // Reference to the "users" collection inside the chat room
+            val roomCollectionRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Users")
+
+            Log.d("Firestore", "Fetching documents inside users collection for room: $crRoomId")
+
+            // Fetch all documents inside the "users" collection
+            val documents = roomCollectionRef.get().await()
+
+            var deleted = false
+            for (document in documents.documents) {
+                if (document.id == userId) {
+                    Log.d("Firestore", "Found user document with ID $userId. Deleting now...")
+
+                    roomCollectionRef.document(document.id).delete().await()
+                    Log.d("Firestore", "Successfully deleted user document: $userId from room $crRoomId")
+                    deleted = true
+                    break
+                }
+            }
+
+            if (!deleted) {
+                Log.w("Firestore", "User document $userId not found in room $crRoomId. Skipping deletion.")
+            }
+
+            // Reference to the user document in userCollection
+            val userDocRef = userCollection.document(userId)
+
+            Log.d("Firestore", "Updating user $userId's room status...")
+
+            // Update the user's status in Firestore
+            userDocRef.update(
+                mapOf(
+                    "gameRoomId" to "0",
+                    "pending" to "NotPending"
+                )
+            ).await()
+
+            Log.d("Firestore", "Successfully updated user $userId: gameRoomId -> 0, pending -> NotPending")
+
+        } catch (e: Exception) {
+            Log.e("Firestore", "Error blocking user $userId from room $crRoomId", e)
+        }
+    }
+
+
+
 
 
 

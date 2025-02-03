@@ -48,7 +48,7 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
             false
         }
     }
-    suspend fun updateUserGameRoomId(userIds: List<String>, roomId: String): Boolean{
+    suspend fun updateUsersGameRoomId(userIds: List<String>, roomId: String): Boolean{
         return try {
             val batch = firestore.batch()
             userIds.forEach { userId ->
