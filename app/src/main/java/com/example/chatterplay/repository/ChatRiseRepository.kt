@@ -730,6 +730,40 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("Repository", "Transaction failure: Failed to update ranking", e)
         }
     }
+    suspend fun getUserGivenVotes(crRoomId: String, userId: String, getUserProfile: suspend (String) -> UserProfile?): List<Pair<UserProfile, Int>>? {
+        return try {
+            val rankingsRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Rankings")
+                .get()
+                .await()
+
+            val userVotes = mutableListOf<Pair<UserProfile, Int>>()
+
+            for (document in rankingsRef.documents) {
+                val memberId = document.id // The user who received the vote
+                val votes = document.get("votes") as? Map<String, Map<String, Any>> ?: emptyMap()
+                val pointsGiven = (votes[userId]?.get("pointsGiven") as? Long)?.toInt() ?: 0
+
+                if (pointsGiven > 0) {
+                    val userProfile = getUserProfile(memberId) // Fetch UserProfile using memberId
+                    userProfile?.let {
+                        userVotes.add(it to pointsGiven) // Pair(UserProfile, pointsGiven)
+                    }
+                }
+            }
+
+            // Sort in descending order based on points given
+            val sortedVotes = userVotes.sortedByDescending { it.second }
+
+            Log.d("Repository", "User $userId has given votes (sorted): $sortedVotes")
+            sortedVotes
+        } catch (e: Exception) {
+            Log.e("Repository", "Failed to fetch votes given by user $userId", e)
+            null // Return null if an error occurs
+        }
+    }
+
     fun saveBonusPoint(crRoomId: String, userId: String, bonus: Int){
         val rankingRef = crGameRoomsCollection
             .document(crRoomId)
@@ -748,6 +782,12 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     }
     suspend fun getRanks(crRoomId: String) =
         crGameRoomsCollection.document(crRoomId).collection("Rankings").get().await()!!
+    suspend fun getUserVotes(crRoomId: String, userId: String){
+        val documentSnapshot = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Rankings")
+            .document()
+    }
     suspend fun getUserRankingStatus(crRoomId: String, userId: String): String? {
         return try {
             val documentSnapshot = crGameRoomsCollection

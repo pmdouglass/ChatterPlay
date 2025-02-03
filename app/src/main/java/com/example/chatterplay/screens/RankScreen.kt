@@ -82,6 +82,7 @@ fun RankingScreen(
             addAll(chatRoomMembers)
         }
     }
+
     val selectedAction = remember { mutableStateOf<Int?>(null)}
     val isSwapWithRightMode = remember { mutableStateOf(false) }
     val swapWithRightIndex = remember { mutableStateOf<Int?>(null) }
@@ -122,7 +123,7 @@ fun RankingScreen(
         Text(
             when (currentMode){
                 "View" -> {
-                    "Player Ranks"
+                    "Current Ranks"
                 }
                 "Ranking" -> {
                     "Vote your players"
@@ -145,7 +146,7 @@ fun RankingScreen(
         when (currentMode) {
             "View" -> {
                 Button(onClick = {
-                    crViewModel.updateToRanking(crRoomId, currentUser?.uid ?: "")
+                    crViewModel.updateToRanking(crRoomId, currentUser?.uid ?: "", allChatRoomMembers)
                 }){Text("Go to Ranking")}
             }
             "Ranking" -> {
@@ -192,7 +193,7 @@ fun RankingScreen(
                             isSwapWithRightMode = isSwapWithRightMode
                         )
 
-                        NewPlace(
+                        rightList(
                             rightRiser = rightRiser,
                             selectedAction = selectedAction,
                             selectedImage = selectedImage,
@@ -204,24 +205,11 @@ fun RankingScreen(
                             isRightSideClickable = isRightSideClickable
                         )
                     }
-
 
                     "Done" -> {
-                        NewPlace(
-                            rightRiser = rightRiser,
-                            selectedAction = selectedAction,
-                            selectedImage = selectedImage,
-                            leftRiser = leftRiser,
-                            isSwapWithRightMode = isSwapWithRightMode,
-                            swapWithRightIndex = swapWithRightIndex,
-                            isSwapWithLeftMode = isSwapWithLeftMode,
-                            swapWithLeftIndex = swapWithLeftIndex,
-                            isRightSideClickable = isRightSideClickable
-                        )
+                        UsersSelectedRank(crRoomId)
                     }
                 }
-
-
             }
             Box(
                 modifier = Modifier
@@ -467,7 +455,7 @@ fun LeftList(
 }
 
 @Composable
-fun NewPlace(
+fun rightList(
     leftRiser: MutableList<UserProfile?>,
     rightRiser: MutableList<UserProfile?>,
     selectedAction: MutableState<Int?>,
@@ -579,6 +567,81 @@ fun NewPlace(
                 selectedAction.value = null
             }
         )
+    }
+}
+@Composable
+fun UsersSelectedRank(
+    crRoomId: String
+    //userVote: List<Pair<UserProfile, Int>>
+) {
+
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
+
+    LaunchedEffect(crRoomId){
+        if (crRoomId.isNotEmpty()){
+            crViewModel.fetchUserVote(crRoomId)
+        }
+    }
+    val userVote by remember { crViewModel.userRankVote }.collectAsState()
+
+    Column(
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxHeight()
+    ) {
+        Text(
+            "Your New Choices",
+            style = CRAppTheme.typography.H2,
+            color = Color.White
+        )
+        userVote.forEachIndexed { index, (member) ->
+            Row (
+                modifier = Modifier
+                    .then(if (index == 0 || index == 1){
+                        Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                    } else {
+                        Modifier
+                    })
+
+            ){
+                Text(getOrdinal(index + 1), color = Color.White, modifier = Modifier.padding(8.dp))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+
+                ) {
+                    if (member != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(member.imageUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Black, CircleShape)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Black, CircleShape)
+                        )
+                    }
+                    Text("")
+                }
+            }
+        }
     }
 }
 

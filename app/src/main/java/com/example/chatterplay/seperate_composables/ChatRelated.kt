@@ -409,7 +409,7 @@ fun AlertingScreen(
                 } ?: "Game Information Not Available"
             AlertType.game_results.string -> {"The results are in"}
             AlertType.ranking.string -> "It's time to rank your fellow players and decide who stands out in the game."
-            AlertType.rank_results.string -> {""}
+            AlertType.rank_results.string -> {"The moment you've been waiting for is here"}
             AlertType.blocking.string -> {""}
             else -> {""}
 
@@ -429,7 +429,7 @@ fun AlertingScreen(
                 "See what everyone else answered for\n\n${game.title}"
             } ?: "Game Information Not Available"
             AlertType.ranking.string -> "Your rankings will shape the competition, so choose wisely and strategically."
-            AlertType.rank_results.string -> {""}
+            AlertType.rank_results.string -> {"The votes are locked in!"}
             AlertType.blocking.string -> {""}
             else -> "nothing selected"
         }
@@ -446,7 +446,7 @@ fun AlertingScreen(
             } ?: "Game Information Not Available"
             AlertType.game_results.string -> {"The results May suprize you!"}
             AlertType.ranking.string -> "Remember, your decisions remain confidential, but your choices could change everything."
-            AlertType.rank_results.string -> {""}
+            AlertType.rank_results.string -> {"it's time to see where everyone stands."}
             AlertType.blocking.string -> {""}
             else -> "Nothing"
         }

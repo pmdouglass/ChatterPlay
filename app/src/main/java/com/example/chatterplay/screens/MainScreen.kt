@@ -294,7 +294,12 @@ fun MainScreen(
                             }
                             Button(onClick = {
                                 Log.d("MainScreen", "Alert to game button clicked")
-                                crViewModel.updateSystemAlertType(crRoomId, AlertType.game, context)
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.game,
+                                    allMembers = allChatRoomMembers,
+                                    context = context
+                                )
 
                             }){
                                 Text("alert to game")
@@ -308,7 +313,12 @@ fun MainScreen(
                         ){
                             Button(onClick = {
                                 Log.d("MainScreen", "Alert to game button clicked")
-                                crViewModel.updateSystemAlertType(crRoomId, AlertType.ranking, context)
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.ranking,
+                                    allMembers = allChatRoomMembers,
+                                    context = context
+                                )
 
 
                             }){
@@ -316,7 +326,12 @@ fun MainScreen(
                             }
                             Button(onClick = {
                                 Log.d("MainScreen", "Alert to rank button clicked")
-                                crViewModel.updateSystemAlertType(crRoomId, AlertType.none, context)
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.none,
+                                    allMembers = allChatRoomMembers,
+                                    context = context
+                                )
 
 
                             }){
@@ -342,10 +357,26 @@ fun MainScreen(
                         ){
                             Button(onClick = {
                                 Log.d("MainScreen", "Alert to game button clicked")
-                                crViewModel.updateSystemAlertType(crRoomId, AlertType.game_results, context)
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.game_results,
+                                    allMembers = allChatRoomMembers,
+                                    context = context
+                                )
 
                             }){
                                 Text("alert to gameResults")
+                            }
+                            Button(onClick = {
+                                Log.d("MainScreen", "Alert to rankResults button clicked")
+                                crViewModel.updateSystemAlertType(
+                                    crRoomId = crRoomId,
+                                    alertType = AlertType.rank_results,
+                                    allMembers = allChatRoomMembers,
+                                    context = context
+                                )
+                            }){
+                                Text("Alert to RankResults")
                             }
                         }
 

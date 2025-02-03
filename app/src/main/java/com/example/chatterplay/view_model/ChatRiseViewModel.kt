@@ -653,7 +653,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
-    fun updateSystemAlertType(crRoomId: String, alertType: AlertType, context: Context){
+    fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, context: Context){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")
             try {
@@ -706,6 +706,13 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                                 Log.d("ChatRiseViewModel", "No game was returned for generateRandomGameInfo, skipping addGame")
                             }
                         }
+                    }
+                    AlertType.ranking.string -> {
+                        updateToRanking(crRoomId, userId, allMembers)
+                    }
+                    AlertType.rank_results.string -> {
+                        setAllVotesToDone(crRoomId)
+                        checkUserRankingStatus(crRoomId, userId)
                     }
                 }
                 _systemAlertType.value = newType
@@ -931,6 +938,8 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
      */
     private val _rankingStatus = MutableStateFlow<String?>("View")
     val rankingStatus: StateFlow<String?> = _rankingStatus
+    private val _userRankVote = MutableStateFlow<List<Pair<UserProfile, Int>>>(emptyList())
+    val userRankVote: StateFlow<List<Pair<UserProfile, Int>>> = _userRankVote
     private val _rankedUsers = MutableStateFlow<List<Pair<UserProfile, Int>>>(emptyList())
     val rankedUsers: StateFlow<List<Pair<UserProfile, Int>>> = _rankedUsers
     fun saveRanking(crRoomId: String, memberId: String, userId: String, newPoints: Int){
@@ -939,6 +948,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             chatRepository.saveRanking(crRoomId, memberId, userId, newPoints)
             chatRepository.updateUserRankingStatus(crRoomId = crRoomId, userId = userId, updatedStatus = "Done")
             checkUserRankingStatus(crRoomId = crRoomId, userId = userId)
+            fetchUserVote(crRoomId)
         }
     }
     fun fetchAndSortRankings(crRoomId: String){
@@ -960,15 +970,63 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
+
+    fun fetchUserVote(crRoomId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatRiseViewModel", "Fetching rankings for room: $crRoomId")
+
+                val rankingSnapshot = chatRepository.getRanks(crRoomId)
+                Log.d("ChatRiseViewModel", "Fetched ${rankingSnapshot.documents.size} ranking documents.")
+
+                val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
+                    val memberId = document.id
+                    val votes = document.get("votes") as? Map<String, Map<String, Any>> ?: emptyMap()
+
+                    val pointsGiven = (votes[userId]?.get("pointsGiven") as? Long)?.toInt() ?: 0
+                    Log.d("ChatRiseViewModel", "User $userId gave $pointsGiven points to $memberId")
+
+                    if (pointsGiven > 0) {
+                        val userProfile = chatRepository.getUserProfile(crRoomId, memberId)
+                        if (userProfile != null) {
+                            Log.d("ChatRiseViewModel", "Retrieved UserProfile for $memberId: ${userProfile.fname}")
+                            Pair(userProfile, pointsGiven)
+                        } else {
+                            Log.w("ChatRiseViewModel", "UserProfile not found for $memberId")
+                            null
+                        }
+                    } else {
+                        Log.d("ChatRiseViewModel", "Skipping $memberId as pointsGiven is 0")
+                        null
+                    }
+                }
+
+                // Sort results before updating the state
+                val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
+                Log.d("ChatRiseViewModel", "Sorted user votes: $sortedUserPointsList")
+
+                // Update StateFlow with the sorted list
+                _userRankVote.value = sortedUserPointsList
+                Log.d("ChatRiseViewModel", "Updated _userRankVote successfully.")
+
+            } catch (e: Exception) {
+                Log.e("ChatRiseViewModel", "Error fetching user vote rankings", e)
+            }
+        }
+    }
+
+
     fun checkUserRankingStatus(crRoomId: String, userId: String){
         viewModelScope.launch {
             val status = chatRepository.getUserRankingStatus(crRoomId, userId)
             _rankingStatus.value = status ?: "View"
         }
     }
-    fun updateToRanking(crRoomId: String, userId: String){
+    fun updateToRanking(crRoomId: String, userId: String, allMembers: List<UserProfile>){
         viewModelScope.launch {
-            chatRepository.updateUserRankingStatus(crRoomId, userId, "Ranking")
+            allMembers.forEach { member ->
+                chatRepository.updateUserRankingStatus(crRoomId, member.userId, "Ranking")
+            }
             chatRepository.resetRanking(crRoomId)
             checkUserRankingStatus(crRoomId, userId)
         }
