@@ -13,6 +13,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Answers
+import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
@@ -126,6 +127,26 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             chatRepository.blockSelectedPlayer(crRoomId, userId)
         }
     }
+
+    private val _currentRank = MutableStateFlow<Int?>(null)
+    val currentRank: StateFlow<Int?> = _currentRank
+
+    fun getUserRank(crRoomId: String) {
+        viewModelScope.launch {
+            Log.d("ViewModel", "Fetching rank for user $userId in room $crRoomId")
+
+            val rank = chatRepository.getCurrentRank(crRoomId, userId)
+
+            if (rank != null) {
+                Log.d("ViewModel", "User $userId current rank: $rank")
+                _currentRank.value = rank // ✅ Update StateFlow with new rank
+            } else {
+                Log.d("ViewModel", "No rank found for user $userId")
+                _currentRank.value = null // ✅ Ensure it's set to null if not found
+            }
+        }
+    }
+
 
 
 
@@ -669,6 +690,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 Log.d("ChatriseViewModel", "Updating AlertType successfully changed to: $alertType")
                 val newType = chatRepository.getSystemAlertType(crRoomId)
                 when (newType){
+                    //iytgbhkjlm
                     AlertType.new_player.string -> {
                         newPlayerInvite(crRoomId)
                     }
@@ -968,7 +990,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     fun fetchAndSortRankings(crRoomId: String){
         viewModelScope.launch {
             try {
-                val rankingSnapshot = chatRepository.getRanks(crRoomId)
+                val rankingSnapshot = chatRepository.getAllRankDocuments(crRoomId)
                 val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
                     val userId = document.id
                     val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
@@ -978,6 +1000,25 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 // Sort by decending
                 val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
 
+                sortedUserPointsList.forEachIndexed { index, (userProfile, _) ->
+                    val rank = index + 1
+                    chatRepository.updateCurrentRank(crRoomId, userProfile.userId, rank)
+                }
+
+                // Extract top two players (if available)
+                val topTwoPlayers = sortedUserPointsList.take(2).map { it.first.userId }
+
+                val rank1 = topTwoPlayers.getOrNull(0) ?: ""
+                val rank2 = topTwoPlayers.getOrNull(1) ?: ""
+
+                Log.d("ChatRiseViewModel", "Top Two Players -> Rank 1: $rank1, Rank 2: $rank2")
+
+                // Save top two players
+                saveTopTwoPlayers(
+                    crRoomId = crRoomId,
+                    rank1 = rank1,
+                    rank2 = rank2
+                )
                 _rankedUsers.value = sortedUserPointsList
             }catch (e: Exception){
                 Log.d("ViewModel", "Error fetching and sorting")
@@ -990,7 +1031,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             try {
                 Log.d("ChatRiseViewModel", "Fetching rankings for room: $crRoomId")
 
-                val rankingSnapshot = chatRepository.getRanks(crRoomId)
+                val rankingSnapshot = chatRepository.getAllRankDocuments(crRoomId)
                 Log.d("ChatRiseViewModel", "Fetched ${rankingSnapshot.documents.size} ranking documents.")
 
                 val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
@@ -1053,16 +1094,6 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 val usersNotDone = mutableListOf<String>()
                 val usersDone = mutableListOf<String>()
 
-
-                /*
-                every user who has not voted to vote
-                    who has not voted?
-                        usersNotDone
-                who are they voting on
-                    who is every user?
-                        allUsers
-
-                 */
                 val allUsers = usersSnapshot.documents.map { it.id }
                 val currentUserId = this@ChatRiseViewModel.userId
 
@@ -1172,5 +1203,237 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             }
         }
     }
+
+
+    /**
+     * Blocking Management
+     */
+
+
+
+
+
+
+
+
+
+
+
+
+    /**
+     *  Top Player Mangement
+     */
+
+    private val _topPlayers = MutableStateFlow<Pair<String?, String?>?>(null)
+    val topPlayers: StateFlow<Pair<String?, String?>?> = _topPlayers
+    private val _currentUsersSelection = MutableStateFlow<UserProfile?>(null)
+    val currentUsersSelection: StateFlow<UserProfile?> = _currentUsersSelection
+    private val _otherUsersSelection = MutableStateFlow<UserProfile?>(null)
+    val otherUsersSelection: StateFlow<UserProfile?> = _otherUsersSelection
+    private val _tradeStatus = MutableStateFlow<String>("")
+    val tradeStatus: StateFlow<String> get() = _tradeStatus
+    private val _topPlayerMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val topPlayerMessages: StateFlow<List<ChatMessage>> = _topPlayerMessages
+
+
+
+    fun topPlayerDiscuss(crRoomId: String, memberIds: List<String>){
+        viewModelScope.launch {
+            val allMemberIds = (memberIds).sorted()
+            val roomName = "Leader Discussion"
+            val existingRoomId = chatRepository.checkIfTopPlayerRoomExist(crRoomId, allMemberIds)
+
+            if (existingRoomId != null){
+
+            } else {
+                val roomId = chatRepository.createTopPlayerChatRoom(crRoomId, allMemberIds, roomName)
+                memberIds.forEach { memberIds ->
+                    chatRepository.addMemberToTopPlayerRoom(crRoomId, roomId, memberIds)
+                }
+            }
+        }
+    }
+    fun sendTopPlayerMessage(crRoomId: String, roomId: String, message: String){
+        viewModelScope.launch {
+            val userProfile = chatRepository.getUserProfile(crRoomId, userId)
+            if (userProfile != null) {
+                val chatMessage = ChatMessage(
+                    senderId = userProfile.userId,
+                    senderName = userProfile.fname,
+                    message = message,
+                    image = userProfile.imageUrl
+                )
+                chatRepository.sendTopPlayerMessage(crRoomId, roomId, chatMessage)
+                fetchTopPlayerChatMessages(crRoomId, roomId)
+            }
+        }
+    }
+    fun sendGoodbyeMessage(crRoomId: String, roomId: String, message: String, remove: String){
+        viewModelScope.launch {
+            val userProfile = chatRepository.getUserProfile(crRoomId = crRoomId, userId)
+            if (userProfile != null) {
+                val chatMessage = ChatMessage(
+                    senderId = userProfile.userId,
+                    senderName = userProfile.fname,
+                    message = message,
+                    image = userProfile.imageUrl
+                )
+                chatRepository.sendGoodbyeMessage(crRoomId, roomId, chatMessage, remove)
+
+                checkIfRemoved(crRoomId)
+            }
+        }
+    }
+    private val _playerRemoved = MutableStateFlow(false)
+    val playerRemoved: StateFlow<Boolean> = _playerRemoved
+
+    fun checkIfRemoved(CRRoomId: String){
+        viewModelScope.launch {
+            _playerRemoved.value = chatRepository.isRemovedSet(CRRoomId)
+        }
+    }
+
+    fun fetchTopPlayerChatMessages(CRRoomId: String, roomId: String){
+        viewModelScope.launch {
+            val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+            val messages = chatRepository.getTopPlayerChatMessages(CRRoomId, roomId, userId)
+            _topPlayerMessages.value = messages
+        }
+    }
+    fun getUsersSelection(CRRoomId: String, UserId: String, isCurrentUser: Boolean) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatRiseViewModel", "Fetching user selection for CRRoomId: $CRRoomId, UserId: $UserId, isCurrentUser: $isCurrentUser")
+
+                val targetStateFlow = if (isCurrentUser) _currentUsersSelection else _otherUsersSelection
+
+                chatRepository.getUsersSelection(CRRoomId, UserId).collect { selection ->
+                    Log.d("ChatRiseViewModel", "Received selection for UserId: $UserId -> $selection")
+
+                    targetStateFlow.value = selection
+
+                    Log.d("ChatRiseViewModel", "Updated ${if (isCurrentUser) "_currentUsersSelection" else "_otherUsersSelection"} with: $selection")
+                }
+            } catch (e: Exception) {
+                Log.e("ChatRiseViewModel", "Error fetching user selection for UserId: $UserId in CRRoomId: $CRRoomId", e)
+            }
+        }
+    }
+
+    fun checkTradeStatus(CRRoomId: String) {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        viewModelScope.launch {
+            val status = chatRepository.checkTradeStatus(CRRoomId, userId)
+            _tradeStatus.value = status
+        }
+    }
+    fun updateTradeStatus(CRRoomId: String, otherUserId: String){
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        viewModelScope.launch {
+            chatRepository.UpdateTradeStatus(CRRoomId, userId, otherUserId)
+            val status = chatRepository.checkTradeStatus(CRRoomId, userId)
+            _tradeStatus.value = status
+        }
+    }
+    fun saveCurrentUsersSelection(CRRoomId: String, currentUserId: String, selectedPlayer: String){
+        viewModelScope.launch {
+            if (selectedPlayer.isNullOrEmpty()){
+                chatRepository.saveCurrentUsersSelection(CRRoomId, currentUserId, "")
+            } else{
+                chatRepository.saveCurrentUsersSelection(CRRoomId, currentUserId, selectedPlayer)
+            }
+        }
+    }
+    fun cancelTradeStatus(CRRoomId: String){
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+        viewModelScope.launch {
+            chatRepository.cancelTradeStatus(CRRoomId, userId)
+            checkTradeStatus(CRRoomId)
+        }
+    }
+    fun saveTopTwoPlayers(crRoomId: String, rank1: String, rank2: String){
+        viewModelScope.launch {
+            chatRepository.saveTopPlayers(crRoomId, rank1, rank2)
+        }
+    }
+    fun getTopPlayers(crRoomId: String){
+        viewModelScope.launch {
+            val result = chatRepository.getTopPlayers(crRoomId)
+            _topPlayers.value = result
+
+        }
+    }
+    private val _topPlayerRoomId = MutableStateFlow<String?>(null)
+    val topPlayerRoomId: StateFlow<String?> = _topPlayerRoomId
+
+    fun fetchTopPlayerRoomId(crRoomId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ChatViewModel", "Fetching Top Player Room ID for crRoomId: $crRoomId")
+
+                val roomId = chatRepository.getTopPlayerRoomId(crRoomId, userId)
+                _topPlayerRoomId.value = roomId
+
+                if (roomId != null) {
+                    Log.d("ChatViewModel", "Top Player Room ID found: $roomId")
+                } else {
+                    Log.w("ChatViewModel", "No valid Top Player Room ID found.")
+                }
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching Top Player Room ID", e)
+            }
+        }
+    }
+    private val _userSelections = MutableStateFlow<Map<String, String>>(emptyMap())
+    val userSelections: StateFlow<Map<String, String>> = _userSelections
+
+    private val _result = MutableStateFlow<String?>(null)
+    val result: StateFlow<String?> = _result
+    fun userSelectionPick(crRoomId: String, pick: String){
+        viewModelScope.launch {
+            chatRepository.userSelectionPick(crRoomId, userId, pick)
+            evaluateDecision(crRoomId)
+        }
+    }
+    fun evaluateDecision(crRoomId: String) {
+        viewModelScope.launch {
+            val selections = chatRepository.getUserPickSelection(crRoomId)
+
+            if (selections == null || selections.size < 2) return@launch // Wait until both users have selected
+
+            _userSelections.value = selections
+
+            val userIds = selections.keys.toList()
+            val user1 = userIds[0]
+            val user2 = userIds[1]
+
+            val choice1 = selections[user1] ?: return@launch
+            val choice2 = selections[user2] ?: return@launch
+
+            _result.value = when {
+                choice1 == "me" && choice2 == "you" -> user1
+                choice1 == "you" && choice2 == "me" -> user2
+                choice1 == "me" && choice2 == "me" -> listOf(user1, user2).random()
+                choice1 == "you" && choice2 == "you" -> listOf(user1, user2).random()
+                choice1 == "me" && choice2 == "random" -> user1
+                choice1 == "random" && choice2 == "me" -> user2
+                choice1 == "you" && choice2 == "random" -> user1
+                choice1 == "random" && choice2 == "you" -> user2
+                choice1 == "random" && choice2 == "random" -> listOf(user1, user2).random()
+                else -> null
+            }
+        }
+    }
+    private val _hasUserSelected = MutableStateFlow(false)
+    val hasUserSelected: StateFlow<Boolean?> = _hasUserSelected
+
+    fun checkIfUserSelected(crRoomId: String){
+        viewModelScope.launch {
+            val selection = chatRepository.getUserPickSelection(crRoomId)
+            _hasUserSelected.value = selection?.containsKey(userId) == true
+        }
+    }
+
 
 }

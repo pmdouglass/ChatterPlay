@@ -161,10 +161,7 @@ fun rememberCRProfile(
     return profile
 }
 @Composable
-fun ChatRiseThumbnail(
-    viewModel: ChatViewModel = viewModel(),
-    navController: NavController
-) {
+fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: NavController) {
     // Create SharedPreferences
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
@@ -646,11 +643,7 @@ fun ChatRiseThumbnail(
     }
 }
 @Composable
-fun ThumbnailChatList(
-    image: String,
-    message: ChatMessage,
-    isFromMe: Boolean,
-){
+fun ThumbnailChatList(image: String, message: ChatMessage, isFromMe: Boolean){
     Row (
         verticalAlignment = Alignment.Top,
         horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
@@ -1063,13 +1056,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 }
 
 @Composable
-fun ChatRiseTopBar(
-    profile: UserProfile,
-    onClick: () -> Unit,
-    onAction: () -> Unit,
-    showTopBarInfo: Boolean,
-    navController: NavController
-){
+fun ChatRiseTopBar(crRoomId: String, profile: UserProfile, onClick: () -> Unit, onAction: () -> Unit, showTopBarInfo: Boolean, navController: NavController){
 
     Column (
         modifier = Modifier
@@ -1081,17 +1068,13 @@ fun ChatRiseTopBar(
             navController = navController)
 
         if (showTopBarInfo){
-            TopBarInformation(profile = profile)
+            TopBarInformation(crRoomId = crRoomId, profile = profile)
         }
     }
 }
 
 @Composable
-fun TopBar(
-    onClick: () -> Unit,
-    onAction: () -> Unit,
-    navController: NavController
-){
+fun TopBar(onClick: () -> Unit, onAction: () -> Unit, navController: NavController){
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1131,11 +1114,22 @@ fun TopBar(
     }
 }
 @Composable
-fun TopBarInformation(
-    profile: UserProfile
-){
+fun TopBarInformation(crRoomId: String, profile: UserProfile){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
+
     val pad = 15
 
+    val currentRank by crViewModel.currentRank.collectAsState()
+    LaunchedEffect(profile){
+        crViewModel.getUserRank(crRoomId)
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -1168,7 +1162,7 @@ fun TopBarInformation(
                 .fillMaxWidth()
         ) {
             Text(
-                "Rating: 1",
+                "Rating: $currentRank",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
@@ -1194,12 +1188,7 @@ fun TopBarInformation(
 
 }
 @Composable
-fun NavigationRow(
-    tabs: List<Pair<String, ImageVector>>,
-    selectedTabIndex: Int,
-    onTabSelected: (Int) -> Unit,
-    disabledTabIndices: List<Int> = emptyList()
-) {
+fun NavigationRow(tabs: List<Pair<String, ImageVector>>, selectedTabIndex: Int, onTabSelected: (Int) -> Unit, disabledTabIndices: List<Int> = emptyList()) {
     val selectedColor = Color.White
     val unselectedColor = Color.Gray
 
@@ -1257,24 +1246,10 @@ fun NavigationRow(
         }
     }
 }
-
-
-
-
-
-
-
-
 @Composable
-fun RightSideModalDrawer(
-    drawerContent: @Composable () -> Unit,
-    reset: () -> Unit,
-    modifier: Modifier = Modifier,
-    drawerState: DrawerState = rememberDrawerState(
+fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, reset: () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
         DrawerValue.Closed
-    ),
-    content: @Composable () -> Unit
-) {
+    ), content: @Composable () -> Unit) {
     val scope = rememberCoroutineScope()
     val drawerWidth = 350.dp // Adjust the width as needed
     val drawerWidthPx = with(LocalDensity.current) { drawerWidth.toPx() }
@@ -1320,12 +1295,16 @@ fun RightSideModalDrawer(
     }
 }
 @Composable
-fun PrivateDrawerRoomList(
-    crRoomId: String,
-    onInvite: () -> Unit,
-    viewModel: ChatViewModel = viewModel(),
-    navController: NavController
-) {
+fun PrivateDrawerRoomList(crRoomId: String, onInvite: () -> Unit, viewModel: ChatViewModel = viewModel(), navController: NavController) {
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences)
+    )
 
     var searchChats by remember{ mutableStateOf("") }
 
@@ -1436,12 +1415,6 @@ fun PrivateDrawerRoomList(
 
     }
 }
-
-
-
-
-
-
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -1917,23 +1890,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
     }
 }
 @Composable
-fun SettingsInfoRow(
-    game: Boolean = false,
-    amount: Int = 1,
-    icon: ImageVector? = null,
-    contentDescription: String? = null,
-    title: String,
-    body: String = "",
-    secondBody: String = "",
-    arrow: Boolean = false,
-    extraChoice: Boolean = false,
-    onClick: () -> Unit,
-    select: Boolean = false,
-    bio: Boolean = false,
-    edit: Boolean = false,
-    editClick: Boolean = true,
-    image: Boolean = false
-) {
+fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, extraChoice: Boolean = false, onClick: () -> Unit, select: Boolean = false, bio: Boolean = false, edit: Boolean = false, editClick: Boolean = true, image: Boolean = false) {
     when {
         select -> {
             Column (

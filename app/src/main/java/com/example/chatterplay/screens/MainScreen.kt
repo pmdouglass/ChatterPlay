@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowCircleDown
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ImageAspectRatio
 import androidx.compose.material.icons.filled.Menu
@@ -86,6 +87,7 @@ fun MainScreen(
     )
 
 
+
     val usersAlertType by crViewModel.usersAlertType.collectAsState()
     val systemsAlertType by crViewModel.systemAlertType.collectAsState()
 
@@ -103,6 +105,9 @@ fun MainScreen(
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val memberCount by viewModel.chatRoomMembersCount.collectAsState()
+    var showButtons by remember { mutableStateOf(false)}
+    val topPlayers by crViewModel.topPlayers.collectAsState()
+    val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
 
     val RisersAll = allRisers
         .toMutableList()
@@ -115,7 +120,8 @@ fun MainScreen(
         "null" to Icons.Default.Home,
         "null" to Icons.Default.Person,
         "null" to Icons.Default.Menu,
-        "null" to Icons.Default.ImageAspectRatio
+        "null" to Icons.Default.ImageAspectRatio,
+        "null" to Icons.Default.ArrowCircleDown
     )
 
     var invite by remember { mutableStateOf(false)}
@@ -128,6 +134,8 @@ fun MainScreen(
         crViewModel.loadUserLocalAlertType(currentUser?.uid ?: "")
         crViewModel.fetchSystemAlertType(crRoomId)
         crViewModel.checkforUserAlert(crRoomId)
+        crViewModel.getTopPlayers(crRoomId)
+        crViewModel.fetchTopPlayerRoomId(crRoomId)
 
     }
     Log.d("MainScreen", "All members $allChatRoomMembers")
@@ -211,6 +219,7 @@ fun MainScreen(
             Scaffold(
                 topBar = {
                     ChatRiseTopBar(
+                        crRoomId = crRoomId,
                         profile = profile,
                         onClick = {showTopBarInfo = !showTopBarInfo},
                         onAction = { coroutineScope.launch { drawerState.open() }},
@@ -221,6 +230,7 @@ fun MainScreen(
                 bottomBar = {
                     when(selectedTabindex){
                         0 -> {
+
                             ChatInput(
                                 crRoomId = crRoomId,
                                 roomId = crRoomId,
@@ -242,178 +252,197 @@ fun MainScreen(
                             .padding(paddingValues)
                             .clickable { showTopBarInfo = false }
                     ){
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ){
-                            Button(onClick = {
-                                val userIds: List<String> = RisersAll.map { it.userId }
-                                crViewModel.generateRandomGameInfo(crRoomId) { randomGame ->
-                                    if (randomGame != null){
-                                        selectedGame = randomGame
-                                        Log.d("MainChat", "selectedGame successfully set: $selectedGame")
+                        Row{
+                            Button(onClick = { showButtons = !showButtons}){Text("Show All Buttons")}
+                        }
+                        if (showButtons){
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ){
+                                Button(onClick = {
+                                    val userIds: List<String> = RisersAll.map { it.userId }
+                                    crViewModel.generateRandomGameInfo(crRoomId) { randomGame ->
+                                        if (randomGame != null){
+                                            selectedGame = randomGame
+                                            Log.d("MainChat", "selectedGame successfully set: $selectedGame")
 
-                                        selectedGame?.let {game ->
-                                            Log.d("MainChat", "Attempting to add game: ${game.title} for users: $userIds")
-                                            crViewModel.saveGame(
-                                                crRoomId = crRoomId,
-                                                userIds = userIds,
-                                                gameInfo = game,
-                                                allMembers = RisersAll,
-                                                context = context
-                                            )
+                                            selectedGame?.let {game ->
+                                                Log.d("MainChat", "Attempting to add game: ${game.title} for users: $userIds")
+                                                crViewModel.saveGame(
+                                                    crRoomId = crRoomId,
+                                                    userIds = userIds,
+                                                    gameInfo = game,
+                                                    allMembers = RisersAll,
+                                                    context = context
+                                                )
 
-                                            coroutineScope.launch {
-                                                // Log the event in Firebase Analytics
-                                                val params = Bundle().apply {
-                                                    putString("cr_room_id", crRoomId)
-                                                    putString("game_name", game.title)
-                                                    putString("game_mode", game.mode)
+                                                coroutineScope.launch {
+                                                    // Log the event in Firebase Analytics
+                                                    val params = Bundle().apply {
+                                                        putString("cr_room_id", crRoomId)
+                                                        putString("game_name", game.title)
+                                                        putString("game_mode", game.mode)
+                                                    }
+                                                    AnalyticsManager.getInstance(context).logEvent("game_started", params)
+
                                                 }
-                                                AnalyticsManager.getInstance(context).logEvent("game_started", params)
-
                                             }
+                                        } else {
+                                            Log.d("MainChat", "No game was returned for generateRandomGameInfo, skipping addGame")
+                                        }
+                                    }
+                                    Log.d("MainChat", "Button to Generate clicked")
+                                }){
+                                    Text("Add Game")
+                                }
+
+                                Button(onClick = {
+                                    val userIds: List<String> = RisersAll.map { it.userId }
+                                    if (gameInfo != null){
+                                        gameInfo?.let { game->
+                                            crViewModel.resetGames(crRoomId, userIds, game.title, context = context)
                                         }
                                     } else {
-                                        Log.d("MainChat", "No game was returned for generateRandomGameInfo, skipping addGame")
+                                        Log.e("MainScreen", "gameInfo is null update")
+                                    }
+
+                                }){
+                                    Text("update allDone")
+                                }
+                                Button(onClick = {
+                                    Log.d("MainScreen", "Alert to game button clicked")
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.game,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = userId
+                                    )
+
+                                }){
+                                    Text("alert to game")
+                                }
+
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ){
+                                Button(onClick = {
+                                    Log.d("MainScreen", "Alert to game button clicked")
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.ranking,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = userId
+                                    )
+
+
+                                }){
+                                    Text("alert to rank")
+                                }
+                                Button(onClick = {
+                                    Log.d("MainScreen", "Alert to rank button clicked")
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.none,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = userId
+                                    )
+                                }){
+                                    Text("alert to none")
+                                }
+
+                                Button(onClick = {
+                                    crViewModel.checkforUserAlert(crRoomId)
+                                }){
+                                    if (usersAlertType != null){
+                                        Text("$usersAlertType")
+                                    }else {
+                                        Text("null")
                                     }
                                 }
-                                Log.d("MainChat", "Button to Generate clicked")
-                            }){
-                                Text("Add Game")
                             }
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ){
+                                Button(onClick = {
+                                    Log.d("MainScreen", "Alert to game button clicked")
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.game_results,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = userId
+                                    )
 
-                            Button(onClick = {
-                                val userIds: List<String> = RisersAll.map { it.userId }
-                                if (gameInfo != null){
-                                    gameInfo?.let { game->
-                                        crViewModel.resetGames(crRoomId, userIds, game.title, context = context)
+                                }){
+                                    Text("alert to gameResults")
+                                }
+                                Button(onClick = {
+                                    Log.d("MainScreen", "Alert to rankResults button clicked")
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.rank_results,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = userId
+                                    )
+                                }){
+                                    Text("Alert to RankResults")
+                                }
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ){
+                                Button(onClick = {
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.new_player,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = userId
+                                    )
+                                    coroutineScope.launch {
+                                        viewModel.fetchAllRisers(crRoomId)
                                     }
-                                } else {
-                                    Log.e("MainScreen", "gameInfo is null update")
+                                }){
+                                    Text("New Player")
                                 }
-
-                            }){
-                                Text("update allDone")
-                            }
-                            Button(onClick = {
-                                Log.d("MainScreen", "Alert to game button clicked")
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.game,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = userId
-                                )
-
-                            }){
-                                Text("alert to game")
-                            }
-
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ){
-                            Button(onClick = {
-                                Log.d("MainScreen", "Alert to game button clicked")
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.ranking,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = userId
-                                )
-
-
-                            }){
-                                Text("alert to rank")
-                            }
-                            Button(onClick = {
-                                Log.d("MainScreen", "Alert to rank button clicked")
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.none,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = userId
-                                )
-                            }){
-                                Text("alert to none")
-                            }
-
-                            Button(onClick = {
-                                crViewModel.checkforUserAlert(crRoomId)
-                            }){
-                                if (usersAlertType != null){
-                                    Text("$usersAlertType")
-                                }else {
-                                    Text("null")
+                                Button(onClick = {
+                                    crViewModel.updateSystemAlertType(
+                                        crRoomId = crRoomId,
+                                        alertType = AlertType.blocking,
+                                        allMembers = RisersAll,
+                                        context = context,
+                                        userId = "xlqEYiw505cY0wElaKzepCTzrVq2"
+                                    )
+                                }){
+                                    Text("Block Player")
                                 }
-                            }
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ){
-                            Button(onClick = {
-                                Log.d("MainScreen", "Alert to game button clicked")
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.game_results,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = userId
-                                )
-
-                            }){
-                                Text("alert to gameResults")
-                            }
-                            Button(onClick = {
-                                Log.d("MainScreen", "Alert to rankResults button clicked")
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.rank_results,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = userId
-                                )
-                            }){
-                                Text("Alert to RankResults")
-                            }
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ){
-                            Button(onClick = {
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.new_player,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = userId
-                                )
-                                coroutineScope.launch {
-                                    viewModel.fetchAllRisers(crRoomId)
+                                Button(onClick = {
+                                    topPlayers?.let { (rank1, rank2) ->
+                                        val isTopPlayer = userId == rank1 || userId == rank2
+                                        val memberIds = listOfNotNull(rank1, rank2)
+                                        if (isTopPlayer){
+                                            crViewModel.topPlayerDiscuss(
+                                                crRoomId = crRoomId,
+                                                memberIds = memberIds
+                                            )
+                                        }
+                                    }
+                                }){
+                                    Text("Top Player")
                                 }
-                            }){
-                                Text("New Player")
-                            }
-                            Button(onClick = {
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.blocking,
-                                    allMembers = RisersAll,
-                                    context = context,
-                                    userId = "xlqEYiw505cY0wElaKzepCTzrVq2"
-                                )
-                            }){
-                                Text("Block Player")
                             }
                         }
 
@@ -476,6 +505,7 @@ fun MainScreen(
 
                         when (selectedTabindex){
                             0 -> {
+
                                 RiseMainChat(
                                     selectedMember = { member ->
                                         selectedMemberProfile = member
@@ -530,6 +560,24 @@ fun MainScreen(
                                     crRoomId = crRoomId,
                                     allChatRoomMembers = allChatRoomMembers
                                 )
+                            }
+                            4 -> {
+                                // Temperary
+                                topPlayers?.let { (rank1, rank2) ->
+                                    val isTopPlayer = userId == rank1 || userId == rank2
+                                    if (isTopPlayer){
+                                        topPlayerRoomId?.let { roomId ->
+                                            LeaderChatScreen(
+                                                crRoomId = crRoomId,
+                                                roomId = roomId,
+                                                currentUserId = userId,
+                                                otherUserId = if (userId == topPlayers?.first) topPlayers?.second ?: "" else topPlayers?.first ?: ""
+                                            )
+                                        }
+                                    } else {
+                                        Text("You are NOT a Top Player", color = Color.Gray)
+                                    }
+                                }
                             }
                             else -> {}
                         }
