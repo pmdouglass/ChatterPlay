@@ -1330,6 +1330,24 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             null
         }
     }
+    suspend fun getGoodbyeMessage(crRoomId: String, roomId: String): ChatMessage?{
+        return try {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("TopPlayers")
+                .document(roomId)
+                .collection("Goodbye")
+                .get().await()
+
+            val document = snapshot.documents.firstOrNull()
+
+            document?.toObject(ChatMessage::class.java)
+        }catch (e: Exception) {
+            Log.e("Firestore", "Error fetching goodbye message", e)
+            null
+        }
+
+    }
 
 
 

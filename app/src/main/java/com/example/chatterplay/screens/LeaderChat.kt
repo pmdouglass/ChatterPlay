@@ -84,11 +84,12 @@ fun LeaderChatScreen(
     val selectedPlayer by crViewModel.currentUsersSelection.collectAsState()
     val otherUserSelectedPlayer by crViewModel.otherUsersSelection.collectAsState()
     var showDialog by remember{ mutableStateOf(false) }
-    val tradeStatus by crViewModel.tradeStatus.collectAsState()
+    val currentUserTradeStatus by crViewModel.currentUserTradeStatus.collectAsState()
+    val otherUserTradeStatus by crViewModel.otherUserTradeStatus.collectAsState()
     var userGoodbyeMessage by remember { mutableStateOf(false) }
     val hasUserSelected by crViewModel.hasUserSelected.collectAsState()
-    var whoMessage = if (tradeStatus == "Confirmed") true else false
-    val removedPlayer = tradeStatus == "Confirmed"
+    var whoMessage = if (currentUserTradeStatus == "Confirmed") true else false
+    val removedPlayer = currentUserTradeStatus == "Confirmed"
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
     val userSelections by crViewModel.userSelections.collectAsState()
     val result by crViewModel.result.collectAsState()
@@ -108,8 +109,8 @@ fun LeaderChatScreen(
     LaunchedEffect(crRoomId) {
         viewModel.fetchAllRisers(crRoomId)
         crViewModel.fetchTopPlayerChatMessages(crRoomId, roomId)
-        crViewModel.checkIfRemoved(crRoomId)
-        crViewModel.checkTradeStatus(crRoomId)
+        crViewModel.checkUserRemoved(crRoomId)
+        crViewModel.checkTradeStatus(crRoomId, otherUserId)
         crViewModel.evaluateDecision(crRoomId)
         crViewModel.checkIfUserSelected(crRoomId)
     }
@@ -136,8 +137,7 @@ fun LeaderChatScreen(
     ) {
 
 
-        Text("Trade Status: $tradeStatus", color = Color.White, style = CRAppTheme.typography.H2)
-        if (tradeStatus != "Confirmed"){
+        if (currentUserTradeStatus != "Confirmed"){
             Text("Discuss, select and agree to who will be removed from the game", color = Color.White, fontSize = 16.sp)
         } else {
             Text("This Player will be removed from the game", color = Color.White)
@@ -158,7 +158,7 @@ fun LeaderChatScreen(
                         .size(110.dp)
                         .border(
                             2.dp,
-                            if (tradeStatus == "onHold") Color.Red else CRAppTheme.colorScheme.primary
+                            if (currentUserTradeStatus == "onHold") Color.Red else CRAppTheme.colorScheme.primary
                         )
                 ) {
                     // Placeholder for trade item
@@ -205,29 +205,29 @@ fun LeaderChatScreen(
                             )
                         }
                     }
-                    if (tradeStatus == "Confirmed"){
+                    if (currentUserTradeStatus == "Confirmed"){
                         Icon(Icons.Default.Close, contentDescription = "", modifier = Modifier.fillMaxSize(), tint = Color.Red)
                     }
 
                 }
             }
 
-            if (tradeStatus != "Confirmed"){
+            if (currentUserTradeStatus != "Confirmed"){
                 Button(
                     onClick = {
                         // clickable?
                         if (selectedPlayer == otherUserSelectedPlayer){
                             // put on hold
-                            if (tradeStatus != "Confirmed"){
+                            if (currentUserTradeStatus != "Confirmed"){
                                 //personalMessage = true
                                 showDialog = true
                             }
                         }
                     },
-                    enabled = tradeStatus != "onHold" && selectedPlayer != null
+                    //enabled = tradeStatus != "onHold" && selectedPlayer != null
                 ){
                     Text(
-                        if (tradeStatus != "onHold") "Accept" else "Waiting..",
+                        if (currentUserTradeStatus != "onHold") "Accept" else "Waiting..",
                         color =
                         if (selectedPlayer == otherUserSelectedPlayer) Color.White else Color.Gray
                     )
@@ -241,7 +241,10 @@ fun LeaderChatScreen(
                 Box(
                     modifier = Modifier
                         .size(110.dp)
-                        .border(2.dp, CRAppTheme.colorScheme.primary)
+                        .border(
+                            2.dp,
+                            if (otherUserTradeStatus == "onHold") Color.Red else CRAppTheme.colorScheme.primary
+                        )
                 ) {
                     // Placeholder for trade item
                     Column(
@@ -261,7 +264,7 @@ fun LeaderChatScreen(
                             )
                         }
                     }
-                    if (tradeStatus == "Confirmed"){
+                    if (currentUserTradeStatus == "Confirmed"){
                         Icon(Icons.Default.Close, contentDescription = "", modifier = Modifier.fillMaxSize(), tint = Color.Red)
                     }
                 }
@@ -277,23 +280,25 @@ fun LeaderChatScreen(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            fdcgvhb
-            if (!bothDoneSelecting && ){
-                AllMembersRow(
-                    chatRoomMembers = filteredMembers,
-                    game = true,
-                    self = false,
-                    selectedMember = {member ->
-                        coroutineScope.launch {
-                            crViewModel.saveCurrentUsersSelection(
-                                crRoomId,
-                                currentUserId,
-                                member.userId
-                            )
-                            crViewModel.cancelTradeStatus(crRoomId)
+            when {
+                currentUserTradeStatus != "Confirmed" -> {
+                    AllMembersRow(
+                        chatRoomMembers = filteredMembers,
+                        game = true,
+                        self = false,
+                        selectedMember = {member ->
+                            coroutineScope.launch {
+                                crViewModel.saveCurrentUsersSelection(
+                                    crRoomId,
+                                    currentUserId,
+                                    member.userId
+                                )
+                                crViewModel.cancelTradeStatus(crRoomId)
+                            }
                         }
-                    }
-                )
+                    )
+                }
+                else -> {}
             }
 
         }
@@ -301,156 +306,103 @@ fun LeaderChatScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Section 4: Chat Section Placeholder
-        if (hasUserSelected == false){
-            // user has not made a selection
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .border(
-                        2.dp,
-                        CRAppTheme.colorScheme.primary
-                    )
-            ) {
-                Column (
+        when {
+            hasUserSelected == false-> {
+                // User has not made a selection
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .border(2.dp, CRAppTheme.colorScheme.primary)
                 ) {
-                    LazyColumn(
-                        state = listState,
-                        verticalArrangement = Arrangement.Bottom,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                    ) {
-                        itemsIndexed(messages) { index, message ->
-                            val previousMessage = if(index >0) messages[index - 1] else null
-                            ChatBubble(
-                                message = message,
-                                game = true,
-                                image = message.image,
-                                isFromMe = message.senderId == currentUserId,
-                                previousMessage = previousMessage
-                            )
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            state = listState,
+                            verticalArrangement = Arrangement.Bottom,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            itemsIndexed(messages) { index, message ->
+                                val previousMessage = if (index > 0) messages[index - 1] else null
+                                ChatBubble(
+                                    message = message,
+                                    game = true,
+                                    image = message.image,
+                                    isFromMe = message.senderId == currentUserId,
+                                    previousMessage = previousMessage
+                                )
+                            }
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(6.dp))
+
+                if (currentUserTradeStatus != "Confirmed") {
+                    sendTopPlayerMessage(crRoomId = crRoomId, roomId = roomId)
+                }
             }
-            Spacer(modifier = Modifier.height(6.dp))
-            if (tradeStatus != "Confirmed"){
-                sendTopPlayerMessage(crRoomId = crRoomId, roomId = roomId )
-            }
-        } else {
-            // user has made a selection
-            var doneSelecting = bothDoneSelecting
-            if (doneSelecting){
-                // both are done making a selection
-                if (result == currentUserId){
 
-                    var input by remember{ mutableStateOf("") }
+            bothDoneSelecting && result == currentUserId -> {
+                // Current user was chosen to send the message
+                var input by remember { mutableStateOf("") }
 
-                    fun send(){
-                        if(input.isNotBlank()){
-                            crViewModel.sendGoodbyeMessage(crRoomId, roomId, input, selectedPlayer!!.userId)
-                            input = ""
-                        }
-                    }
-
-                    Column(
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxSize()
-                    ){
-
-                        // show members
-                        AllMembersRow(selectedMember = { }, chatRoomMembers = allRisers, game = true, self = false)
-
-                        // text input
-                        Row(modifier = Modifier.fillMaxWidth()){
-                            TextField(value = input, onValueChange = {input = it}, modifier = Modifier.weight(1f))
-                            IconButton(onClick = {
-                                send()
-                                userGoodbyeMessage = false
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.blocking,
-                                    allMembers = allRisers,
-                                    userId = "",
-                                    context = context
-                                )
-                                crViewModel.updateTradeStatus(crRoomId, otherUserId)
-                            }) {
-                                Icon(Icons.Default.Send, contentDescription = null )
-                            }
-                        }
-                    }
-
-
-
-
-                    /*
-                    AlertDialog(
-                        onDismissRequest = { doneSelecting = false},
-                        title = { Text("Title")},
-                        text = {
-                            Column {
-                                Text("Leave a message for the Group")
-                                Spacer(modifier = Modifier.height(15.dp))
-
-                            }
-                        },
-                        dismissButton = {
-                            Button(onClick = {
-                                doneSelecting = false
-                            }) {
-                                Text("Cancel")
-                            }
-                        },
-                        confirmButton = {
-                            Button(onClick = {
-                                send()
-                                userGoodbyeMessage = false
-                                crViewModel.updateSystemAlertType(
-                                    crRoomId = crRoomId,
-                                    alertType = AlertType.blocking,
-                                    allMembers = allRisers,
-                                    userId = currentUserId,
-                                    context = context
-                                )
-                                crViewModel.updateTradeStatus(crRoomId, otherUserId)
-                            }) {
-                                Text("Confirm")
-                            }
-                        }
-                    )
-
-
-                     */
-
-                }else {
-                    Column(
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .fillMaxSize()
-                    ){
-                        Text("${otherUserProfile?.fname} was chosen to leave a message")
-                        Text("Waiting for ${otherUserProfile?.fname} to leave a message to the group")
+                fun send() {
+                    if (input.isNotBlank()) {
+                        crViewModel.sendGoodbyeMessage(crRoomId, roomId, input, "")
+                        //crViewModel.sendGoodbyeMessage(crRoomId, roomId, input, selectedPlayer!!.userId)
+                        input = ""
                     }
                 }
-            } else {
-                // both are not done making a selection, waiting on other player
+
                 Column(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxSize()
-                ){
-                    Text("Waiting for other player to choose who should tell the group. . . ")
-                }
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    AllMembersRow(selectedMember = {}, chatRoomMembers = allRisers, game = true, self = false)
 
+                    Spacer(modifier = Modifier.height(100.dp))
+                    // Text input
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        TextField(value = input, onValueChange = { input = it }, modifier = Modifier.weight(1f))
+                        IconButton(onClick = {
+                            send()
+                            crViewModel.updateSystemAlertType(
+                                crRoomId = crRoomId,
+                                alertType = AlertType.blocking,
+                                allMembers = allRisers,
+                                userId = "",
+                                context = context
+                            )
+                            crViewModel.updateTradeStatus(crRoomId, otherUserId)
+                        }) {
+                            Icon(Icons.Default.Send, contentDescription = null)
+                        }
+                    }
+                }
             }
 
+            bothDoneSelecting -> {
+                // Other user was chosen to send the message
+                Column(
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text("${otherUserProfile?.fname} was chosen to leave a message")
+                    Text("Waiting for ${otherUserProfile?.fname} to leave a message to the group")
+                }
+            }
+
+            else -> {
+                // Both are not done making a selection
+                Column(
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Text("Waiting for other player to choose who should tell the group...")
+                }
+            }
         }
 
 
@@ -486,7 +438,7 @@ fun LeaderChatScreen(
         )
 
     }
-    if (hasUserSelected == false){
+    if (currentUserTradeStatus == "Confirmed" && hasUserSelected == false){
         AlertDialog(
             onDismissRequest = {whoMessage = false},
             title = { Text("Who will Tell the group?")},

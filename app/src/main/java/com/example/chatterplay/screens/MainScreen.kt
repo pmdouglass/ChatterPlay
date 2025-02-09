@@ -90,6 +90,7 @@ fun MainScreen(
 
     val usersAlertType by crViewModel.usersAlertType.collectAsState()
     val systemsAlertType by crViewModel.systemAlertType.collectAsState()
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     val currentUser = FirebaseAuth.getInstance().currentUser
     val coroutineScope = rememberCoroutineScope()
@@ -108,25 +109,57 @@ fun MainScreen(
     var showButtons by remember { mutableStateOf(false)}
     val topPlayers by crViewModel.topPlayers.collectAsState()
     val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
+    val goodbyeMessage by crViewModel.goodbyeMessage.collectAsState()
 
     val RisersAll = allRisers
         .toMutableList()
         .apply {
             add(profile)
         }
+    val isTopPlayer by remember {
+        derivedStateOf {
+            topPlayers?.let { (rank1, rank2) ->
+                userId == rank1 || userId == rank2
+            } ?: false
+        }
+    }
 
     // Navigation tab Icons 'Description to Icon'
-    val tabs = listOf(
+    val sdftabs = listOf(
         "null" to Icons.Default.Home,
         "null" to Icons.Default.Person,
         "null" to Icons.Default.Menu,
         "null" to Icons.Default.ImageAspectRatio,
         "null" to Icons.Default.ArrowCircleDown
     )
+    val tabs by remember {
+        derivedStateOf {
+            if (isTopPlayer){
+                listOf(
+                    "null" to Icons.Default.Home,
+                    "null" to Icons.Default.Person,
+                    "null" to Icons.Default.Menu,
+                    "null" to Icons.Default.ImageAspectRatio,
+                    "null" to Icons.Default.ArrowCircleDown
+                )
+            }else {
+                listOf(
+                    "null" to Icons.Default.Home,
+                    "null" to Icons.Default.Person,
+                    "null" to Icons.Default.Menu,
+                    "null" to Icons.Default.ImageAspectRatio
+                )
+            }
+        }
+    }
 
     var invite by remember { mutableStateOf(false)}
 
-    LaunchedEffect(crRoomId, showAlert){
+    LaunchedEffect(crRoomId, showAlert, topPlayerRoomId){
+        topPlayerRoomId?.let { topRoomId ->
+            Log.d("MainScreen", "Loading goodbye message")
+            crViewModel.fetchGoodbyeMessage(crRoomId, topRoomId)
+        }
         viewModel.fetchAllRisers(crRoomId)
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
@@ -137,8 +170,10 @@ fun MainScreen(
         crViewModel.getTopPlayers(crRoomId)
         crViewModel.fetchTopPlayerRoomId(crRoomId)
 
+
     }
     Log.d("MainScreen", "All members $allChatRoomMembers")
+    Log.d("Mainscreen", "goodbyeMessage is $goodbyeMessage")
     val allMembersHasAnswered by crViewModel.allMembersHasAnswered // sees if current user done with answers
     val userHasAnswered by crViewModel.userDoneAnswering
 
@@ -156,7 +191,6 @@ fun MainScreen(
             }
     }
 
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
@@ -170,14 +204,19 @@ fun MainScreen(
     (context as? MainActivity)?.setCurrentScreen(("ChatRiseScreen"))
 
 
+
     val startIndex by remember {
         derivedStateOf {
             when {
                 userHasAnswered == false -> 2
+                isTopPlayer && goodbyeMessage == null -> 4
+                isTopPlayer && goodbyeMessage != null -> 0
                 else -> 0
             }
         }
     }
+
+
 
     Log.d("MainScreen", "startIndex: $startIndex")
     var selectedTabindex by remember { mutableIntStateOf(0) }
@@ -185,6 +224,27 @@ fun MainScreen(
 
     LaunchedEffect(startIndex){
         selectedTabindex = startIndex
+    }
+    val disabledTabIndices by remember {
+        derivedStateOf {
+            Log.d("MainScreen", "Evaluating disabledTabIndices")
+
+            val disabledTabs = mutableListOf<Int>()
+
+            if (gameInfo == null){
+                disabledTabs.add(2)
+            }
+            if (allMembersHasAnswered == true){
+                disabledTabs.add(0)
+            }
+            if (goodbyeMessage == null && isTopPlayer){
+                disabledTabs.addAll(listOf(0,1,2,3))
+            }
+            if (goodbyeMessage != null && isTopPlayer){
+                disabledTabs.add(4)
+            }
+            disabledTabs.distinct()
+        }
     }
 
     RightSideModalDrawer(
@@ -431,9 +491,9 @@ fun MainScreen(
                                 }
                                 Button(onClick = {
                                     topPlayers?.let { (rank1, rank2) ->
-                                        val isTopPlayer = userId == rank1 || userId == rank2
+                                        val isATopPlayer = userId == rank1 || userId == rank2
                                         val memberIds = listOfNotNull(rank1, rank2)
-                                        if (isTopPlayer){
+                                        if (isATopPlayer){
                                             crViewModel.topPlayerDiscuss(
                                                 crRoomId = crRoomId,
                                                 memberIds = memberIds
@@ -483,24 +543,14 @@ fun MainScreen(
                         }
 
 
+                        Log.d("MainScreen", "goodbyeMessage is currently: $goodbyeMessage")
                         NavigationRow(
                             tabs = tabs,
                             selectedTabIndex = selectedTabindex,
                             onTabSelected = {index ->
                                 selectedTabindex = index
                             },
-                            disabledTabIndices =
-                            when {
-                                // emptylist() == none disabled
-                                // listOf(?) == tab disabled
-
-                                gameInfo == null -> listOf(2)
-                                userHasAnswered == false -> emptyList()
-                                userHasAnswered == true -> emptyList()
-                                allMembersHasAnswered == false -> emptyList()
-                                allMembersHasAnswered == true -> listOf(0)
-                                else -> emptyList()
-                            }
+                            disabledTabIndices = disabledTabIndices
                         )
 
                         when (selectedTabindex){
@@ -565,7 +615,9 @@ fun MainScreen(
                                 // Temperary
                                 topPlayers?.let { (rank1, rank2) ->
                                     val isTopPlayer = userId == rank1 || userId == rank2
+                                    Log.d("MainScreen", "Top player is ${topPlayers?.first} and ${topPlayers?.second}")
                                     if (isTopPlayer){
+                                        Log.d("MainScreen", "You are a top player")
                                         topPlayerRoomId?.let { roomId ->
                                             LeaderChatScreen(
                                                 crRoomId = crRoomId,

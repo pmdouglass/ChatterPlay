@@ -746,6 +746,12 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     AlertType.rank_results.string -> {
                         setAllVotesToDone(crRoomId)
                         checkUserRankingStatus(crRoomId, userId)
+                        val pair = chatRepository.getTopPlayers(crRoomId)
+                        val topPlayers = listOfNotNull(pair?.first, pair?.second)
+                        topPlayerDiscuss(
+                            crRoomId = crRoomId,
+                            memberIds = topPlayers
+                        )
                     }
                     AlertType.blocking.string -> {
                         chatRepository.blockSelectedPlayer(crRoomId, userId)
@@ -1230,8 +1236,10 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     val currentUsersSelection: StateFlow<UserProfile?> = _currentUsersSelection
     private val _otherUsersSelection = MutableStateFlow<UserProfile?>(null)
     val otherUsersSelection: StateFlow<UserProfile?> = _otherUsersSelection
-    private val _tradeStatus = MutableStateFlow<String>("")
-    val tradeStatus: StateFlow<String> get() = _tradeStatus
+    private val _currentUserTradeStatus = MutableStateFlow<String>("")
+    val currentUserTradeStatus: StateFlow<String> get() = _currentUserTradeStatus
+    private val _otherUserTradeStatus = MutableStateFlow("")
+    val otherUserTradeStatus: StateFlow<String> get() = _otherUserTradeStatus
     private val _topPlayerMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val topPlayerMessages: StateFlow<List<ChatMessage>> = _topPlayerMessages
 
@@ -1280,16 +1288,16 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 )
                 chatRepository.sendGoodbyeMessage(crRoomId, roomId, chatMessage, remove)
 
-                checkIfRemoved(crRoomId)
+                checkUserRemoved(crRoomId)
             }
         }
     }
-    private val _playerRemoved = MutableStateFlow(false)
-    val playerRemoved: StateFlow<Boolean> = _playerRemoved
+    private val _removedPlayer = MutableStateFlow(false)
+    val removedPlayer: StateFlow<Boolean> = _removedPlayer
 
-    fun checkIfRemoved(CRRoomId: String){
+    fun checkUserRemoved(CRRoomId: String){
         viewModelScope.launch {
-            _playerRemoved.value = chatRepository.isRemovedSet(CRRoomId)
+            _removedPlayer.value = chatRepository.isRemovedSet(CRRoomId)
         }
     }
 
@@ -1320,19 +1328,23 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
         }
     }
 
-    fun checkTradeStatus(CRRoomId: String) {
+    fun checkTradeStatus(CRRoomId: String, otherUserId: String) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
-            val status = chatRepository.checkTradeStatus(CRRoomId, userId)
-            _tradeStatus.value = status
+            val currentUserIdStatus = chatRepository.checkTradeStatus(CRRoomId, userId)
+            _currentUserTradeStatus.value = currentUserIdStatus
+            val otherUserIdStatus = chatRepository.checkTradeStatus(CRRoomId, otherUserId)
+            _otherUserTradeStatus.value = otherUserIdStatus
         }
     }
     fun updateTradeStatus(CRRoomId: String, otherUserId: String){
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
             chatRepository.UpdateTradeStatus(CRRoomId, userId, otherUserId)
-            val status = chatRepository.checkTradeStatus(CRRoomId, userId)
-            _tradeStatus.value = status
+            val currentUserIdStatus = chatRepository.checkTradeStatus(CRRoomId, userId)
+            _currentUserTradeStatus.value = currentUserIdStatus
+            val otherUserIdStatus = chatRepository.checkTradeStatus(CRRoomId, otherUserId)
+            _otherUserTradeStatus.value = otherUserIdStatus
         }
     }
     fun saveCurrentUsersSelection(CRRoomId: String, currentUserId: String, selectedPlayer: String){
@@ -1348,7 +1360,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
             chatRepository.cancelTradeStatus(CRRoomId, userId)
-            checkTradeStatus(CRRoomId)
+            checkTradeStatus(CRRoomId, userId)
         }
     }
     fun saveTopTwoPlayers(crRoomId: String, rank1: String, rank2: String){
@@ -1359,6 +1371,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     fun getTopPlayers(crRoomId: String){
         viewModelScope.launch {
             val result = chatRepository.getTopPlayers(crRoomId)
+            Log.d("ChatRiseViewModel", "Top Players $result")
             _topPlayers.value = result
 
         }
@@ -1434,6 +1447,16 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
             _hasUserSelected.value = selection?.containsKey(userId) == true
         }
     }
-
+    private val _goodbyeMessage = MutableStateFlow<ChatMessage?>(null)
+    val goodbyeMessage: StateFlow<ChatMessage?> = _goodbyeMessage
+    fun fetchGoodbyeMessage(crRoomId: String, roomId: String){
+        viewModelScope.launch {
+            val message = chatRepository.getGoodbyeMessage(crRoomId, roomId)
+            _goodbyeMessage.value = message
+        }
+    }
+    fun hasGoodbyeMessage(): Boolean{
+        return _goodbyeMessage.value != null
+    }
 
 }
