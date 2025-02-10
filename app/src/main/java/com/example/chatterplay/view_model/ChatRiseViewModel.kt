@@ -772,9 +772,15 @@ class ChatRiseViewModel(
                     AlertType.blocking.string -> {
                         val removedUserProfile = chatRepository.getcrUserProfile(crRoomId, userId)
                         removedUserProfile?.let { removedUser ->
+                            chatRepository.saveSelectedBlockedPlayer(crRoomId, removedUser.userId)
                             viewModel.announceBlockedPlayer(crRoomId, removedUser, context)
-                            //chatRepository.blockSelectedPlayer(crRoomId, userId)
-                            chatRepository.blockPlayer(userId)
+                            chatRepository.blockPlayer(removedUser.userId)
+                        }
+                    }
+                    AlertType.last_message.string -> {
+                        val blockedPlayerId = chatRepository.getSelectedBlockedPlayer(crRoomId)
+                        blockedPlayerId?.let {
+                            chatRepository.RemoveSelectedPlayer(crRoomId, blockedPlayerId)
                         }
                     }
                 }
@@ -1237,6 +1243,32 @@ class ChatRiseViewModel(
     /**
      * Blocking Management
      */
+
+    private val _blockedUserId = MutableStateFlow<String?>(null)
+    val blockedUserId: StateFlow<String?> = _blockedUserId
+    fun getSelectedBlockedPlayer(crRoomId: String){
+        viewModelScope.launch {
+            try {
+                val userId = chatRepository.getSelectedBlockedPlayer(crRoomId)
+                _blockedUserId.value = userId
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error fetching blocked player: ${e.message}", e)
+            }
+        }
+    }
+    private val _blockedMessage = MutableStateFlow<ChatMessage?>(null)
+    val blockedMessage: StateFlow<ChatMessage?> = _blockedMessage
+    fun getBlockedMessage(crRoomId: String, blockedUserId: String){
+        viewModelScope.launch {
+            try {
+                val message = chatRepository.getBlockedMessage(crRoomId, blockedUserId)
+                _blockedMessage.value = message
+                Log.d("ChatRiseViewModel", "Blocked message successfully fetched: $message")
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error getting blocked Message ${e.message}", e)
+            }
+        }
+    }
     private val _blockedPlayer = MutableStateFlow<String?>(null)
     val blockedPlayer: StateFlow<String?> = _blockedPlayer
     fun fetchBlockedUser(crRoomId: String){
@@ -1250,6 +1282,16 @@ class ChatRiseViewModel(
                 }
             }catch (e: Exception) {
                 Log.e("ChatRiseViewModel", "Error fetching blocked player ${e.message}", e)
+            }
+        }
+    }
+    fun sendBlockedMessage(crRoomId: String, message: ChatMessage) {
+        viewModelScope.launch {
+            try {
+                chatRepository.sendBlockedMessage(crRoomId, userId, message)
+                Log.d("ChatRiseViewModel", "Blocked message successfully sent for userId: $userId")
+            } catch (e: Exception) {
+                Log.e("ChatRiseViewModel", "Error sending blocked message: ${e.message}", e)
             }
         }
     }
@@ -1378,11 +1420,22 @@ class ChatRiseViewModel(
     }
 
     fun checkTradeStatus(CRRoomId: String, otherUserId: String) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
             val currentUserIdStatus = chatRepository.checkTradeStatus(CRRoomId, userId)
             _currentUserTradeStatus.value = currentUserIdStatus
             val otherUserIdStatus = chatRepository.checkTradeStatus(CRRoomId, otherUserId)
+            _otherUserTradeStatus.value = otherUserIdStatus
+        }
+    }
+    fun checkCurrentUserTradeStatus(crRoomId: String){
+        viewModelScope.launch {
+            val currentUserIdStatus = chatRepository.checkTradeStatus(crRoomId, userId)
+            _currentUserTradeStatus.value = currentUserIdStatus
+        }
+    }
+    fun checkOtherUserTradeStatus(crRoomId: String, otherUserId: String){
+        viewModelScope.launch {
+            val otherUserIdStatus = chatRepository.checkTradeStatus(crRoomId, otherUserId)
             _otherUserTradeStatus.value = otherUserIdStatus
         }
     }
@@ -1396,6 +1449,78 @@ class ChatRiseViewModel(
             _otherUserTradeStatus.value = otherUserIdStatus
         }
     }
+
+
+
+
+
+
+    fun updatejhbnUsersTradeStatus(crRoomId: String, userId: String, otherUserId: String, status: String){
+        viewModelScope.launch {
+            try {
+                chatRepository.updateUserTradeStatus(crRoomId, userId, otherUserId, status)
+                checkCurrentUserTradeStatus(crRoomId)
+                checkOtherUserTradeStatus(crRoomId, otherUserId)
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error updateing users trade status ${e.message}", e)
+            }
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+    private val _currentUsersTradeStatus = MutableStateFlow("Canceled")
+    val currentUsersTradeStatus: StateFlow<String> = _currentUsersTradeStatus
+    private val _otherUsersTradeStatus = MutableStateFlow("Canceled")
+    val otherUsersTradeStatus: StateFlow<String> = _otherUsersTradeStatus
+
+    fun updateUsersTradeStatus(crRoomId: String, userId: String, status: String){
+        viewModelScope.launch {
+            chatRepository.updateTradeStatus(crRoomId, userId, status)
+        }
+    }
+    fun fetchTradeStatus(crRoomId: String, userId: String){
+        viewModelScope.launch {
+            val status = chatRepository.getTradeStatus(crRoomId, userId)
+            _currentUsersTradeStatus.value = status ?: "Canceled"
+        }
+    }
+    fun listenForTradeUpdates(crRoomId: String, userId: String){
+        chatRepository.listenForTradeStatusUpdates(crRoomId, userId) {status ->
+            _currentUsersTradeStatus.value = status ?: "Canceled"
+        }
+    }
+    fun listenForOtherUserTradeUpdates(crRoomId: String, otherUserId: String){
+        chatRepository.listenForTradeStatusUpdates(crRoomId, otherUserId){status ->
+            _otherUsersTradeStatus.value = status ?: "Canceled"
+        }
+    }
+    fun handleTradeAcceptance(crRoomId: String, userId: String, otherUserId: String){
+        viewModelScope.launch {
+            val currentStatus = chatRepository.getTradeStatus(crRoomId, userId)
+            val otherStatus = chatRepository.getTradeStatus(crRoomId, otherUserId)
+
+            if (currentStatus == "Canceled"){
+                updateUsersTradeStatus(crRoomId, userId, "onHold")
+            }else if (currentStatus == "onHold" && otherStatus == "onHold"){
+                updateUsersTradeStatus(crRoomId, userId, "Confirmed")
+                updateUsersTradeStatus(crRoomId, otherUserId, "Confirmed")
+            }
+        }
+    }
+
+
+
+
+
+
     fun saveCurrentUsersSelection(CRRoomId: String, currentUserId: String, selectedPlayer: String){
         viewModelScope.launch {
             if (selectedPlayer.isNullOrEmpty()){

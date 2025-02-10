@@ -6,12 +6,14 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -52,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
 import com.example.chatterplay.data_class.AlertType
@@ -62,6 +66,7 @@ import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
@@ -506,12 +511,15 @@ fun AlertingScreen(
 @Composable
 fun AlertLastMessage(
     crRoomId: String,
-    onDone: () -> Unit,
-    viewModel: ChatViewModel = viewModel()
+    AllRisers: List<UserProfile>,
+    viewModel: ChatViewModel = viewModel(),
+    navController: NavController
 ){
 
     // Create SharedPreferences
     val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val profile = rememberCRProfile(crRoomId = crRoomId)
     val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
 
     // Initialize ChatRiseViewModel with the factory
@@ -546,6 +554,8 @@ fun AlertLastMessage(
     val texts = listOf(pitch0, pitch1, pitch2, pitch3, pitch4, pitch5)
     var currentIndex by remember { mutableStateOf(0)}
     val isLastItem = currentIndex == texts.size -1
+    var messageDone by remember { mutableStateOf(true) }
+    var input by remember { mutableStateOf("") }
 
     LaunchedEffect(currentIndex){
         if (!isLastItem){
@@ -553,7 +563,7 @@ fun AlertLastMessage(
             currentIndex++
         }else {
             delay(3000)
-            onDone()
+            messageDone = true
         }
     }
 
@@ -562,34 +572,73 @@ fun AlertLastMessage(
         if (index == currentIndex) 1f else 0f
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .fillMaxSize()
-            .background(CRAppTheme.colorScheme.onGameBackground)
-        /*
-        .clickable(
-            indication = rememberRipple(false),
-            interactionSource = remember { MutableInteractionSource()}
+    if (!messageDone){
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(CRAppTheme.colorScheme.onGameBackground)
+        ){
+            Text(
+                texts[currentIndex],
+                style = if (texts[currentIndex] == pitch0) CRAppTheme.typography.H7 else CRAppTheme.typography.H4,
+                textAlign = TextAlign.Center,
+                color = Color.Red,
+                modifier = Modifier
+                    .alpha(alpha)
+                    .padding(horizontal = 16.dp)
+            )
+        }
+    }else {
+        Column(
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp)
         ) {
-            if (isLastItem){
-                onDone()
-            } else {
-                currentIndex++
+            Text(
+                "This is your last chance to leave your mark before you exit the game. Whether you choose to share your thoughts, expose secrets, or deliver a final farewell, your message will be seen by everyone. Choose your words wisely—this is how they will remember you.",
+                color = Color.White,
+                style = CRAppTheme.typography.H1,
+                textAlign = TextAlign.Center
+            )
+            TextField(
+                value = input ,
+                onValueChange = {input = it},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .border(3.dp, Color.Black)
+            )
+            Button(onClick = {
+                val message = ChatMessage(
+                    senderId = userId,
+                    senderName = profile?.fname ?: "Unknown",
+                    message = input,
+                    image = profile?.imageUrl ?: "",
+                    timestamp = Timestamp.now()
+                )
+                if (input.isNotBlank()){
+                    crViewModel.sendBlockedMessage(
+                        crRoomId = crRoomId,
+                        message = message
+                    )
+                    crViewModel.updateSystemAlertType(crRoomId, AlertType.last_message, AllRisers, userId, context)
+                    navController.navigate("roomSelect"){
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                    }
+                    Log.d("ChatRelated", "Send Blocked Message clicked")
+                }
+            },
+                enabled = input.isNotBlank()
+                ){
+                Text(
+                    "Submit and Leave Game."
+                )
             }
         }
-
-         */
-    ){
-        Text(
-            texts[currentIndex],
-            style = if (texts[currentIndex] == pitch0) CRAppTheme.typography.H7 else CRAppTheme.typography.H4,
-            textAlign = TextAlign.Center,
-            color = Color.Red,
-            modifier = Modifier
-                .alpha(alpha)
-                .padding(horizontal = 16.dp)
-        )
     }
+
 }

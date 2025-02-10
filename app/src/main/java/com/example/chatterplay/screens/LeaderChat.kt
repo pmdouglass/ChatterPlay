@@ -199,9 +199,12 @@ fun LeaderChatScreen(
                         // clickable?
                         if (selectedPlayer == otherUserSelectedPlayer){
                             // put on hold
-                            if (currentUserTradeStatus != "Confirmed"){
+                            if (currentUserTradeStatus != "Confirmed" && otherUserTradeStatus == "Confirmed"){
                                 //personalMessage = true
                                 showDialog = true
+                            }
+                            if (currentUserTradeStatus != "Confirmed" && otherUserTradeStatus == "onHold"){
+                                crViewModel.updateTradeStatus(crRoomId, otherUserId)
                             }
                         }
                     },
@@ -420,6 +423,7 @@ fun LeaderChatScreen(
         )
 
     }
+    /*
     if (currentUserTradeStatus == "Confirmed" && otherUserTradeStatus == "Confirmed"){
         selectedPlayer?.let { removedUser ->
             crViewModel.updateSystemAlertType(
@@ -431,6 +435,8 @@ fun LeaderChatScreen(
             )
         }
     }
+
+     */
     /*
     if (currentUserTradeStatus == "Confirmed" && hasUserSelected == false){
         AlertDialog(

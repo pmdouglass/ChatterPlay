@@ -91,6 +91,9 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                 .document(crRoomId)
                 .collection("Users")
 
+            val roomRef = crGameRoomsCollection
+                .document(crRoomId)
+
             Log.d("Firestore", "Fetching documents inside users collection for room: $crRoomId")
 
             // Fetch all documents inside the "users" collection
@@ -111,6 +114,12 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             if (!deleted) {
                 Log.w("Firestore", "User document $userId not found in room $crRoomId. Skipping deletion.")
             }
+
+            // remove userId from 'members' field in the room document
+            Log.d("Firestore", "Removing userId $userId from members list in room $crRoomId")
+            roomRef.update("members", FieldValue.arrayRemove(userId)).await()
+            Log.d("Firestore", "Successfully removed userId $userId from members list in room $crRoomId")
+
 
             // Reference to the user document in userCollection
             val userDocRef = userCollection.document(userId)
@@ -986,6 +995,31 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     /**
      *  Blocking Management
      */
+    suspend fun saveSelectedBlockedPlayer(crRoomId: String, userId: String){
+        val documentRef = crGameRoomsCollection
+            .document(crRoomId)
+
+        documentRef.set(mapOf("BlockedPlayer" to userId)).await()
+    }
+    suspend fun getSelectedBlockedPlayer(crRoomId: String): String? {
+        val documentRef = crGameRoomsCollection.document(crRoomId)
+
+        return try {
+            val snapshot = documentRef.get().await()
+            if (snapshot.exists()) {
+                snapshot.getString("BlockedPlayer")?.also {
+                    Log.d("ChatRepository", "Blocked player retrieved successfully: $it")
+                }
+            } else {
+                Log.d("ChatRepository", "No blocked player found for crRoomId: $crRoomId")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error fetching blocked player: ${e.message}", e)
+            null
+        }
+    }
+
     suspend fun sendSystemMessage(
         crRoomId: String,
         chatMessage: ChatMessage
@@ -1020,6 +1054,35 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.d("ChatRepository", "Message successfully sent to roomId: $crRoomId")
         } catch (e: Exception) {
             Log.e("ChatRepository", "Error sending message to roomId: $crRoomId and crRoomId: $crRoomId - ${e.message}", e)
+        }
+    }
+    suspend fun sendBlockedMessage(crRoomId: String, userId: String, message: ChatMessage){
+        val documentRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("BlockedMessage")
+            .document(userId)
+
+        documentRef.set(message).await()
+    }
+    suspend fun getBlockedMessage(crRoomId: String, userId: String): ChatMessage?{
+        val documentRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("BlockedMessage")
+            .document(userId)
+
+        return try {
+            val snapshot = documentRef.get().await()
+            if (snapshot.exists()){
+                snapshot.toObject(ChatMessage::class.java)?.also {
+                    Log.d("ChatRiseRepository", "Blocked message retrieved successfully: $it")
+                }
+            }else {
+                Log.d("ChatRiseRepository", "No blocked message found for userId: $userId in crRoomId: $crRoomId")
+                null
+            }
+        }catch (e: Exception){
+            Log.e("ChatRiseRepository", "Error fetching blocked message: ${e.message}", e)
+            null
         }
     }
 
@@ -1228,6 +1291,73 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                 transaction.update(topPlayerRef, otherUser, "Confirmed")
             }
         }.await()
+    }
+    suspend fun updateUserTradeStatus(crRoomId: String, userId: String, otherUserId: String, status: String){
+        val topPlayerRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("TopPlayers")
+            .document("TopPlayers")
+
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(topPlayerRef)
+            val currentUserStatus = snapshot.getString(userId) ?: ""
+            val otherUserStatus = snapshot.getString(otherUserId) ?: ""
+
+
+
+            transaction.update(topPlayerRef, userId, status)
+        }
+    }
+
+
+
+
+
+
+
+
+    suspend fun updateTradeStatus(crRoomId: String, userId: String, status: String){
+        try {
+            val roomRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("TopPlayers")
+                .document("TopPlayers")
+
+            roomRef.update("TradeStatus.$userId", status).await()
+            Log.d("ChatRiseRepository", "Trade status updated for $userId: $status")
+        }catch (e: Exception){
+            Log.e("ChatRiseRepository", "error updating trade status: ${e.message}", e)
+        }
+    }
+    suspend fun getTradeStatus(crRoomId: String, userId: String): String?{
+        return try {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("TopPlayers")
+                .document("TopPlayers")
+                .get().await()
+
+            val tradeStatusMap = snapshot.get("TradeStatus") as? Map<String, String>
+            tradeStatusMap?.get(userId)
+        }catch (e: Exception){
+            Log.e("ChatRiseRepository", "Error fetching trade status: ${e.message}", e)
+            null
+        }
+    }
+    fun listenForTradeStatusUpdates(crRoomId: String, userId: String, callback: (String?) -> Unit){
+        crGameRoomsCollection
+            .document(crRoomId)
+            .collection("TopPlayers")
+            .document("TopPlayers")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null){
+                    Log.e("ChatRiseRepository", "Error listening for updates: ${error.message}", error)
+                    return@addSnapshotListener
+                }
+                val tradeStatusMap = snapshot?.get("TradeStatus") as? Map<String, String>
+                val newStatus = tradeStatusMap?.get(userId)
+                callback(newStatus)
+            }
     }
     suspend fun saveCurrentUsersSelection(CRRoomId: String, currentUserId: String, selectedPlayerId: String?){
         try {

@@ -216,7 +216,7 @@ fun MainScreen(
             when {
                 userHasAnswered == false -> 2
                 isTopPlayer && currentUserTradeStatus != "Confirmed" -> 4
-                isTopPlayer && currentUserTradeStatus == "Confirmed" != null -> 0
+                isTopPlayer && currentUserTradeStatus == "Confirmed" -> 0
                 else -> 0
             }
         }
@@ -246,7 +246,7 @@ fun MainScreen(
             if (currentUserTradeStatus != "Confirmed" && isTopPlayer){
                 disabledTabs.addAll(listOf(0,1,2))
             }
-            if (currentUserTradeStatus == "Confirmed" != null && isTopPlayer){
+            if (currentUserTradeStatus == "Confirmed" && isTopPlayer){
                 disabledTabs.add(4)
             }
             disabledTabs.distinct()
@@ -528,6 +528,7 @@ fun MainScreen(
                                         AlertType.ranking.string -> {selectedTabindex = 3}
                                         AlertType.rank_results.string -> {selectedTabindex = 3}
                                         AlertType.blocking.string -> {selectedTabindex = 0}
+                                        AlertType.last_message.string -> {selectedTabindex = 0}
                                         else -> {selectedTabindex = 0}
                                     }
                                     crViewModel.updateShowAlert(crRoomId, false)
@@ -547,9 +548,8 @@ fun MainScreen(
                                 if (showBlockedPlayerAlert){
                                     AlertLastMessage(
                                         crRoomId = crRoomId,
-                                        onDone = {
-                                            showBlockedPlayerAlert = false
-                                        }
+                                        AllRisers = allRisers,
+                                        navController = navController
                                     )
                                 }else {
                                     Text(
@@ -558,6 +558,7 @@ fun MainScreen(
                                         color = Color.White
                                     )
                                     Spacer(modifier = Modifier.height(100.dp))
+
                                     Button(onClick = {
                                         // alert blocked player to next step
                                         showBlockedPlayerAlert = true
