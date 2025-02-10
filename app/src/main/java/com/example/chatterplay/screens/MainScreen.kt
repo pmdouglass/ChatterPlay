@@ -10,10 +10,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowCircleDown
 import androidx.compose.material.icons.filled.Home
@@ -41,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -49,16 +54,19 @@ import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.AlertType
+import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.seperate_composables.AlertLastMessage
 import com.example.chatterplay.seperate_composables.AlertingScreen
 import com.example.chatterplay.seperate_composables.AllMembersRow
+import com.example.chatterplay.seperate_composables.ChatBubble
 import com.example.chatterplay.seperate_composables.ChatInput
-import com.example.chatterplay.seperate_composables.ChatLazyColumn
 import com.example.chatterplay.seperate_composables.ChatRiseTopBar
 import com.example.chatterplay.seperate_composables.NavigationRow
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
 import com.example.chatterplay.seperate_composables.RightSideModalDrawer
+import com.example.chatterplay.seperate_composables.UserInfoFooter
 import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
@@ -83,7 +91,7 @@ fun MainScreen(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
 
@@ -109,7 +117,9 @@ fun MainScreen(
     var showButtons by remember { mutableStateOf(false)}
     val topPlayers by crViewModel.topPlayers.collectAsState()
     val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
-    val goodbyeMessage by crViewModel.goodbyeMessage.collectAsState()
+    val blockedPlayer by crViewModel.blockedPlayer.collectAsState()
+    val currentUserTradeStatus by crViewModel.currentUserTradeStatus.collectAsState()
+    var showBlockedPlayerAlert by remember { mutableStateOf(false) }
 
     val RisersAll = allRisers
         .toMutableList()
@@ -123,43 +133,36 @@ fun MainScreen(
             } ?: false
         }
     }
+    val otherUserId = if (userId == topPlayers?.first) topPlayers?.second ?: "" else topPlayers?.first ?: ""
 
     // Navigation tab Icons 'Description to Icon'
-    val sdftabs = listOf(
-        "null" to Icons.Default.Home,
-        "null" to Icons.Default.Person,
-        "null" to Icons.Default.Menu,
-        "null" to Icons.Default.ImageAspectRatio,
-        "null" to Icons.Default.ArrowCircleDown
-    )
     val tabs by remember {
         derivedStateOf {
-            if (isTopPlayer){
-                listOf(
-                    "null" to Icons.Default.Home,
-                    "null" to Icons.Default.Person,
-                    "null" to Icons.Default.Menu,
-                    "null" to Icons.Default.ImageAspectRatio,
-                    "null" to Icons.Default.ArrowCircleDown
-                )
-            }else {
-                listOf(
-                    "null" to Icons.Default.Home,
-                    "null" to Icons.Default.Person,
-                    "null" to Icons.Default.Menu,
-                    "null" to Icons.Default.ImageAspectRatio
-                )
+            when {
+                isTopPlayer -> {
+                    listOf(
+                        "null" to Icons.Default.Home,
+                        "null" to Icons.Default.Person,
+                        "null" to Icons.Default.Menu,
+                        "null" to Icons.Default.ImageAspectRatio,
+                        "null" to Icons.Default.ArrowCircleDown
+                    )
+                }
+                else -> {
+                    listOf(
+                        "null" to Icons.Default.Home,
+                        "null" to Icons.Default.Person,
+                        "null" to Icons.Default.Menu,
+                        "null" to Icons.Default.ImageAspectRatio
+                    )
+                }
             }
         }
     }
 
     var invite by remember { mutableStateOf(false)}
 
-    LaunchedEffect(crRoomId, showAlert, topPlayerRoomId){
-        topPlayerRoomId?.let { topRoomId ->
-            Log.d("MainScreen", "Loading goodbye message")
-            crViewModel.fetchGoodbyeMessage(crRoomId, topRoomId)
-        }
+    LaunchedEffect(crRoomId, showAlert, topPlayers){
         viewModel.fetchAllRisers(crRoomId)
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
@@ -169,11 +172,14 @@ fun MainScreen(
         crViewModel.checkforUserAlert(crRoomId)
         crViewModel.getTopPlayers(crRoomId)
         crViewModel.fetchTopPlayerRoomId(crRoomId)
-
-
+        crViewModel.fetchBlockedUser(crRoomId) // initialize blockedPlayer
+    }
+    LaunchedEffect(topPlayers){
+        if (isTopPlayer){
+            crViewModel.checkTradeStatus(crRoomId, otherUserId)
+        }
     }
     Log.d("MainScreen", "All members $allChatRoomMembers")
-    Log.d("Mainscreen", "goodbyeMessage is $goodbyeMessage")
     val allMembersHasAnswered by crViewModel.allMembersHasAnswered // sees if current user done with answers
     val userHasAnswered by crViewModel.userDoneAnswering
 
@@ -209,8 +215,8 @@ fun MainScreen(
         derivedStateOf {
             when {
                 userHasAnswered == false -> 2
-                isTopPlayer && goodbyeMessage == null -> 4
-                isTopPlayer && goodbyeMessage != null -> 0
+                isTopPlayer && currentUserTradeStatus != "Confirmed" -> 4
+                isTopPlayer && currentUserTradeStatus == "Confirmed" != null -> 0
                 else -> 0
             }
         }
@@ -237,10 +243,10 @@ fun MainScreen(
             if (allMembersHasAnswered == true){
                 disabledTabs.add(0)
             }
-            if (goodbyeMessage == null && isTopPlayer){
-                disabledTabs.addAll(listOf(0,1,2,3))
+            if (currentUserTradeStatus != "Confirmed" && isTopPlayer){
+                disabledTabs.addAll(listOf(0,1,2))
             }
-            if (goodbyeMessage != null && isTopPlayer){
+            if (currentUserTradeStatus == "Confirmed" != null && isTopPlayer){
                 disabledTabs.add(4)
             }
             disabledTabs.distinct()
@@ -282,6 +288,7 @@ fun MainScreen(
                         crRoomId = crRoomId,
                         profile = profile,
                         onClick = {showTopBarInfo = !showTopBarInfo},
+                        enabled = if (blockedPlayer == userId) false else true,
                         onAction = { coroutineScope.launch { drawerState.open() }},
                         showTopBarInfo = showTopBarInfo,
                         navController = navController
@@ -290,14 +297,17 @@ fun MainScreen(
                 bottomBar = {
                     when(selectedTabindex){
                         0 -> {
+                            if (blockedPlayer == userId){
 
-                            ChatInput(
-                                crRoomId = crRoomId,
-                                roomId = crRoomId,
-                                memberCount = memberCount,
-                                game = true,
-                                mainChat = true
-                            )
+                            }else{
+                                ChatInput(
+                                    crRoomId = crRoomId,
+                                    roomId = crRoomId,
+                                    memberCount = memberCount,
+                                    game = true,
+                                    mainChat = true
+                                )
+                            }
                         }
                         else -> {
                             
@@ -490,19 +500,17 @@ fun MainScreen(
                                     Text("Block Player")
                                 }
                                 Button(onClick = {
-                                    topPlayers?.let { (rank1, rank2) ->
-                                        val isATopPlayer = userId == rank1 || userId == rank2
-                                        val memberIds = listOfNotNull(rank1, rank2)
-                                        if (isATopPlayer){
-                                            crViewModel.topPlayerDiscuss(
-                                                crRoomId = crRoomId,
-                                                memberIds = memberIds
-                                            )
-                                        }
-                                    }
+                                    viewModel.announceBlockedPlayer(crRoomId, profile, context)
                                 }){
-                                    Text("Top Player")
+                                    Text("Announce")
                                 }
+                            }
+                            Row(
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ){
+
                             }
                         }
 
@@ -526,24 +534,44 @@ fun MainScreen(
                                     //crViewModel.updateAlertChangeToFalse()
                                 }
                             )
-                            /*
-                            gameInfo?.let { game ->
-                                AlertDialogSplash(
-                                    crRoomId = crRoomId,
-                                    game = true,
-                                    gameInfo = game,
-                                    onDone = {
-                                        selectedTabindex = 2
+
+                        }
+                        if (blockedPlayer == userId){
+                            Column(
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(CRAppTheme.colorScheme.onGameBackground)
+                            ){
+                                if (showBlockedPlayerAlert){
+                                    AlertLastMessage(
+                                        crRoomId = crRoomId,
+                                        onDone = {
+                                            showBlockedPlayerAlert = false
+                                        }
+                                    )
+                                }else {
+                                    Text(
+                                        "BLOCKED!",
+                                        style = CRAppTheme.typography.H6,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.height(100.dp))
+                                    Button(onClick = {
+                                        // alert blocked player to next step
+                                        showBlockedPlayerAlert = true
+                                    }){
+                                        Text(
+                                            "Next"
+                                        )
                                     }
-                                )
+                                }
                             }
-
-                             */
-
                         }
 
 
-                        Log.d("MainScreen", "goodbyeMessage is currently: $goodbyeMessage")
+
                         NavigationRow(
                             tabs = tabs,
                             selectedTabIndex = selectedTabindex,
@@ -658,11 +686,22 @@ fun RiseMainChat(
     chatRoomMembers: List<UserProfile>,
     crRoomId: String,
     profile: UserProfile,
+    viewModel: ChatViewModel = viewModel(),
     navController: NavController
 ){
 
-    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    // Create SharedPreferences
     val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
@@ -672,6 +711,32 @@ fun RiseMainChat(
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
+
+
+    val messages by viewModel.messages.collectAsState()
+    val listState = rememberLazyListState()
+    val goodbyeMessage by crViewModel.goodbyeMessage.collectAsState()
+    val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
+    val blockedUser by crViewModel.blockedPlayer.collectAsState()
+
+    LaunchedEffect(crRoomId, blockedUser) {
+        crViewModel.fetchBlockedUser(crRoomId) // initialize blockedPlayer
+        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true) // initialize messages
+    }
+
+
+    // Scroll to bottom when new messages arrive
+    val scrollToBottom = remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size - 1
+        }
+    }
+    LaunchedEffect(messages.size, scrollToBottom) {
+        if (messages.isNotEmpty() && scrollToBottom.value) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
 
     Column(
         modifier = Modifier
@@ -691,14 +756,68 @@ fun RiseMainChat(
             modifier = Modifier
                 .fillMaxSize()
         ){
-            ChatLazyColumn(
-                crRoomId = crRoomId,
-                roomId = "",
-                profile = profile,
-                game = true,
-                mainChat = true,
-            )
+            // Chat List UI
+            LazyColumn(
+                state = listState,
+                verticalArrangement = Arrangement.Bottom,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Messages
+                itemsIndexed(messages) { index, message ->
+                    val previousMessage = messages.getOrNull(index - 1)
+                    when {
+                        message.senderId == "System" -> {
+                            SystemMessage(message)
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ) {
+                                if (blockedUser == userId) {
+                                    Text(
+                                        "BLOCKED!",
+                                        style = CRAppTheme.typography.H6,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        else -> {
+                            ChatBubble(
+                                image = message.image,
+                                message = message,
+                                isFromMe = message.senderId == userId,
+                                previousMessage = previousMessage,
+                                game = true
+                            )
+                        }
+                    }
+                }
+
+                // Footer
+                item {
+                    UserInfoFooter(profile, true)
+                }
+            }
         }
+    }
+}
+@Composable
+fun SystemMessage(message: ChatMessage){
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(20.dp)
+    ){
+        Text(
+            message.message,
+            color = Color.White,
+            style = CRAppTheme.typography.H1,
+            textAlign = TextAlign.Center
+        )
     }
 }
 

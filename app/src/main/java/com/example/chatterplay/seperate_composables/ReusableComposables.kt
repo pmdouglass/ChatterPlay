@@ -142,7 +142,8 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
 }
 @Composable
 fun rememberCRProfile(
-    crRoomId: String
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
 ): UserProfile{
     // Create SharedPreferences
     val context = LocalContext.current
@@ -150,13 +151,13 @@ fun rememberCRProfile(
 
     // Initialize ChatRiseViewModel with the factory
     val viewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     val profileState by viewModel.userProfile.collectAsState()
     val profile = profileState ?: UserProfile()
     LaunchedEffect(Unit){
-        viewModel.getUserProfile(crRoomId = crRoomId)
+        viewModel.getcrUserProfile(crRoomId = crRoomId)
     }
     return profile
 }
@@ -168,7 +169,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
     val roomCreate: RoomCreationViewModel = viewModel(
         factory = EntryViewModelFactory(sharedPreferences)
@@ -282,7 +283,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                         }
                     }
                     userStatus == "Pending" -> {}
-                    roomReady -> {
+                    userStatus == "Blocked" || roomReady -> {
 
                         LaunchedEffect(Unit){
                             if (crRoomId != "0"){
@@ -555,7 +556,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                         }
                     }
                 }
-                roomReady -> {
+                userStatus == "Blocked" || roomReady -> {
                     if (crRoomId != "0"){
                         crRoomId?.let { crRoomId ->
                             Column(
@@ -1056,7 +1057,15 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 }
 
 @Composable
-fun ChatRiseTopBar(crRoomId: String, profile: UserProfile, onClick: () -> Unit, onAction: () -> Unit, showTopBarInfo: Boolean, navController: NavController){
+fun ChatRiseTopBar(
+    crRoomId: String,
+    profile: UserProfile,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    onAction: () -> Unit,
+    showTopBarInfo: Boolean,
+    navController: NavController
+){
 
     Column (
         modifier = Modifier
@@ -1064,6 +1073,7 @@ fun ChatRiseTopBar(crRoomId: String, profile: UserProfile, onClick: () -> Unit, 
     ) {
         TopBar(
             onClick = {onClick()},
+            enabled = enabled,
             onAction = {onAction()},
             navController = navController)
 
@@ -1074,7 +1084,7 @@ fun ChatRiseTopBar(crRoomId: String, profile: UserProfile, onClick: () -> Unit, 
 }
 
 @Composable
-fun TopBar(onClick: () -> Unit, onAction: () -> Unit, navController: NavController){
+fun TopBar(onClick: () -> Unit, onAction: () -> Unit, enabled: Boolean = true, navController: NavController){
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1101,27 +1111,32 @@ fun TopBar(onClick: () -> Unit, onAction: () -> Unit, navController: NavControll
             modifier = Modifier
                 .clickable { onClick() }
         )
-
-        IconButton(onClick = {onAction()}){
-            Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .size(35.dp)
+        if (enabled){
+            IconButton(onClick = {onAction()}){
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(35.dp)
+                )
+            }
+        }else {
+            Text(
+                ""
             )
         }
     }
 }
 @Composable
-fun TopBarInformation(crRoomId: String, profile: UserProfile){
+fun TopBarInformation(crRoomId: String, profile: UserProfile, viewModel: ChatViewModel = viewModel()){
     // Create SharedPreferences
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     val pad = 15
@@ -1303,7 +1318,7 @@ fun PrivateDrawerRoomList(crRoomId: String, onInvite: () -> Unit, viewModel: Cha
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     var searchChats by remember{ mutableStateOf("") }

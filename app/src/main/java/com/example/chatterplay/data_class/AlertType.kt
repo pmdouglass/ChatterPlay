@@ -11,5 +11,7 @@ enum class AlertType (val string: String) {
     game_results("game_results"),
     ranking("ranking"),
     rank_results("rank_results"),
-    blocking("blocking")
+    top_discuss("top_discuss"),
+    blocking("blocking"),
+    last_message("last_message")
 }

@@ -399,6 +399,9 @@ class ChatViewModel: ViewModel() {
                 // Fetch updated messages
                 fetchChatMessages(context, crRoomId, roomId, game, mainChat)
 
+
+                // firebase analytics
+
                 val messageId = UUID.randomUUID().toString()
                 val senderType = "player"
                 val roomType =
@@ -673,7 +676,7 @@ class ChatViewModel: ViewModel() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         currentUser?.let { user ->
             try {
-                chatRepository.getRiserRoom().document(crRoomId).collection("Private Chats")
+                chatRepository.getRiserRoom().document(crRoomId).collection("PrivateChats")
                     .whereArrayContains("members", user.uid)
                     .addSnapshotListener { snapshot, e ->
                         if (e != null) {
@@ -774,4 +777,33 @@ class ChatViewModel: ViewModel() {
     }
 
      */
+
+
+    /**
+     *  Blocked Player Management
+     */
+    fun announceBlockedPlayer(
+        crRoomId: String,
+        blockedPlayer: UserProfile,
+        context: Context
+    ){
+        viewModelScope.launch {
+            val systemMessage = ChatMessage(
+                senderId = "System",
+                senderName = "ChatRise",
+                message = "The Top Players have made their decision . . .  \n\nThe player leaving the game is . . . \n\n${blockedPlayer.fname}!",
+                image = ""
+            )
+
+            chatRepository.sendMessage(crRoomId = crRoomId, roomId = crRoomId, chatMessage = systemMessage, game = true, mainChat = true)
+            fetchChatMessages(
+                context = context,
+                crRoomId = crRoomId,
+                roomId = crRoomId,
+                game = true,
+                mainChat = true
+            )
+
+        }
+    }
 }

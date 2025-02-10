@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -49,7 +50,9 @@ import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
+import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
@@ -70,7 +73,7 @@ fun RankingScreen(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     val currentMode by crViewModel.rankingStatus.collectAsState()
@@ -184,7 +187,7 @@ fun RankingScreen(
             ) {
                 when (currentMode) {
                     "View" -> {
-                        CurrentRanks(memberRanks = rankedMembers)
+                        CurrentRanks(crRoomId = crRoomId, memberRanks = rankedMembers)
                     }
 
 
@@ -313,42 +316,96 @@ fun RankingScreen(
     }
 }
 @Composable
-fun CurrentRanks(memberRanks: List<Pair<UserProfile, Int>>){
+fun CurrentRanks(
+    crRoomId: String,
+    memberRanks: List<Pair<UserProfile, Int>>,
+    viewModel: ChatViewModel = viewModel()
+){
 
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+    val userAlertType by crViewModel.usersAlertType.collectAsState()
+    val allRisers by viewModel.allRisers.collectAsState()
+    val profile = rememberCRProfile(crRoomId = crRoomId)
+    val AllRisers = allRisers
+        .toMutableList()
+        .apply {
+            add(profile)
+        }
+    LaunchedEffect(crRoomId){
+        crViewModel.fetchUserAlertType(crRoomId)
+        viewModel.fetchAllRisers(crRoomId)
+    }
 
         Column(
-            verticalArrangement = Arrangement.SpaceEvenly,
-            horizontalAlignment = Alignment.CenterHorizontally,
+            //verticalArrangement = Arrangement.SpaceEvenly,
+            //horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .fillMaxHeight()
+                .fillMaxSize()
         ){
-            memberRanks.forEachIndexed { index, (member) ->
-                Row (
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxSize()
+            ){
+                Column(
+                    verticalArrangement = Arrangement.SpaceEvenly,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
-                        .then(if (index == 0 || index == 1){
-                            Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
-                        } else {
-                            Modifier
-                        })
-                        .padding(2.dp)
+                        .fillMaxHeight()
                 ){
-                    Text(getOrdinal(index + 1),
-                        color = Color.White)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ){
-                        Image(
-                            painter = rememberAsyncImagePainter(member.imageUrl),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
+                    memberRanks.forEachIndexed { index, (member) ->
+                        Row (
                             modifier = Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                        )
-                        Text(member.fname, color = Color.White)
+                                .then(if (index == 0 || index == 1){
+                                    Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                                } else {
+                                    Modifier
+                                })
+                                .padding(2.dp)
+                        ){
+                            Text(getOrdinal(index + 1),
+                                color = Color.White)
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ){
+                                Image(
+                                    painter = rememberAsyncImagePainter(member.imageUrl),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(50.dp)
+                                        .clip(CircleShape)
+                                )
+                                Text(member.fname, color = Color.White)
+                            }
+                        }
                     }
                 }
-        }
+                if (userAlertType == AlertType.rank_results.string){
+                    IconButton(onClick = {
+                        crViewModel.updateSystemAlertType(
+                            crRoomId = crRoomId,
+                            alertType = AlertType.top_discuss,
+                            allMembers = AllRisers,
+                            userId = "",
+                            context = context
+                        )
+                    }){
+                        Icon(
+                            Icons.AutoMirrored.Default.ArrowForward,
+                            contentDescription = null
+                        )
+                    }
+                }
+            }
     }
 
 }
@@ -577,8 +634,8 @@ fun rightList(
 }
 @Composable
 fun UsersSelectedRank(
-    crRoomId: String
-    //userVote: List<Pair<UserProfile, Int>>
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
 ) {
 
 
@@ -588,7 +645,7 @@ fun UsersSelectedRank(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
 

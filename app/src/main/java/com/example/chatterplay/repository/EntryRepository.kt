@@ -72,6 +72,19 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
             emptyList()
         }
     }
+    suspend fun fetchUserBlockingState(crRoomId: String): String?{
+        return try {
+            val querySnapshot = userCollection
+                .whereEqualTo("gameRoomId", crRoomId)
+                .whereEqualTo("pending", "Blocked")
+                .get().await()
+
+            querySnapshot.documents.firstOrNull()?.id
+        }catch (e: Exception){
+            Log.e("EntryRepository", "Error fetching blocked user", e)
+            null
+        }
+    }
 
     // update multiple users to "InGame" state
     suspend fun updateUsersToInGame(userIds: List<String>): Boolean{

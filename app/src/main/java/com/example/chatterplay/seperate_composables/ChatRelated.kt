@@ -6,8 +6,6 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,7 +25,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -66,6 +63,7 @@ import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 @Composable
 fun ChatLazyColumn(
@@ -370,7 +368,8 @@ fun ChatInput(viewModel: ChatViewModel = viewModel(), memberCount: Int, crRoomId
 @Composable
 fun AlertingScreen(
     crRoomId: String,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    viewModel: ChatViewModel = viewModel()
 ){
 
     // Create SharedPreferences
@@ -379,7 +378,7 @@ fun AlertingScreen(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     val systemAlertType by crViewModel.systemAlertType.collectAsState() // checks what AlertType it is
@@ -457,6 +456,17 @@ fun AlertingScreen(
     val texts = listOf(pitch0, pitch1, pitch2, pitch3)
     var currentIndex by remember { mutableStateOf(0)}
     val isLastItem = currentIndex == texts.size -1
+
+    LaunchedEffect(currentIndex){
+        if (!isLastItem){
+            delay(3000)
+            currentIndex++
+        }else {
+            delay(3000)
+            onDone()
+        }
+    }
+
     val transition = updateTransition(currentIndex, label = "Text Transition")
     val alpha by transition.animateFloat(label = "Alpha Transition") { index ->
         if (index == currentIndex) 1f else 0f
@@ -468,6 +478,7 @@ fun AlertingScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(CRAppTheme.colorScheme.onGameBackground)
+            /*
             .clickable(
                 indication = rememberRipple(false),
                 interactionSource = remember { MutableInteractionSource()}
@@ -478,6 +489,8 @@ fun AlertingScreen(
                     currentIndex++
                 }
             }
+
+             */
     ){
         Text(
             texts[currentIndex],
@@ -490,68 +503,60 @@ fun AlertingScreen(
         )
     }
 }
-/*
 @Composable
-fun AlertDialogSplash(
+fun AlertLastMessage(
     crRoomId: String,
-    game: Boolean = false,
-    rank: Boolean = false,
-    system: Boolean = false,
-    gameInfo: Title? = null,
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    viewModel: ChatViewModel = viewModel()
 ){
+
     // Create SharedPreferences
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
+    val systemAlertType by crViewModel.systemAlertType.collectAsState() // checks what AlertType it is
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from room
+
+    LaunchedEffect(Unit){
+        crViewModel.fetchSystemAlertType(crRoomId) // initialize systemAlertType
+
+    }
+    LaunchedEffect(systemAlertType){
+        when (systemAlertType){
+            AlertType.game.string -> {
+                crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
+            }
+        }
+    }
+
+
+    val askdjf = "ALERT! A player has been blocked and must leave the game immediately. their time is up, but their actions may still shape what happens next."
     val pitch0 = "Alert!"
-    val pitch1 =
-        when{
-            game ->
-                gameInfo?.let { game ->
-                    "You will now Play\n\n\n${game.title}"
-                } ?: "Game Information Not Available"
+    val pitch1 = "Your time in the game has come to an end."
+    val pitch2 = "but before you go, you have one final chance to make an impact."
+    val pitch3 = "Leave one last message for the group."
+    val pitch4 = "Will you reaveal secrets.\nStir up chaos.\nOr leave on a high note?"
+    val pitch5 = "The choice is yours."
 
-            rank -> "It's time to rank your fellow players and decide who stands out in the game."
-            system -> "this is system"
-            else -> "No Specific Alert type"
-
-        }
-    val pitch2 =
-        when {
-            game ->
-                gameInfo?.let { game ->
-                    when (game.mode){
-                        "questions" -> "You will be asked a Question"
-                        else -> "You will be presented with a series of Questions"
-                    }
-                } ?: "Game Information Not Available"
-            rank -> "Your rankings will shape the competition, so choose wisely and strategically."
-            else -> "nothing selected"
-        }
-    val pitch3 =
-        when {
-            game -> gameInfo?.let { game ->
-                when(game.type){
-                    "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"
-                    "yes/no" -> "Respond with\n\n\nYes or No"
-                    "anonymousStatement" -> "Reply anonymously"
-                    else -> "nothing"
-                }
-            } ?: "Game Information Not Available"
-
-            rank -> "Remember, your decisions remain confidential, but your choices could change everything."
-            system -> "System Alert: Pleas pay attention to this important information."
-            else -> "Nothing"
-        }
-    val texts = listOf(pitch0, pitch1, pitch2, pitch3)
+    val texts = listOf(pitch0, pitch1, pitch2, pitch3, pitch4, pitch5)
     var currentIndex by remember { mutableStateOf(0)}
     val isLastItem = currentIndex == texts.size -1
+
+    LaunchedEffect(currentIndex){
+        if (!isLastItem){
+            delay(3000)
+            currentIndex++
+        }else {
+            delay(3000)
+            onDone()
+        }
+    }
+
     val transition = updateTransition(currentIndex, label = "Text Transition")
     val alpha by transition.animateFloat(label = "Alpha Transition") { index ->
         if (index == currentIndex) 1f else 0f
@@ -563,34 +568,19 @@ fun AlertDialogSplash(
         modifier = Modifier
             .fillMaxSize()
             .background(CRAppTheme.colorScheme.onGameBackground)
-            .clickable(
-                indication = rememberRipple(false),
-                interactionSource = remember { MutableInteractionSource()}
-            ) {
-                if (isLastItem){
-                    onDone()
-                    when{
-                        game -> {
-                            crViewModel.updateShowAlert(
-                                crRoomId = crRoomId,
-                                alertStatus = true
-                            )
-                        }
-                        rank -> {
-
-                        }
-                        system -> {
-
-                        }
-                        else -> {
-
-                        }
-                    }
-                } else {
-                    currentIndex++
-                }
-                    //currentIndex = (currentIndex + 1) % texts.size
+        /*
+        .clickable(
+            indication = rememberRipple(false),
+            interactionSource = remember { MutableInteractionSource()}
+        ) {
+            if (isLastItem){
+                onDone()
+            } else {
+                currentIndex++
             }
+        }
+
+         */
     ){
         Text(
             texts[currentIndex],
@@ -603,6 +593,3 @@ fun AlertDialogSplash(
         )
     }
 }
-
- */
-

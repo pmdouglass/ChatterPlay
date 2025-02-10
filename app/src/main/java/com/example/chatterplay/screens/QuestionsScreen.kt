@@ -57,13 +57,15 @@ import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
+import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun QuestionsScreen(
     crRoomId: String,
     gameInfo: Title,
-    done: Boolean
+    done: Boolean,
+    viewModel: ChatViewModel = viewModel()
 ){
     // Create SharedPreferences
     val context = LocalContext.current
@@ -71,7 +73,7 @@ fun QuestionsScreen(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     Log.d("QuestionsScreen", "Inside QuestionsScreen")
@@ -218,7 +220,8 @@ fun QuestionsScreen(
 fun questionSend(
     crRoomId: String,
     gameInfo: Title,
-    question: String
+    question: String,
+    viewModel: ChatViewModel = viewModel()
 ){
     // Create SharedPreferences
     val context = LocalContext.current
@@ -226,7 +229,7 @@ fun questionSend(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     val currentUser = FirebaseAuth.getInstance().currentUser

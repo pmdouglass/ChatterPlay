@@ -37,8 +37,8 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     private val users = "Users"
     private val games = "Games"
     private val ranking = "Rankings"
-    private val private = "Private Chats"
-    private val influencer = "Influencer Chats"
+    private val private = "PrivateChats"
+    private val influencer = "InfluencerChats"
 
 
     /**
@@ -58,7 +58,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     /**
      *  User Management
      */
-    suspend fun getUserProfile(crRoomId: String, userId: String): UserProfile?{
+    suspend fun getcrUserProfile(crRoomId: String, userId: String): UserProfile?{
         val snapshot = crGameRoomsCollection
             .document(crRoomId)
             .collection(users)
@@ -82,7 +82,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             emptyList()
         }
     }
-    suspend fun blockSelectedPlayer(crRoomId: String, userId: String) {
+    suspend fun RemoveSelectedPlayer(crRoomId: String, userId: String) {
         try {
             Log.d("Firestore", "Starting process to block user $userId from room $crRoomId")
 
@@ -986,8 +986,42 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     /**
      *  Blocking Management
      */
+    suspend fun sendSystemMessage(
+        crRoomId: String,
+        chatMessage: ChatMessage
+    ) {
+        try {
+            Log.d("ChatRepository", "Sending message to crRoomId: $crRoomId")
 
+            // Determine the appropriate room reference
+            val roomRef = crGameRoomsCollection
+                .document(crRoomId)
 
+            // Add timestamp to the chat message
+            val messageWithTimestamp = chatMessage.copy(timestamp = Timestamp.now())
+
+            // Execute Firestore transaction to send the message and update the room metadata
+            firestore.runTransaction { transaction ->
+                // Add the message to the room's messages collection
+                transaction.set(roomRef.collection("messages").document(), messageWithTimestamp)
+
+                // Update the room's metadata
+                transaction.update(
+                    roomRef, mapOf(
+                        "lastMessage" to chatMessage.message,
+                        "lastMessageTimestamp" to messageWithTimestamp.timestamp,
+                        "lastProfile" to chatMessage.image,
+                        "hiddenFor" to emptyList<String>(),
+                        "hiddenTimestamp" to emptyMap<String, Timestamp>()
+                    )
+                )
+            }.await()
+
+            Log.d("ChatRepository", "Message successfully sent to roomId: $crRoomId")
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error sending message to roomId: $crRoomId and crRoomId: $crRoomId - ${e.message}", e)
+        }
+    }
 
 
 
@@ -1328,6 +1362,24 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         } catch (e: Exception) {
             Log.e("ChatRiseRepository", "Error fetching user picks for crRoomId: $crRoomId", e)
             null
+        }
+    }
+    suspend fun blockPlayer(userId: String){
+        val userDocRef = userCollection.document(userId)
+
+        userDocRef.update(
+            mapOf(
+                "pending" to "Blocked"
+            )
+        ).await()
+
+    }
+    suspend fun fetchUsersPendingState(): List<String>{
+        return try {
+            val querySnapshot = userCollection.whereEqualTo("pending", "Pending").get().await()
+            querySnapshot.documents.mapNotNull { it.id }
+        }catch (e: Exception){
+            emptyList()
         }
     }
     suspend fun getGoodbyeMessage(crRoomId: String, roomId: String): ChatMessage?{

@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,7 +72,7 @@ fun LeaderChatScreen(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     val allRisers by viewModel.allRisers.collectAsState()
@@ -168,24 +167,6 @@ fun LeaderChatScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(8.dp)
-                            .clickable {
-                                /*
-                                Log.d("LeaderChat", "button clicked")
-                                if (tradeStatus != "Confirmed") {
-                                    Log.d("LeaderChat", "tradeStatus != Confirmed")
-                                    coroutineScope.launch {
-                                        crViewModel.saveCurrentUsersSelection(
-                                            crRoomId,
-                                            currentUser,
-                                            ""
-                                        )
-                                        crViewModel.cancelTradeStatus(crRoomId)
-                                    }
-                                } else {
-                                    Log.d("LeaderChat", "tradeStatus == Confirmed")
-                                }
-                                */
-                            }
                     ) {
                         selectedPlayer?.let { profile ->
                             UserProfileIcon(
@@ -224,7 +205,7 @@ fun LeaderChatScreen(
                             }
                         }
                     },
-                    //enabled = tradeStatus != "onHold" && selectedPlayer != null
+                    enabled = currentUserTradeStatus != "onHold" && selectedPlayer != null
                 ){
                     Text(
                         if (currentUserTradeStatus != "onHold") "Accept" else "Waiting..",
@@ -420,13 +401,6 @@ fun LeaderChatScreen(
             confirmButton = {
                 Button(onClick = {
                     showDialog = false
-                }) {
-                    Text("No")
-                }
-            },
-            dismissButton = {
-                Button(onClick = {
-                    showDialog = false
                     //crViewModel.updateTradeStatus(crRoomId, otherUser)
                     crViewModel.updateTradeStatus(crRoomId, otherUserId)
                     //personalMessage = true
@@ -434,10 +408,30 @@ fun LeaderChatScreen(
                 }) {
                     Text("Yes")
                 }
+            },
+            dismissButton = {
+
+                Button(onClick = {
+                    showDialog = false
+                }) {
+                    Text("No")
+                }
             }
         )
 
     }
+    if (currentUserTradeStatus == "Confirmed" && otherUserTradeStatus == "Confirmed"){
+        selectedPlayer?.let { removedUser ->
+            crViewModel.updateSystemAlertType(
+                crRoomId = crRoomId,
+                alertType = AlertType.blocking,
+                allMembers = allRisers,
+                userId = removedUser.userId,
+                context = context
+            )
+        }
+    }
+    /*
     if (currentUserTradeStatus == "Confirmed" && hasUserSelected == false){
         AlertDialog(
             onDismissRequest = {whoMessage = false},
@@ -502,12 +496,15 @@ fun LeaderChatScreen(
             dismissButton = {}
         )
     }
+
+     */
 }
 
 @Composable
 fun sendTopPlayerMessage(
     crRoomId: String,
-    roomId: String
+    roomId: String,
+    viewModel: ChatViewModel = viewModel()
 ) {
 
     // Create SharedPreferences
@@ -516,7 +513,7 @@ fun sendTopPlayerMessage(
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
-        factory = ChatRiseViewModelFactory(sharedPreferences)
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
     var input by remember{ mutableStateOf("")}

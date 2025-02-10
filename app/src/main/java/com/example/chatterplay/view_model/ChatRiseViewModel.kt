@@ -33,18 +33,22 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class ChatRiseViewModelFactory(
-    private val sharedPreferences: SharedPreferences
+    private val sharedPreferences: SharedPreferences,
+    private val viewModel: ChatViewModel
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ChatRiseViewModel::class.java)) {
-            return ChatRiseViewModel(sharedPreferences) as T
+            return ChatRiseViewModel(sharedPreferences, viewModel) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
 
-class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewModel() {
+class ChatRiseViewModel(
+    private val sharedPreferences: SharedPreferences,
+    private val viewModel: ChatViewModel
+): ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
     val entryRepository = RoomCreateRepository(sharedPreferences)
@@ -116,15 +120,28 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
      */
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> = _userProfile
-    suspend fun getUserProfile(crRoomId: String){
+    suspend fun getcrUserProfile(crRoomId: String){
         viewModelScope.launch {
-            val profile = chatRepository.getUserProfile(crRoomId, userId)
+            val profile = chatRepository.getcrUserProfile(crRoomId, userId)
             _userProfile.value = profile
         }
     }
+    private val _otherUserProfile = MutableStateFlow<UserProfile?>(null)
+    val otherUserProfile: StateFlow<UserProfile?> = _otherUserProfile
+    suspend fun getOthercrUserProfile(crRoomId: String, otherUserId: String): UserProfile? {
+        return try {
+            val profile = chatRepository.getcrUserProfile(crRoomId, otherUserId)
+            _otherUserProfile.value = profile
+            profile
+        } catch (e: Exception) {
+            Log.e("ChatRiseViewModel", "Error fetching user profile for $otherUserId", e)
+            null // Return null in case of failure
+        }
+    }
+
     fun blockSelectedMember(crRoomId: String, userId: String){
         viewModelScope.launch {
-            chatRepository.blockSelectedPlayer(crRoomId, userId)
+            chatRepository.RemoveSelectedPlayer(crRoomId, userId)
         }
     }
 
@@ -690,7 +707,6 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 Log.d("ChatriseViewModel", "Updating AlertType successfully changed to: $alertType")
                 val newType = chatRepository.getSystemAlertType(crRoomId)
                 when (newType){
-                    //iytgbhkjlm
                     AlertType.new_player.string -> {
                         newPlayerInvite(crRoomId)
                     }
@@ -746,15 +762,20 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     AlertType.rank_results.string -> {
                         setAllVotesToDone(crRoomId)
                         checkUserRankingStatus(crRoomId, userId)
+                    }
+                    AlertType.top_discuss.string -> {
                         val pair = chatRepository.getTopPlayers(crRoomId)
+                        Log.d("ChatRiseViewModel", "pair: $pair")
                         val topPlayers = listOfNotNull(pair?.first, pair?.second)
-                        topPlayerDiscuss(
-                            crRoomId = crRoomId,
-                            memberIds = topPlayers
-                        )
+                        topPlayerDiscuss(crRoomId, topPlayers)
                     }
                     AlertType.blocking.string -> {
-                        chatRepository.blockSelectedPlayer(crRoomId, userId)
+                        val removedUserProfile = chatRepository.getcrUserProfile(crRoomId, userId)
+                        removedUserProfile?.let { removedUser ->
+                            viewModel.announceBlockedPlayer(crRoomId, removedUser, context)
+                            //chatRepository.blockSelectedPlayer(crRoomId, userId)
+                            chatRepository.blockPlayer(userId)
+                        }
                     }
                 }
                 _systemAlertType.value = newType
@@ -1000,7 +1021,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                 val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
                     val userId = document.id
                     val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
-                    val userProfile = chatRepository.getUserProfile(crRoomId, userId)
+                    val userProfile = chatRepository.getcrUserProfile(crRoomId, userId)
                     userProfile?.let { Pair(it, totalPoints) }
                 }
                 // Sort by decending
@@ -1026,6 +1047,8 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     rank2 = rank2
                 )
                 _rankedUsers.value = sortedUserPointsList
+
+
             }catch (e: Exception){
                 Log.d("ViewModel", "Error fetching and sorting")
             }
@@ -1048,7 +1071,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
                     Log.d("ChatRiseViewModel", "User $userId gave $pointsGiven points to $memberId")
 
                     if (pointsGiven > 0) {
-                        val userProfile = chatRepository.getUserProfile(crRoomId, memberId)
+                        val userProfile = chatRepository.getcrUserProfile(crRoomId, memberId)
                         if (userProfile != null) {
                             Log.d("ChatRiseViewModel", "Retrieved UserProfile for $memberId: ${userProfile.fname}")
                             Pair(userProfile, pointsGiven)
@@ -1214,10 +1237,22 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     /**
      * Blocking Management
      */
-
-
-
-
+    private val _blockedPlayer = MutableStateFlow<String?>(null)
+    val blockedPlayer: StateFlow<String?> = _blockedPlayer
+    fun fetchBlockedUser(crRoomId: String){
+        viewModelScope.launch {
+            try {
+                val blockedPlayer = entryRepository.fetchUserBlockingState(crRoomId)
+                if (blockedPlayer != null){
+                    _blockedPlayer.value = blockedPlayer
+                } else {
+                    _blockedPlayer.value = null
+                }
+            }catch (e: Exception) {
+                Log.e("ChatRiseViewModel", "Error fetching blocked player ${e.message}", e)
+            }
+        }
+    }
 
 
 
@@ -1245,25 +1280,39 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
 
 
 
-    fun topPlayerDiscuss(crRoomId: String, memberIds: List<String>){
+    fun topPlayerDiscuss(crRoomId: String, memberIds: List<String>) {
         viewModelScope.launch {
-            val allMemberIds = (memberIds).sorted()
+            Log.d("ChatRiseViewModel", "Starting topPlayerDiscuss() for crRoomId: $crRoomId with memberIds: $memberIds")
+
+            val allMemberIds = memberIds.sorted()
+            Log.d("ChatRiseViewModel", "Sorted memberIds: $allMemberIds")
+
             val roomName = "Leader Discussion"
+            Log.d("ChatRiseViewModel", "Checking if Top Player Room already exists...")
+
             val existingRoomId = chatRepository.checkIfTopPlayerRoomExist(crRoomId, allMemberIds)
 
-            if (existingRoomId != null){
+            if (existingRoomId == null) {
+                Log.d("ChatRiseViewModel", "No existing room found. Creating a new top player chat room...")
 
-            } else {
                 val roomId = chatRepository.createTopPlayerChatRoom(crRoomId, allMemberIds, roomName)
-                memberIds.forEach { memberIds ->
-                    chatRepository.addMemberToTopPlayerRoom(crRoomId, roomId, memberIds)
+                Log.d("ChatRiseViewModel", "Created new chat room with roomId: $roomId")
+
+                memberIds.forEach { memberId ->
+                    Log.d("ChatRiseViewModel", "Adding member $memberId to roomId: $roomId")
+                    chatRepository.addMemberToTopPlayerRoom(crRoomId, roomId, memberId)
                 }
+
+                Log.d("ChatRiseViewModel", "All members added successfully to roomId: $roomId")
+            } else {
+                Log.d("ChatRiseViewModel", "Existing Top Player Room found with roomId: $existingRoomId. No new room created.")
             }
         }
     }
+
     fun sendTopPlayerMessage(crRoomId: String, roomId: String, message: String){
         viewModelScope.launch {
-            val userProfile = chatRepository.getUserProfile(crRoomId, userId)
+            val userProfile = chatRepository.getcrUserProfile(crRoomId, userId)
             if (userProfile != null) {
                 val chatMessage = ChatMessage(
                     senderId = userProfile.userId,
@@ -1278,7 +1327,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     }
     fun sendGoodbyeMessage(crRoomId: String, roomId: String, message: String, remove: String){
         viewModelScope.launch {
-            val userProfile = chatRepository.getUserProfile(crRoomId = crRoomId, userId)
+            val userProfile = chatRepository.getcrUserProfile(crRoomId = crRoomId, userId)
             if (userProfile != null) {
                 val chatMessage = ChatMessage(
                     senderId = userProfile.userId,
@@ -1458,5 +1507,7 @@ class ChatRiseViewModel(private val sharedPreferences: SharedPreferences): ViewM
     fun hasGoodbyeMessage(): Boolean{
         return _goodbyeMessage.value != null
     }
+
+
 
 }
