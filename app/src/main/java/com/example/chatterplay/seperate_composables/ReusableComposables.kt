@@ -207,6 +207,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
     }
 
     LaunchedEffect(crRoomId, gameInfo){
+        roomCreate.checkUserState()
         crRoomId?.let { roomId ->
             if (roomId.isNotEmpty()){
                 if (gameInfo == null){
@@ -283,7 +284,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                         }
                     }
                     userStatus == "Pending" -> {}
-                    userStatus == "Blocked" || roomReady -> {
+                    roomReady -> {
 
                         LaunchedEffect(Unit){
                             if (crRoomId != "0"){
@@ -556,7 +557,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                         }
                     }
                 }
-                userStatus == "Blocked" || roomReady -> {
+                roomReady -> {
                     if (crRoomId != "0"){
                         crRoomId?.let { crRoomId ->
                             Column(

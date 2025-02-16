@@ -44,17 +44,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.AllMembersRow
 import com.example.chatterplay.seperate_composables.ChatBubble
 import com.example.chatterplay.seperate_composables.UserProfileIcon
+import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 
@@ -75,7 +76,10 @@ fun LeaderChatScreen(
         factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
     )
 
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val profile = rememberCRProfile(crRoomId)
     val allRisers by viewModel.allRisers.collectAsState()
+    val AllRisers = allRisers.toMutableList().apply { add(profile) }
     val currentUserProfile = allRisers.find { it.userId == currentUserId }
     val otherUserProfile = allRisers.find { it.userId == otherUserId }
     val filteredMembers = allRisers.filter { it.userId != currentUserId && it.userId != otherUserId}
@@ -83,12 +87,10 @@ fun LeaderChatScreen(
     val selectedPlayer by crViewModel.currentUsersSelection.collectAsState()
     val otherUserSelectedPlayer by crViewModel.otherUsersSelection.collectAsState()
     var showDialog by remember{ mutableStateOf(false) }
-    val currentUserTradeStatus by crViewModel.currentUserTradeStatus.collectAsState()
-    val otherUserTradeStatus by crViewModel.otherUserTradeStatus.collectAsState()
+    val currentUserTradeStatus by crViewModel.currentUsersTradeStatus.collectAsState()
+    val otherUserTradeStatus by crViewModel.otherUsersTradeStatus.collectAsState()
     var userGoodbyeMessage by remember { mutableStateOf(false) }
     val hasUserSelected by crViewModel.hasUserSelected.collectAsState()
-    var whoMessage = if (currentUserTradeStatus == "Confirmed") true else false
-    val removedPlayer = currentUserTradeStatus == "Confirmed"
     var selectedMemberProfile by remember { mutableStateOf<UserProfile?>(null)}
     val userSelections by crViewModel.userSelections.collectAsState()
     val result by crViewModel.result.collectAsState()
@@ -106,10 +108,12 @@ fun LeaderChatScreen(
     }
 
     LaunchedEffect(crRoomId) {
+        crViewModel.fetchTradeStatus(crRoomId, userId)
+        crViewModel.listenForTradeUpdates(crRoomId, userId)
+        crViewModel.listenForOtherUserTradeUpdates(crRoomId, otherUserId)
         viewModel.fetchAllRisers(crRoomId)
         crViewModel.fetchTopPlayerChatMessages(crRoomId, roomId)
         crViewModel.checkUserRemoved(crRoomId)
-        crViewModel.checkTradeStatus(crRoomId, otherUserId)
         crViewModel.evaluateDecision(crRoomId)
         crViewModel.checkIfUserSelected(crRoomId)
     }
@@ -136,11 +140,7 @@ fun LeaderChatScreen(
     ) {
 
 
-        if (currentUserTradeStatus != "Confirmed"){
-            Text("Discuss, select and agree to who will be removed from the game", color = Color.White, fontSize = 16.sp)
-        } else {
-            Text("This Player will be removed from the game", color = Color.White)
-        }
+        Text("Discuss and agree on which player will be removed from the game.", color = Color.White)
         Spacer(modifier = Modifier.height(16.dp))
 
         // Section 2: Trade Interface
@@ -181,12 +181,13 @@ fun LeaderChatScreen(
                                         currentUserId = currentUserId,
                                         selectedPlayer = ""
                                     )
-                                    crViewModel.cancelTradeStatus(crRoomId)
+                                    crViewModel.updateTradeUserStatus(crRoomId, userId, "Canceled")
+                                    crViewModel.updateTradeUserStatus(crRoomId, otherUserId, "Canceled")
                                 }
                             )
                         }
                     }
-                    if (currentUserTradeStatus == "Confirmed"){
+                    if (currentUserTradeStatus != "Canceled"){
                         Icon(Icons.Default.Close, contentDescription = "", modifier = Modifier.fillMaxSize(), tint = Color.Red)
                     }
 
@@ -199,16 +200,16 @@ fun LeaderChatScreen(
                         // clickable?
                         if (selectedPlayer == otherUserSelectedPlayer){
                             // put on hold
-                            if (currentUserTradeStatus != "Confirmed" && otherUserTradeStatus == "Confirmed"){
+                            if (currentUserTradeStatus == "Canceled" && otherUserTradeStatus == "onHold"){
                                 //personalMessage = true
                                 showDialog = true
                             }
-                            if (currentUserTradeStatus != "Confirmed" && otherUserTradeStatus == "onHold"){
-                                crViewModel.updateTradeStatus(crRoomId, otherUserId)
+                            if (currentUserTradeStatus == "Canceled" && otherUserTradeStatus == "Canceled"){
+                                crViewModel.updateTradeUserStatus(crRoomId, userId, "onHold")
                             }
                         }
                     },
-                    enabled = currentUserTradeStatus != "onHold" && selectedPlayer != null
+                    enabled = currentUserTradeStatus == "Canceled" && selectedPlayer != null
                 ){
                     Text(
                         if (currentUserTradeStatus != "onHold") "Accept" else "Waiting..",
@@ -243,12 +244,12 @@ fun LeaderChatScreen(
                                 chatMember = profile,
                                 imgSize = 55,
                                 txtSize = 20,
-                                game = false,
+                                game = true,
                                 self = true
                             )
                         }
                     }
-                    if (currentUserTradeStatus == "Confirmed"){
+                    if (otherUserTradeStatus != "Canceled"){
                         Icon(Icons.Default.Close, contentDescription = "", modifier = Modifier.fillMaxSize(), tint = Color.Red)
                     }
                 }
@@ -264,26 +265,23 @@ fun LeaderChatScreen(
             modifier = Modifier
                 .fillMaxWidth()
         ) {
-            when {
-                currentUserTradeStatus != "Confirmed" -> {
-                    AllMembersRow(
-                        chatRoomMembers = filteredMembers,
-                        game = true,
-                        self = false,
-                        selectedMember = {member ->
-                            coroutineScope.launch {
-                                crViewModel.saveCurrentUsersSelection(
-                                    crRoomId,
-                                    currentUserId,
-                                    member.userId
-                                )
-                                crViewModel.cancelTradeStatus(crRoomId)
-                            }
-                        }
-                    )
+            AllMembersRow(
+                chatRoomMembers = filteredMembers,
+                game = true,
+                self = false,
+                selectedMember = {member ->
+                    Log.d("LeaderChat", "SelectedMembers clicked")
+                    coroutineScope.launch {
+                        crViewModel.saveCurrentUsersSelection(
+                            crRoomId,
+                            currentUserId,
+                            member.userId
+                        )
+                        crViewModel.updateTradeUserStatus(crRoomId, userId, "Canceled")
+                        crViewModel.updateTradeUserStatus(crRoomId, otherUserId, "Canceled")
+                    }
                 }
-                else -> {}
-            }
+            )
 
         }
 
@@ -324,7 +322,7 @@ fun LeaderChatScreen(
                     sendTopPlayerMessage(crRoomId = crRoomId, roomId = roomId)
                 }
             }
-
+            /*
             bothDoneSelecting && result == currentUserId -> {
                 // Current user was chosen to send the message
                 var input by remember { mutableStateOf("") }
@@ -364,7 +362,8 @@ fun LeaderChatScreen(
                     }
                 }
             }
-
+             */
+            /*
             bothDoneSelecting -> {
                 // Other user was chosen to send the message
                 Column(
@@ -376,6 +375,8 @@ fun LeaderChatScreen(
                     Text("Waiting for ${otherUserProfile?.fname} to leave a message to the group")
                 }
             }
+
+             */
 
             else -> {
                 // Both are not done making a selection
@@ -405,7 +406,12 @@ fun LeaderChatScreen(
                 Button(onClick = {
                     showDialog = false
                     //crViewModel.updateTradeStatus(crRoomId, otherUser)
-                    crViewModel.updateTradeStatus(crRoomId, otherUserId)
+
+                    selectedPlayer?.let {player ->
+                        crViewModel.updateSystemAlertType(crRoomId, AlertType.blocking, AllRisers, player.userId, context)
+                        crViewModel.updateTradeUserStatus(crRoomId, userId, "onHold")
+                        crViewModel.handleTradeAcceptance(crRoomId, userId, otherUserId)
+                    }
                     //personalMessage = true
                     //whoMessage = true
                 }) {

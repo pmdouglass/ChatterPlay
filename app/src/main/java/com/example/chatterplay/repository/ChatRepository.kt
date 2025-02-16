@@ -77,6 +77,13 @@ class ChatRepository {
             null
         }
     }
+    suspend fun getRealUserProfile(userId: String): UserProfile?{
+        val snapshot = usersCollection
+            .document(userId)
+            .get().await()
+
+        return snapshot.toObject(UserProfile::class.java)
+    }
 
     suspend fun getUserProfile(userId: String, game: Boolean): UserProfile? {
         try {
@@ -635,8 +642,15 @@ class ChatRepository {
                 .await()
 
             val messages = querySnapshot.documents.mapNotNull { document ->
-                document.toObject(ChatMessage::class.java).also {
+                val message = document.toObject(ChatMessage::class.java)
+
+                // Exclude "blockedMessage" field
+                if (message != null && !document.contains("BlockedMessage")){
                     Log.d("ChatRepository", "Fetched message with id: ${document.id}")
+                    message
+                }else {
+                    Log.d("ChatRepository", "Excluded message with BlockedMessage field: ${document.id}")
+                    null
                 }
             }
 

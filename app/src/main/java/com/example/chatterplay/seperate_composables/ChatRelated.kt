@@ -405,7 +405,7 @@ fun AlertingScreen(
     val pitch0 = "Alert!"
     val pitch1 =
         when (systemAlertType){
-            AlertType.none.string -> {""}
+            AlertType.none.string -> {"false alert"}
             AlertType.new_player.string -> {"The game just got more interesting!"}
             AlertType.fresh_player.string -> {"You've officially joined the group!"}
             AlertType.game.string ->
@@ -415,13 +415,15 @@ fun AlertingScreen(
             AlertType.game_results.string -> {"The results are in"}
             AlertType.ranking.string -> "It's time to rank your fellow players and decide who stands out in the game."
             AlertType.rank_results.string -> {"The moment you've been waiting for is here"}
-            AlertType.blocking.string -> {""}
+            AlertType.top_discuss.string -> {"The power is in their hands."}
+            AlertType.blocking.string -> {"The wait is over."}
+            AlertType.last_message.string -> {"The blocked player may be gone."}
             else -> {""}
 
         }
     val pitch2 =
         when (systemAlertType) {
-            AlertType.none.string -> {""}
+            AlertType.none.string -> {"I got you"}
             AlertType.new_player.string -> {"A new member has arrived"}
             AlertType.fresh_player.string -> {"Alliances have been formed and rivalries exist."}
             AlertType.game.string ->
@@ -436,12 +438,14 @@ fun AlertingScreen(
             } ?: "Game Information Not Available"
             AlertType.ranking.string -> "Your rankings will shape the competition, so choose wisely and strategically."
             AlertType.rank_results.string -> {"The votes are locked in!"}
-            AlertType.blocking.string -> {""}
+            AlertType.top_discuss.string -> {"The top two players are stepping into a private chat to make a game-changing decision."}
+            AlertType.blocking.string -> {"The top two players have reached their decision, and someone's game is about to end."}
+            AlertType.last_message.string -> {"But they've left one final message for the group."}
             else -> "nothing selected"
         }
     val pitch3 =
         when (systemAlertType) {
-            AlertType.none.string -> {""}
+            AlertType.none.string -> {"something to keep you on your toes."}
             AlertType.new_player.string -> {"Will they be a friend, an ally, or your next biggest threat?"}
             AlertType.fresh_player.string -> {"but there's still plenty of room to make your mark."}
             AlertType.game.string -> gameInfo?.let { game ->
@@ -455,7 +459,9 @@ fun AlertingScreen(
             AlertType.game_results.string -> {"The results May suprize you!"}
             AlertType.ranking.string -> "Remember, your decisions remain confidential, but your choices could change everything."
             AlertType.rank_results.string -> {"it's time to see where everyone stands."}
-            AlertType.blocking.string -> {""}
+            AlertType.top_discuss.string -> {"One of you will be blocked... but who will it be?"}
+            AlertType.blocking.string -> {"Who will it be?"}
+            AlertType.last_message.string -> {"What will their last words reveal?"}
             else -> "Nothing"
         }
     val texts = listOf(pitch0, pitch1, pitch2, pitch3)

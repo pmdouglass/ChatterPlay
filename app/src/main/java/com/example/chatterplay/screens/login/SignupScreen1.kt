@@ -396,7 +396,7 @@ fun CustomField(
                 positiveButton(text = "OK"){
 
                 }
-                negativeButton(text = "Cancel") {
+                negativeButton(text = "Canceled") {
 
                 }
             }

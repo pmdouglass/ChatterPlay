@@ -1,7 +1,6 @@
 package com.example.chatterplay.view_model
 
 import android.content.SharedPreferences
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -55,7 +54,7 @@ class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): V
     }
 
     // Check the user's current state from the backend
-    private fun checkUserState() {
+    fun checkUserState() {
         viewModelScope.launch {
             val status = userRepository.fetchUserProfile(userId)
             _userState.value = status ?: "NotPending"
@@ -74,7 +73,7 @@ class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): V
     private fun checkcrRoomId(){
         viewModelScope.launch {
             val usercrRoomId = userRepository.loadUserLocalcrRoomId(userId)
-            if (usercrRoomId != null){
+            if (usercrRoomId != null && usercrRoomId != "0"){
                 _crRoomId.value = usercrRoomId
             }else {
                 val status = userRepository.fetchcrRoomId(userId)
@@ -117,10 +116,12 @@ class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): V
                             // get roomID
                             val roomId = userRepository.getcrRoomId(userId)
                             if (roomId != null){
+                                userRepository.saveUserLocalcrRoomId(userId, roomId)
                                 val addRoomId = userRepository.updateUsersGameRoomId(userIds = usersToUpdate, roomId = roomId)
                                 // add users document
                                 userRepository.createCRSelectedProfileUsers(crRoomId = roomId, userIds = usersToUpdate)
                                 if (addRoomId){
+                                    checkcrRoomId()
                                     _userState.value = "InGame"
                                     _roomReady.value = true
                                 }

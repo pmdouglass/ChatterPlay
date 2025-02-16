@@ -72,17 +72,22 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
             emptyList()
         }
     }
-    suspend fun fetchUserBlockingState(crRoomId: String): String?{
+    suspend fun fetchPreviousPlayers(crRoomId: String): List<String> {
         return try {
-            val querySnapshot = userCollection
-                .whereEqualTo("gameRoomId", crRoomId)
-                .whereEqualTo("pending", "Blocked")
-                .get().await()
+            val querySnapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("AllPlayers")
+                .get()
+                .await()
 
-            querySnapshot.documents.firstOrNull()?.id
-        }catch (e: Exception){
-            Log.e("EntryRepository", "Error fetching blocked user", e)
-            null
+            // Extract document IDs (user IDs)
+            val userIds = querySnapshot.documents.map { it.id }
+
+            Log.d("EntryRepository", "Fetched previous players: $userIds")
+            userIds
+        } catch (e: Exception) {
+            Log.e("EntryRepository", "Error fetching previous players: ${e.message}", e)
+            emptyList() // Return an empty list in case of an error
         }
     }
 
@@ -127,6 +132,10 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
                         .collection("Users")
                         .document(userId)
                     batch.set(userDocRef, userProfile)
+                    val playedDocRef = crGameRoomsCollection.document(crRoomId)
+                        .collection("AllPlayers")
+                        .document(userId)
+                    batch.set(playedDocRef, userProfile)
                 }
             }
 
@@ -141,14 +150,22 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
 
     suspend fun createNewCRRoom(roomName: String, members: List<String>): Boolean{
         return try {
+            val roomId = crGameRoomsCollection.document().id
             // create room
             val newRoom = ChatRoom(
-                roomId = crGameRoomsCollection.document().id,
+                roomId = roomId,
                 roomName = roomName,
                 members = members,
                 createdAt = Timestamp.now()
             )
-            crGameRoomsCollection.document(newRoom.roomId).set(newRoom).await()
+            val batch = firestore.batch()
+            val roomRef = crGameRoomsCollection.document(roomId)
+
+            batch.set(roomRef, newRoom)
+            batch.update(roomRef, mapOf("AlertType" to "none"))
+
+            batch.commit().await()
+
 
             true
         }catch (e: Exception){

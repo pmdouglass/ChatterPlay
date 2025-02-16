@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,18 +16,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.ArrowCircleDown
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ImageAspectRatio
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,13 +53,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
@@ -67,6 +82,7 @@ import com.example.chatterplay.seperate_composables.NavigationRow
 import com.example.chatterplay.seperate_composables.PrivateDrawerRoomList
 import com.example.chatterplay.seperate_composables.RightSideModalDrawer
 import com.example.chatterplay.seperate_composables.UserInfoFooter
+import com.example.chatterplay.seperate_composables.UserProfileIcon
 import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.customPurple
@@ -117,8 +133,8 @@ fun MainScreen(
     var showButtons by remember { mutableStateOf(false)}
     val topPlayers by crViewModel.topPlayers.collectAsState()
     val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
-    val blockedPlayer by crViewModel.blockedPlayer.collectAsState()
-    val currentUserTradeStatus by crViewModel.currentUserTradeStatus.collectAsState()
+    val blockedPlayerId by crViewModel.blockedPlayerId.collectAsState()
+    val currentUserTradeStatus by crViewModel.currentUsersTradeStatus.collectAsState()
     var showBlockedPlayerAlert by remember { mutableStateOf(false) }
 
     val RisersAll = allRisers
@@ -133,7 +149,6 @@ fun MainScreen(
             } ?: false
         }
     }
-    val otherUserId = if (userId == topPlayers?.first) topPlayers?.second ?: "" else topPlayers?.first ?: ""
 
     // Navigation tab Icons 'Description to Icon'
     val tabs by remember {
@@ -141,19 +156,21 @@ fun MainScreen(
             when {
                 isTopPlayer -> {
                     listOf(
-                        "null" to Icons.Default.Home,
-                        "null" to Icons.Default.Person,
-                        "null" to Icons.Default.Menu,
-                        "null" to Icons.Default.ImageAspectRatio,
-                        "null" to Icons.Default.ArrowCircleDown
+                        "null" to Icons.Default.Home,  // home 0
+                        "null" to Icons.Default.Person,  // profile 1
+                        "null" to Icons.Default.Menu,  // game 2
+                        "null" to Icons.Default.ImageAspectRatio,  // rating 3
+                        "null" to Icons.AutoMirrored.Default.PlaylistAdd,  // last message 4
+                        "null" to Icons.Default.ArrowCircleDown  // leader discuss 5
                     )
                 }
                 else -> {
                     listOf(
-                        "null" to Icons.Default.Home,
-                        "null" to Icons.Default.Person,
-                        "null" to Icons.Default.Menu,
-                        "null" to Icons.Default.ImageAspectRatio
+                        "null" to Icons.Default.Home,  // home 0
+                        "null" to Icons.Default.Person,  // profile 1
+                        "null" to Icons.Default.Menu,  // game 2
+                        "null" to Icons.Default.ImageAspectRatio,  // rating 3
+                        "null" to Icons.AutoMirrored.Default.PlaylistAdd  // last message 4
                     )
                 }
             }
@@ -162,7 +179,7 @@ fun MainScreen(
 
     var invite by remember { mutableStateOf(false)}
 
-    LaunchedEffect(crRoomId, showAlert, topPlayers){
+    LaunchedEffect(crRoomId, showAlert){
         viewModel.fetchAllRisers(crRoomId)
         viewModel.fetchChatRoomMembers(crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true)
         viewModel.fetchChatRoomMemberCount(crRoomId, "", true, false)
@@ -171,12 +188,12 @@ fun MainScreen(
         crViewModel.fetchSystemAlertType(crRoomId)
         crViewModel.checkforUserAlert(crRoomId)
         crViewModel.getTopPlayers(crRoomId)
-        crViewModel.fetchTopPlayerRoomId(crRoomId)
-        crViewModel.fetchBlockedUser(crRoomId) // initialize blockedPlayer
+        crViewModel.getBlockedPlayer(crRoomId) // initialize blockedPlayerId
     }
     LaunchedEffect(topPlayers){
         if (isTopPlayer){
-            crViewModel.checkTradeStatus(crRoomId, otherUserId)
+            crViewModel.fetchTradeStatus(crRoomId, userId)
+            crViewModel.fetchTopPlayerRoomId(crRoomId)
         }
     }
     Log.d("MainScreen", "All members $allChatRoomMembers")
@@ -215,7 +232,7 @@ fun MainScreen(
         derivedStateOf {
             when {
                 userHasAnswered == false -> 2
-                isTopPlayer && currentUserTradeStatus != "Confirmed" -> 4
+                isTopPlayer && currentUserTradeStatus != "Confirmed" -> 5
                 isTopPlayer && currentUserTradeStatus == "Confirmed" -> 0
                 else -> 0
             }
@@ -244,9 +261,12 @@ fun MainScreen(
                 disabledTabs.add(0)
             }
             if (currentUserTradeStatus != "Confirmed" && isTopPlayer){
-                disabledTabs.addAll(listOf(0,1,2))
+                disabledTabs.addAll(listOf(0,1,2, 4))
             }
             if (currentUserTradeStatus == "Confirmed" && isTopPlayer){
+                disabledTabs.add(5)
+            }
+            if (usersAlertType == AlertType.blocking.string){
                 disabledTabs.add(4)
             }
             disabledTabs.distinct()
@@ -288,7 +308,12 @@ fun MainScreen(
                         crRoomId = crRoomId,
                         profile = profile,
                         onClick = {showTopBarInfo = !showTopBarInfo},
-                        enabled = if (blockedPlayer == userId) false else true,
+                        enabled =
+                        when {
+                            blockedPlayerId == userId -> {false}
+                            isTopPlayer && currentUserTradeStatus != "Confirmed" -> {false}
+                            else -> {true}
+                        },
                         onAction = { coroutineScope.launch { drawerState.open() }},
                         showTopBarInfo = showTopBarInfo,
                         navController = navController
@@ -297,7 +322,7 @@ fun MainScreen(
                 bottomBar = {
                     when(selectedTabindex){
                         0 -> {
-                            if (blockedPlayer == userId){
+                            if (blockedPlayerId == userId){
 
                             }else{
                                 ChatInput(
@@ -324,6 +349,8 @@ fun MainScreen(
                     ){
                         Row{
                             Button(onClick = { showButtons = !showButtons}){Text("Show All Buttons")}
+                            Text("System: $systemsAlertType")
+                            Text("User: $usersAlertType")
                         }
                         if (showButtons){
                             Row(
@@ -517,6 +544,7 @@ fun MainScreen(
 
 
                         if (showAlert == true){
+                            val tabIndex = if (isTopPlayer) 5 else 0
                             AlertingScreen(
                                 crRoomId = crRoomId,
                                 onDone = {
@@ -527,6 +555,7 @@ fun MainScreen(
                                         AlertType.game_results.string -> {selectedTabindex = 2}
                                         AlertType.ranking.string -> {selectedTabindex = 3}
                                         AlertType.rank_results.string -> {selectedTabindex = 3}
+                                        AlertType.top_discuss.string -> {selectedTabindex = tabIndex}
                                         AlertType.blocking.string -> {selectedTabindex = 0}
                                         AlertType.last_message.string -> {selectedTabindex = 0}
                                         else -> {selectedTabindex = 0}
@@ -537,7 +566,7 @@ fun MainScreen(
                             )
 
                         }
-                        if (blockedPlayer == userId){
+                        if (blockedPlayerId == userId){
                             Column(
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -641,7 +670,9 @@ fun MainScreen(
                                 )
                             }
                             4 -> {
-                                // Temperary
+                                PlayersLastWords(crRoomId = crRoomId)
+                            }
+                            5 -> {
                                 topPlayers?.let { (rank1, rank2) ->
                                     val isTopPlayer = userId == rank1 || userId == rank2
                                     Log.d("MainScreen", "Top player is ${topPlayers?.first} and ${topPlayers?.second}")
@@ -713,16 +744,11 @@ fun RiseMainChat(
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
 
-
     val messages by viewModel.messages.collectAsState()
     val listState = rememberLazyListState()
-    val goodbyeMessage by crViewModel.goodbyeMessage.collectAsState()
-    val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
-    val blockedUser by crViewModel.blockedPlayer.collectAsState()
 
-    LaunchedEffect(crRoomId, blockedUser) {
-        crViewModel.fetchBlockedUser(crRoomId) // initialize blockedPlayer
-        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true) // initialize messages
+    LaunchedEffect(crRoomId) {
+        viewModel.fetchChatMessages(context = context, crRoomId = crRoomId, roomId = crRoomId, game = true, mainChat = true) //  messages
     }
 
 
@@ -769,21 +795,7 @@ fun RiseMainChat(
                     when {
                         message.senderId == "System" -> {
                             SystemMessage(message)
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                            ) {
-                                if (blockedUser == userId) {
-                                    Text(
-                                        "BLOCKED!",
-                                        style = CRAppTheme.typography.H6,
-                                        color = Color.White
-                                    )
-                                }
-                            }
                         }
-
                         else -> {
                             ChatBubble(
                                 image = message.image,
@@ -802,6 +814,160 @@ fun RiseMainChat(
                 }
             }
         }
+    }
+}
+@Composable
+fun PlayersLastWords(
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
+){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+    val messages by crViewModel.blockedMessages.collectAsState()
+
+    LaunchedEffect(crRoomId){
+        crViewModel.fetchBlockedMessages(crRoomId)
+    }
+
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CRAppTheme.colorScheme.gameBackground)
+            .padding(30.dp)
+    ){
+        Text("Final Message",
+            style = CRAppTheme.typography.H3,
+            color = Color.White,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            items(messages){message ->
+                lastWordsView(crRoomId = crRoomId, message = message)
+            }
+        }
+
+    }
+}
+@Composable
+fun lastWordsView(
+    crRoomId: String,
+    message: ChatMessage,
+    viewModel: ChatViewModel = viewModel()
+){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+    var showLastMessage by remember { mutableStateOf(false) }
+    val gameProfile by crViewModel.otherUserProfile.collectAsState()
+    val trueProfile by viewModel.userProfile.collectAsState()
+    val senderProfile = remember { mutableStateOf<UserProfile?>(null)}
+    val gameSenderProfile = remember { mutableStateOf<UserProfile?>(null)}
+
+    LaunchedEffect(message.senderId){
+        senderProfile.value = viewModel.getRealUserProfile(message.senderId) // trueProfile
+        gameSenderProfile.value = crViewModel.getOthercrUserProfile(crRoomId, message.senderId) // gameProfile
+    }
+
+    if (!showLastMessage){
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+        ){
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .padding(10.dp)
+                    .clickable { showLastMessage = true }
+            ){
+                Image(
+                    painter = rememberAsyncImagePainter(message.image),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(175.dp)
+                        .clip(CircleShape)
+                )
+                Text(
+                    message.senderName,
+                    fontSize = 50.sp,
+                    color = Color.White
+                )
+            }
+        }
+    }else {
+        Card(
+            shape = RoundedCornerShape(12.dp),
+            elevation = CardDefaults.cardElevation(4.dp),
+            colors = CardDefaults.cardColors(CRAppTheme.colorScheme.primary.copy(alpha = .85f)),
+            modifier = Modifier
+                .fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ){
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                ){
+                    senderProfile.value?.let {
+                        UserProfileIcon(
+                            chatMember = it,
+                            imgSize = 50,
+                            txtSize = 20,
+                            game = false,
+                            self = true,
+                            navController = rememberNavController()
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .padding(start = 20.dp, end = 20.dp)
+                    )
+                    gameSenderProfile.value?.let {
+                        UserProfileIcon(
+                            chatMember = it,
+                            imgSize = 50,
+                            txtSize = 20,
+                            game = false,
+                            self = true,
+                            navController = rememberNavController()
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(message.message)
+            }
+        }
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 @Composable

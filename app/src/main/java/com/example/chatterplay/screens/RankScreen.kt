@@ -83,7 +83,6 @@ fun RankingScreen(
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val rankedMembers by crViewModel.rankedUsers.collectAsState()
 
-
     val selectedAction = remember { mutableStateOf<Int?>(null)}
     val isSwapWithRightMode = remember { mutableStateOf(false) }
     val swapWithRightIndex = remember { mutableStateOf<Int?>(null) }
@@ -105,6 +104,8 @@ fun RankingScreen(
             addAll(allRisers)
         }
     }
+    val membersList = if (rankedMembers != null) rankedMembers else leftRiser
+
     isRightSideComplete.value = rightRiser.all { it != null }
 
 
@@ -143,36 +144,12 @@ fun RankingScreen(
                 else -> {
                     "Other"
                 }
-                /*Mode.NewRankingMode -> {
-                    "Final Rankings"
-                }*/
             },
             style = CRAppTheme.typography.T4,
             color = Color.White,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .padding(20.dp))
-        when (currentMode) {
-            "View" -> {
-                Button(onClick = {
-                    crViewModel.updateToRanking(crRoomId, currentUser?.uid ?: "", allChatRoomMembers)
-                }){Text("Go to Ranking")}
-            }
-            "Ranking" -> {
-            }
-            "Done" -> {
-                Button(onClick = {
-                    crViewModel.setAllVotesToDone(crRoomId)
-                    crViewModel.checkUserRankingStatus(crRoomId, currentUser?.uid ?: "")
-                }){
-                    Text("Final Final Rankings Do Not Press")
-                }
-
-            }
-            else -> {
-
-            }
-        }
         HorizontalDivider()
 
         Box(
@@ -189,7 +166,6 @@ fun RankingScreen(
                     "View" -> {
                         CurrentRanks(crRoomId = crRoomId, memberRanks = rankedMembers)
                     }
-
 
                     "Ranking" -> {
                         LeftList(
@@ -338,6 +314,8 @@ fun CurrentRanks(
         .apply {
             add(profile)
         }
+
+    val displayRanks = if (memberRanks.isEmpty()) AllRisers.map { it to 0 } else memberRanks
     LaunchedEffect(crRoomId){
         crViewModel.fetchUserAlertType(crRoomId)
         viewModel.fetchAllRisers(crRoomId)
@@ -361,17 +339,25 @@ fun CurrentRanks(
                     modifier = Modifier
                         .fillMaxHeight()
                 ){
-                    memberRanks.forEachIndexed { index, (member) ->
+                    displayRanks.forEachIndexed { index, (member) ->
                         Row (
                             modifier = Modifier
-                                .then(if (index == 0 || index == 1){
-                                    Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
-                                } else {
-                                    Modifier
-                                })
+                                .then(
+                                    if (memberRanks.isEmpty()){
+                                        Modifier
+                                    }else {
+                                        if (index == 0 || index == 1){
+                                            Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                                        } else {
+                                            Modifier
+                                        }
+                                    }
+
+                                )
                                 .padding(2.dp)
                         ){
-                            Text(getOrdinal(index + 1),
+                            Text(
+                                if (memberRanks.isEmpty()) "" else getOrdinal(index + 1),
                                 color = Color.White)
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally

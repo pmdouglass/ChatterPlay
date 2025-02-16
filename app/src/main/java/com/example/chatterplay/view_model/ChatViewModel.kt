@@ -118,8 +118,17 @@ class ChatViewModel: ViewModel() {
         }
     }
 
+    suspend fun getRealUserProfile(userId: String): UserProfile? {
+        return try {
+            val profile = chatRepository.getRealUserProfile(userId)
+            profile
+        } catch (e: Exception) {
+            Log.e("ChatRiseViewModel", "Error fetching user profile for $userId", e)
+            null // Return null in case of failure
+        }
+    }
 
-    suspend fun fetchUserProfile(userId: String) {
+    suspend fun fetchUserProfile(userId: String): UserProfile? {
         viewModelScope.launch {
             try {
                 Log.d("ChatViewModel", "Fetching user profile for userId: $userId")
@@ -145,6 +154,7 @@ class ChatViewModel: ViewModel() {
                 Log.e("ChatViewModel", "Error fetching user profile for userId: $userId - ${e.message}", e)
             }
         }
+        return null
     }
 
     private suspend fun fetchAllUsers() {

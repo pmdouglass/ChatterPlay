@@ -12,11 +12,14 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.firestore
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.CoroutineScope
@@ -53,6 +56,10 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         Log.d("ChatRiseRepository", "AlertType loading as: $alertType")
         return alertType
     }
+    fun saveLocalcrRoomId(userId: String, crRoomId: String){
+        sharedPreferences.edit().putString("crRoomId_$userId", crRoomId).apply()
+        Log.d("ChatRiseRepository", "crRoomId saving to $userId")
+    }
 
 
     /**
@@ -61,7 +68,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     suspend fun getcrUserProfile(crRoomId: String, userId: String): UserProfile?{
         val snapshot = crGameRoomsCollection
             .document(crRoomId)
-            .collection(users)
+            .collection("AllPlayers")
             .document(userId)
             .get().await()
         return snapshot.toObject(UserProfile::class.java)
@@ -86,6 +93,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         try {
             Log.d("Firestore", "Starting process to block user $userId from room $crRoomId")
 
+
             // Reference to the "users" collection inside the chat room
             val roomCollectionRef = crGameRoomsCollection
                 .document(crRoomId)
@@ -93,6 +101,8 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
 
             val roomRef = crGameRoomsCollection
                 .document(crRoomId)
+
+
 
             Log.d("Firestore", "Fetching documents inside users collection for room: $crRoomId")
 
@@ -115,6 +125,9 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                 Log.w("Firestore", "User document $userId not found in room $crRoomId. Skipping deletion.")
             }
 
+
+
+
             // remove userId from 'members' field in the room document
             Log.d("Firestore", "Removing userId $userId from members list in room $crRoomId")
             roomRef.update("members", FieldValue.arrayRemove(userId)).await()
@@ -133,6 +146,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                     "pending" to "NotPending"
                 )
             ).await()
+            saveLocalcrRoomId(userId, "0")
 
             Log.d("Firestore", "Successfully updated user $userId: gameRoomId -> 0, pending -> NotPending")
 
@@ -901,8 +915,26 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("Repository", "Failed to add bonus point: ${e.message}")
         }
     }
-    suspend fun getAllRankDocuments(crRoomId: String) =
-        crGameRoomsCollection.document(crRoomId).collection("Rankings").get().await()!!
+    suspend fun getAllRankDocuments(crRoomId: String): QuerySnapshot? {
+        return try {
+            val snapshot = crGameRoomsCollection.document(crRoomId)
+                .collection("Rankings")
+                .get()
+                .await()
+
+            if (!snapshot.isEmpty) {
+                snapshot // Return the QuerySnapshot
+            } else {
+                Log.w("Firestore", "No rankings found for crRoomId: $crRoomId")
+                null // Return null if the collection is empty
+            }
+        } catch (e: Exception) {
+            Log.e("Firestore", "Error fetching rankings for crRoomId: $crRoomId - ${e.message}", e)
+            null // Return null if an exception occurs
+        }
+    }
+
+
     suspend fun getUserVotes(crRoomId: String, userId: String){
         val documentSnapshot = crGameRoomsCollection
             .document(crRoomId)
@@ -995,27 +1027,135 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     /**
      *  Blocking Management
      */
-    suspend fun saveSelectedBlockedPlayer(crRoomId: String, userId: String){
-        val documentRef = crGameRoomsCollection
-            .document(crRoomId)
+    suspend fun saveSelectedBlockedPlayer(crRoomId: String, userId: String) {
+        val documentRef = crGameRoomsCollection.document(crRoomId).collection("Users").document(userId)
+        val documentAllRef = crGameRoomsCollection.document(crRoomId).collection("AllPlayers").document(userId)
+        val documentRankRef = crGameRoomsCollection.document(crRoomId).collection("Rankings").document(userId)
 
-        documentRef.set(mapOf("BlockedPlayer" to userId)).await()
+
+        val batch = Firebase.firestore.batch()
+
+        try {
+            // Delete the user's ranking document
+            batch.delete(documentRankRef)
+
+            // Update "pending" field in both collections atomically
+            batch.set(documentRef, mapOf("pending" to "Blocked"), SetOptions.merge())
+            batch.set(documentAllRef, mapOf("pending" to "Done"), SetOptions.merge())
+
+            batch.commit().await() // Execute batch operation
+
+            Log.d("ChatRiseRepository", "Successfully updated BlockedPlayer for crRoomId: $crRoomId and marked as Done in AllPlayers.")
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error updating BlockedPlayer: ${e.message}", e)
+        }
     }
-    suspend fun getSelectedBlockedPlayer(crRoomId: String): String? {
-        val documentRef = crGameRoomsCollection.document(crRoomId)
+
+    suspend fun getCurrentBlockedPlayer(crRoomId: String): String?{
+        return try {
+            val querySnapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("Users")
+                .whereEqualTo("pending", "Blocked")
+                .get().await()
+
+            querySnapshot.documents.firstOrNull()?.id
+        }catch (e: Exception){
+            Log.e("EntryRepository", "Error fetching blocked user", e)
+            null
+        }
+    }
+    suspend fun getAllDonePlayers(crRoomId: String): List<String> {
+        val userCollection = crGameRoomsCollection.document(crRoomId).collection("AllPlayers")
 
         return try {
-            val snapshot = documentRef.get().await()
-            if (snapshot.exists()) {
-                snapshot.getString("BlockedPlayer")?.also {
-                    Log.d("ChatRepository", "Blocked player retrieved successfully: $it")
-                }
+            val snapshot = userCollection
+                .whereEqualTo("pending", "Done") // Query for documents where "pending" == "Done"
+                .get()
+                .await()
+
+            val userIds = snapshot.documents.mapNotNull { it.id } // Extract document IDs (User IDs)
+
+            Log.d("ChatRiseRepository", "Found ${userIds.size} users marked as 'Done' in crRoomId: $crRoomId")
+
+            userIds // Return list of user IDs
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error fetching 'Done' players: ${e.message}", e)
+            emptyList() // Return empty list in case of an error
+        }
+    }
+    suspend fun removeBlockedPlayer(crRoomId: String, userId: String) {
+        try {
+            val userDoc = userCollection.document(userId)
+            val userRef = crGameRoomsCollection.document(crRoomId).collection("Users").document(userId)
+
+
+            // Update user pending status to "NotPending"
+            userDoc.update(
+                mapOf(
+                    "gameRoomId" to "0",
+                    "pending" to "NotPending"
+                )
+            ).await()
+            Log.d("ChatRiseRepository", "Successfully updated user $userId to NotPending.")
+
+            // Remove user from the room
+            userRef.delete().await()
+            Log.d("ChatRiseRepository", "Successfully removed user $userId from room $crRoomId.")
+
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error removing blocked player: ${e.message}", e)
+        }
+    }
+
+    suspend fun sendBlockedMessage(crRoomId: String, userId: String, message: ChatMessage) {
+        val roomRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("BlockedMessage")
+
+        val docId = roomRef.document().id
+
+        roomRef.document(docId).set(message).await()
+    }
+    suspend fun getAllBlockedMessages(crRoomId: String): List<ChatMessage> {
+        val roomRef = crGameRoomsCollection.document(crRoomId).collection("BlockedMessage")
+
+        return try {
+            val snapshot = roomRef.get().await()
+            if (!snapshot.isEmpty) {
+                snapshot.documents.mapNotNull { it.toObject(ChatMessage::class.java) }
             } else {
-                Log.d("ChatRepository", "No blocked player found for crRoomId: $crRoomId")
-                null
+                Log.d("ChatRepository", "No blocked messages found for crRoomId: $crRoomId")
+                emptyList()
             }
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Error fetching blocked player: ${e.message}", e)
+            Log.e("ChatRepository", "Error fetching blocked messages: ${e.message}", e)
+            emptyList()
+        }
+    }
+
+    suspend fun getBloccfdgkedMessage(crRoomId: String, blockedUserId: String): ChatMessage? {
+        return try {
+            val roomRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("BlockedMessage")
+
+            // Query to find the message where "BlockedMessage" is equal to userId
+            val snapshot = roomRef
+                .whereEqualTo("BlockedMessage", blockedUserId) // Only fetch messages for the blocked user
+                .limit(1) // We expect only one result
+                .get()
+                .await()
+
+            val document = snapshot.documents.firstOrNull() // Get the first document if it exists
+            val blockedMessage = document?.toObject(ChatMessage::class.java) // Convert to ChatMessage object
+
+            Log.d("Firestore", "Blocked message fetched: ${blockedMessage?.message}")
+
+            blockedMessage // Return the found ChatMessage object
+
+        } catch (e: Exception) {
+            Log.e("Firestore", "Error fetching blocked message for $blockedUserId", e)
             null
         }
     }
@@ -1056,35 +1196,13 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("ChatRepository", "Error sending message to roomId: $crRoomId and crRoomId: $crRoomId - ${e.message}", e)
         }
     }
-    suspend fun sendBlockedMessage(crRoomId: String, userId: String, message: ChatMessage){
-        val documentRef = crGameRoomsCollection
-            .document(crRoomId)
-            .collection("BlockedMessage")
-            .document(userId)
 
-        documentRef.set(message).await()
-    }
-    suspend fun getBlockedMessage(crRoomId: String, userId: String): ChatMessage?{
-        val documentRef = crGameRoomsCollection
-            .document(crRoomId)
-            .collection("BlockedMessage")
-            .document(userId)
 
-        return try {
-            val snapshot = documentRef.get().await()
-            if (snapshot.exists()){
-                snapshot.toObject(ChatMessage::class.java)?.also {
-                    Log.d("ChatRiseRepository", "Blocked message retrieved successfully: $it")
-                }
-            }else {
-                Log.d("ChatRiseRepository", "No blocked message found for userId: $userId in crRoomId: $crRoomId")
-                null
-            }
-        }catch (e: Exception){
-            Log.e("ChatRiseRepository", "Error fetching blocked message: ${e.message}", e)
-            null
-        }
-    }
+
+
+
+
+
 
 
 
@@ -1118,6 +1236,27 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         }
         return null
     }
+    suspend fun checkTopPlayers(crRoomId: String): Pair<String?, String?> {
+        return try {
+            val documentSnapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("TopPlayers")
+                .document("TopPlayers")
+                .get().await()
+
+            if (documentSnapshot.exists()) {
+                val userId1 = documentSnapshot.getString("Rank1")
+                val userId2 = documentSnapshot.getString("Rank2")
+                Pair(userId1, userId2)
+            } else {
+                Pair(null, null) // Document doesn't exist
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Pair(null, null) // Handle errors gracefully
+        }
+    }
+
     suspend fun addMemberToTopPlayerRoom(CRRoomId: String, roomId: String, memberId: String){
         val roomRef = crGameRoomsCollection
             .document(CRRoomId)
@@ -1283,7 +1422,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             val currentStatus = snapshot.getString(userId) ?: ""
             val otherUserOnHold = snapshot.getString(otherUser)
 
-            if(currentStatus.isBlank() || currentStatus == "Cancel"){
+            if(currentStatus.isBlank() || currentStatus == "Canceled"){
                 transaction.update(topPlayerRef, userId, "onHold")
             }
             if(otherUserOnHold == "onHold"){
@@ -1384,15 +1523,15 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             .document("TopPlayers")
 
         firestore.runTransaction { transaction ->
-            transaction.update(topPlayerRef, userId, "Cancel")
+            transaction.update(topPlayerRef, userId, "Canceled")
         }
     }
     fun saveTopPlayers(crRoomId: String, rank1: String, rank2: String){
         val topPlayersData = hashMapOf(
             "Rank1" to rank1,
             "Rank2" to rank2,
-            rank1 to "Cancel",
-            rank2 to "Cancel"
+            rank1 to "Canceled",
+            rank2 to "Canceled"
         )
 
         crGameRoomsCollection
@@ -1454,16 +1593,18 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                 .collection("TopPlayers")
                 .document("TopPlayers")
 
-            val pickMap = mapOf(
-                "pick" to mapOf(
-                    userId to pick
+            val snapshot = docRef.get().await()
+
+            if (snapshot.exists()){
+                val pickMap = mapOf(
+                    "pick.$userId" to pick
                 )
-            )
 
-            // 🔹 Update Firestore with the pick
-            docRef.set(pickMap, SetOptions.merge()).await()
-
-            Log.d("ChatRiseRepository", "Successfully saved pick for userId: $userId in crRoomId: $crRoomId")
+                docRef.update(pickMap).await()
+                Log.d("ChatRiseRepository", "Successfully updated pick for userId: $userId in TopPlayers")
+            }else {
+                Log.w("ChatRiseRepository", "topPlayers socument does not exist, not updating.")
+            }
 
         } catch (e: Exception) {
             Log.e("ChatRiseRepository", "Error saving user pick for userId: $userId in crRoomId: $crRoomId", e)
@@ -1494,12 +1635,16 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             null
         }
     }
-    suspend fun blockPlayer(userId: String){
-        val userDocRef = userCollection.document(userId)
+    suspend fun updatecrUserGameStatus(crRoomId: String, userId: String, status: String){
+
+        val userDocRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection("Users")
+            .document(userId)
 
         userDocRef.update(
             mapOf(
-                "pending" to "Blocked"
+                "pending" to status
             )
         ).await()
 
@@ -1530,6 +1675,26 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
         }
 
     }
+    suspend fun deleteTopPlayerCollection(crRoomId: String) {
+        try {
+            val collectionRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection("TopPlayers")
+
+            val documents = collectionRef.get().await()
+
+            // Use a batch operation to delete all documents inside "TopPlayers"
+            val batch = firestore.batch()
+            for (document in documents) {
+                batch.delete(document.reference)
+            }
+            batch.commit().await() // Execute the batch deletion
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
 
 
 

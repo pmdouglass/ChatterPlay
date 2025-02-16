@@ -18,6 +18,7 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -50,6 +51,7 @@ class ChatRiseViewModel(
     private val viewModel: ChatViewModel
 ): ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
+    private val cRepository = ChatRepository()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
     val entryRepository = RoomCreateRepository(sharedPreferences)
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
@@ -79,6 +81,7 @@ class ChatRiseViewModel(
             if (usersAlertType != roomAlertType){
                 // action
                 _showAlert.value = true
+                Log.d("ChatRiseViewModel", "show alert set to true")
                 roomAlertType?.let { chatRepository.saveUserLocalAlertType(userId, it) }
                 val alert = chatRepository.loadUserLocalAlertType(userId)
                 _usersAlertType.value = alert
@@ -341,42 +344,6 @@ class ChatRiseViewModel(
             }
         }
     }
-    fun fetchUsersGameAlert(crRoomId: String, userId: String, gameName: String){
-        viewModelScope.launch {
-            try {
-                val status = chatRepository.getUsersGameAlert(
-                    crRoomId = crRoomId,
-                    userId = userId,
-                    gameName = gameName
-                )
-                //_usersGameAlertStatus.value = status
-                when (status) {
-                    true -> Log.d("ViewModel", "User $userId has been alerted")
-                    false -> Log.d("ViewModel", "User $userId has not been alerted")
-                }
-            }catch (e: Exception){
-                Log.d("ViewModel", "failed to get users game alert status ${e.message}")
-            }
-        }
-    }
-    fun fetchShowAlert(crRoomId: String){
-        viewModelScope.launch {
-            val status = chatRepository.getAlertStatus(crRoomId = crRoomId, userId = userId)
-            _showAlert.value = status
-        }
-    }
-
-
-
-
-
-
-
-
-
-
-
-
     fun fetchQuestions(title: String){
         viewModelScope.launch {
             try {
@@ -541,21 +508,6 @@ class ChatRiseViewModel(
             _allMembersHasAnswered.value = response
         }
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     @SuppressLint("SuspiciousIndentation")
     fun fetchAnswers(crRoomId: String, title: String, onComplete: (List<Answers>) -> Unit){
         viewModelScope.launch {
@@ -767,20 +719,24 @@ class ChatRiseViewModel(
                         val pair = chatRepository.getTopPlayers(crRoomId)
                         Log.d("ChatRiseViewModel", "pair: $pair")
                         val topPlayers = listOfNotNull(pair?.first, pair?.second)
+                        Log.d("ChatRiseViewModel", "topPlayer: $topPlayers")
                         topPlayerDiscuss(crRoomId, topPlayers)
                     }
                     AlertType.blocking.string -> {
                         val removedUserProfile = chatRepository.getcrUserProfile(crRoomId, userId)
+                        Log.d("ChatRiseViewModel", "blocked/removed player is $removedUserProfile")
                         removedUserProfile?.let { removedUser ->
                             chatRepository.saveSelectedBlockedPlayer(crRoomId, removedUser.userId)
                             viewModel.announceBlockedPlayer(crRoomId, removedUser, context)
-                            chatRepository.blockPlayer(removedUser.userId)
+                            chatRepository.deleteTopPlayerCollection(crRoomId)
                         }
                     }
                     AlertType.last_message.string -> {
-                        val blockedPlayerId = chatRepository.getSelectedBlockedPlayer(crRoomId)
-                        blockedPlayerId?.let {
-                            chatRepository.RemoveSelectedPlayer(crRoomId, blockedPlayerId)
+                        val blockedPlayerId = chatRepository.getCurrentBlockedPlayer(crRoomId)
+                        if (!blockedPlayerId.isNullOrEmpty()){
+                            blockedPlayerId?.let {
+                                chatRepository.removeBlockedPlayer(crRoomId, blockedPlayerId)
+                            }
                         }
                     }
                 }
@@ -790,6 +746,7 @@ class ChatRiseViewModel(
             }
         }
     }
+    /*
     fun updateUsersAlertType(crRoomId: String, alertType: AlertType){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")
@@ -801,7 +758,7 @@ class ChatRiseViewModel(
             }
         }
     }
-
+    */
     fun updateShowAlert(crRoomId: String, alertStatus: Boolean){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertStatus to $alertStatus")
@@ -809,14 +766,18 @@ class ChatRiseViewModel(
                 //val status = chatRepository.updateAlertStatus(crRoomId, userId, alertStatus)
                 //_showAlert.value = status
                 _showAlert.value = alertStatus
+                Log.d("ChatRiseViewModel", "show alert set to $alertStatus")
                 //_alertChange.value = alertStatus
-                fetchShowAlert(crRoomId)
+                //fetchShowAlert(crRoomId)
+                checkforUserAlert(crRoomId)
                 Log.d("ChatriseViewModel", "Updating AlertStatus successfully changed to: $alertStatus")
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to update AlertStatus: ${e.message}")
             }
         }
     }
+
+
 
     fun fetchSystemAlertType(crRoomId: String){
         viewModelScope.launch {
@@ -1024,35 +985,38 @@ class ChatRiseViewModel(
         viewModelScope.launch {
             try {
                 val rankingSnapshot = chatRepository.getAllRankDocuments(crRoomId)
-                val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
-                    val userId = document.id
-                    val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
-                    val userProfile = chatRepository.getcrUserProfile(crRoomId, userId)
-                    userProfile?.let { Pair(it, totalPoints) }
+
+                if (rankingSnapshot != null){
+                    val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
+                        val userId = document.id
+                        val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
+                        val userProfile = chatRepository.getcrUserProfile(crRoomId, userId)
+                        userProfile?.let { Pair(it, totalPoints) }
+                    }
+                    // Sort by decending
+                    val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
+
+                    sortedUserPointsList.forEachIndexed { index, (userProfile, _) ->
+                        val rank = index + 1
+                        chatRepository.updateCurrentRank(crRoomId, userProfile.userId, rank)
+                    }
+
+                    // Extract top two players (if available)
+                    val topTwoPlayers = sortedUserPointsList.take(2).map { it.first.userId }
+
+                    val rank1 = topTwoPlayers.getOrNull(0) ?: ""
+                    val rank2 = topTwoPlayers.getOrNull(1) ?: ""
+
+                    Log.d("ChatRiseViewModel", "Top Two Players -> Rank 1: $rank1, Rank 2: $rank2")
+
+                    // Save top two players
+                    saveTopTwoPlayers(
+                        crRoomId = crRoomId,
+                        rank1 = rank1,
+                        rank2 = rank2
+                    )
+                    _rankedUsers.value = sortedUserPointsList
                 }
-                // Sort by decending
-                val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
-
-                sortedUserPointsList.forEachIndexed { index, (userProfile, _) ->
-                    val rank = index + 1
-                    chatRepository.updateCurrentRank(crRoomId, userProfile.userId, rank)
-                }
-
-                // Extract top two players (if available)
-                val topTwoPlayers = sortedUserPointsList.take(2).map { it.first.userId }
-
-                val rank1 = topTwoPlayers.getOrNull(0) ?: ""
-                val rank2 = topTwoPlayers.getOrNull(1) ?: ""
-
-                Log.d("ChatRiseViewModel", "Top Two Players -> Rank 1: $rank1, Rank 2: $rank2")
-
-                // Save top two players
-                saveTopTwoPlayers(
-                    crRoomId = crRoomId,
-                    rank1 = rank1,
-                    rank2 = rank2
-                )
-                _rankedUsers.value = sortedUserPointsList
 
 
             }catch (e: Exception){
@@ -1067,37 +1031,40 @@ class ChatRiseViewModel(
                 Log.d("ChatRiseViewModel", "Fetching rankings for room: $crRoomId")
 
                 val rankingSnapshot = chatRepository.getAllRankDocuments(crRoomId)
-                Log.d("ChatRiseViewModel", "Fetched ${rankingSnapshot.documents.size} ranking documents.")
+                if (rankingSnapshot != null){
+                    Log.d("ChatRiseViewModel", "Fetched ${rankingSnapshot.documents.size} ranking documents.")
 
-                val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
-                    val memberId = document.id
-                    val votes = document.get("votes") as? Map<String, Map<String, Any>> ?: emptyMap()
+                    val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
+                        val memberId = document.id
+                        val votes = document.get("votes") as? Map<String, Map<String, Any>> ?: emptyMap()
 
-                    val pointsGiven = (votes[userId]?.get("pointsGiven") as? Long)?.toInt() ?: 0
-                    Log.d("ChatRiseViewModel", "User $userId gave $pointsGiven points to $memberId")
+                        val pointsGiven = (votes[userId]?.get("pointsGiven") as? Long)?.toInt() ?: 0
+                        Log.d("ChatRiseViewModel", "User $userId gave $pointsGiven points to $memberId")
 
-                    if (pointsGiven > 0) {
-                        val userProfile = chatRepository.getcrUserProfile(crRoomId, memberId)
-                        if (userProfile != null) {
-                            Log.d("ChatRiseViewModel", "Retrieved UserProfile for $memberId: ${userProfile.fname}")
-                            Pair(userProfile, pointsGiven)
+                        if (pointsGiven > 0) {
+                            val userProfile = chatRepository.getcrUserProfile(crRoomId, memberId)
+                            if (userProfile != null) {
+                                Log.d("ChatRiseViewModel", "Retrieved UserProfile for $memberId: ${userProfile.fname}")
+                                Pair(userProfile, pointsGiven)
+                            } else {
+                                Log.w("ChatRiseViewModel", "UserProfile not found for $memberId")
+                                null
+                            }
                         } else {
-                            Log.w("ChatRiseViewModel", "UserProfile not found for $memberId")
+                            Log.d("ChatRiseViewModel", "Skipping $memberId as pointsGiven is 0")
                             null
                         }
-                    } else {
-                        Log.d("ChatRiseViewModel", "Skipping $memberId as pointsGiven is 0")
-                        null
                     }
+
+                    // Sort results before updating the state
+                    val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
+                    Log.d("ChatRiseViewModel", "Sorted user votes: $sortedUserPointsList")
+
+                    // Update StateFlow with the sorted list
+                    _userRankVote.value = sortedUserPointsList
+                    Log.d("ChatRiseViewModel", "Updated _userRankVote successfully.")
                 }
 
-                // Sort results before updating the state
-                val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
-                Log.d("ChatRiseViewModel", "Sorted user votes: $sortedUserPointsList")
-
-                // Update StateFlow with the sorted list
-                _userRankVote.value = sortedUserPointsList
-                Log.d("ChatRiseViewModel", "Updated _userRankVote successfully.")
 
             } catch (e: Exception) {
                 Log.e("ChatRiseViewModel", "Error fetching user vote rankings", e)
@@ -1212,9 +1179,14 @@ class ChatRiseViewModel(
                 Log.d("EntryViewModel", "Fetching users in Pending state...")
 
                 val pendingUsers = entryRepository.fetchUsersPendingState()
+                val previousPlayers = entryRepository.fetchPreviousPlayers(crRoomId)
                 Log.d("EntryViewModel", "Fetched ${pendingUsers.size} pending users.")
+                Log.d("EntryViewModel", "Fetched ${previousPlayers.size} previous players.")
 
-                if (pendingUsers.isNotEmpty()) {
+                // filter out users who were in previously
+                val newUsers = pendingUsers.filterNot { it in previousPlayers }
+
+                if (newUsers.isNotEmpty()) {
                     val pickedUser = pendingUsers.take(1) // Take one user
                     Log.d("EntryViewModel", "Picked user for invite: $pickedUser")
 
@@ -1240,51 +1212,59 @@ class ChatRiseViewModel(
     }
 
 
+
+
+
+
+
+
     /**
      * Blocking Management
      */
 
-    private val _blockedUserId = MutableStateFlow<String?>(null)
-    val blockedUserId: StateFlow<String?> = _blockedUserId
-    fun getSelectedBlockedPlayer(crRoomId: String){
+    private val _blockedPlayerId = MutableStateFlow<String?>(null)
+    val blockedPlayerId: StateFlow<String?> = _blockedPlayerId
+    fun getBlockedPlayer(crRoomId: String){
         viewModelScope.launch {
             try {
-                val userId = chatRepository.getSelectedBlockedPlayer(crRoomId)
-                _blockedUserId.value = userId
+                val userId = chatRepository.getCurrentBlockedPlayer(crRoomId)
+                if (!userId.isNullOrEmpty()){
+                    _blockedPlayerId.value = userId
+                }else {
+                    _blockedPlayerId.value = null
+                }
             }catch (e: Exception){
                 Log.e("ChatRiseViewModel", "Error fetching blocked player: ${e.message}", e)
             }
         }
     }
-    private val _blockedMessage = MutableStateFlow<ChatMessage?>(null)
-    val blockedMessage: StateFlow<ChatMessage?> = _blockedMessage
-    fun getBlockedMessage(crRoomId: String, blockedUserId: String){
+
+    private val _blockedMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
+    val blockedMessages: StateFlow<List<ChatMessage>> = _blockedMessages
+
+    private val _showBlockedMessages = MutableStateFlow(false)
+    val showBlockedMessages: StateFlow<Boolean> = _showBlockedMessages
+
+    // Fetch blocked messages from Firestore
+    fun fetchBlockedMessages(crRoomId: String) {
         viewModelScope.launch {
             try {
-                val message = chatRepository.getBlockedMessage(crRoomId, blockedUserId)
-                _blockedMessage.value = message
-                Log.d("ChatRiseViewModel", "Blocked message successfully fetched: $message")
-            }catch (e: Exception){
-                Log.e("ChatRiseViewModel", "Error getting blocked Message ${e.message}", e)
+                val messages = chatRepository.getAllBlockedMessages(crRoomId)
+                _blockedMessages.value = messages
+                Log.d("ChatRiseViewModel", "Fetched ${messages.size} blocked messages.")
+            } catch (e: Exception) {
+                Log.e("ChatRiseViewModel", "Error fetching blocked messages: ${e.message}", e)
             }
         }
     }
-    private val _blockedPlayer = MutableStateFlow<String?>(null)
-    val blockedPlayer: StateFlow<String?> = _blockedPlayer
-    fun fetchBlockedUser(crRoomId: String){
-        viewModelScope.launch {
-            try {
-                val blockedPlayer = entryRepository.fetchUserBlockingState(crRoomId)
-                if (blockedPlayer != null){
-                    _blockedPlayer.value = blockedPlayer
-                } else {
-                    _blockedPlayer.value = null
-                }
-            }catch (e: Exception) {
-                Log.e("ChatRiseViewModel", "Error fetching blocked player ${e.message}", e)
-            }
-        }
+
+    // Function to trigger the alert and show messages
+    fun showMessagesAfterAlert() {
+        _showBlockedMessages.value = true
     }
+
+
+
     fun sendBlockedMessage(crRoomId: String, message: ChatMessage) {
         viewModelScope.launch {
             try {
@@ -1295,12 +1275,6 @@ class ChatRiseViewModel(
             }
         }
     }
-
-
-
-
-
-
 
 
     /**
@@ -1327,17 +1301,17 @@ class ChatRiseViewModel(
             Log.d("ChatRiseViewModel", "Starting topPlayerDiscuss() for crRoomId: $crRoomId with memberIds: $memberIds")
 
             val allMemberIds = memberIds.sorted()
-            Log.d("ChatRiseViewModel", "Sorted memberIds: $allMemberIds")
+            Log.d("ChatRiseViewModel", "Sorted memberIds: $memberIds")
 
             val roomName = "Leader Discussion"
             Log.d("ChatRiseViewModel", "Checking if Top Player Room already exists...")
 
-            val existingRoomId = chatRepository.checkIfTopPlayerRoomExist(crRoomId, allMemberIds)
+            val existingRoomId = chatRepository.checkIfTopPlayerRoomExist(crRoomId, memberIds)
 
             if (existingRoomId == null) {
                 Log.d("ChatRiseViewModel", "No existing room found. Creating a new top player chat room...")
 
-                val roomId = chatRepository.createTopPlayerChatRoom(crRoomId, allMemberIds, roomName)
+                val roomId = chatRepository.createTopPlayerChatRoom(crRoomId, memberIds, roomName)
                 Log.d("ChatRiseViewModel", "Created new chat room with roomId: $roomId")
 
                 memberIds.forEach { memberId ->
@@ -1439,7 +1413,7 @@ class ChatRiseViewModel(
             _otherUserTradeStatus.value = otherUserIdStatus
         }
     }
-    fun updateTradeStatus(CRRoomId: String, otherUserId: String){
+    fun updateTradgvhbeStatus(CRRoomId: String, otherUserId: String){
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
             chatRepository.UpdateTradeStatus(CRRoomId, userId, otherUserId)
@@ -1481,7 +1455,7 @@ class ChatRiseViewModel(
     private val _otherUsersTradeStatus = MutableStateFlow("Canceled")
     val otherUsersTradeStatus: StateFlow<String> = _otherUsersTradeStatus
 
-    fun updateUsersTradeStatus(crRoomId: String, userId: String, status: String){
+    fun updateTradeUserStatus(crRoomId: String, userId: String, status: String){
         viewModelScope.launch {
             chatRepository.updateTradeStatus(crRoomId, userId, status)
         }
@@ -1508,10 +1482,10 @@ class ChatRiseViewModel(
             val otherStatus = chatRepository.getTradeStatus(crRoomId, otherUserId)
 
             if (currentStatus == "Canceled"){
-                updateUsersTradeStatus(crRoomId, userId, "onHold")
+                updateTradeUserStatus(crRoomId, userId, "onHold")
             }else if (currentStatus == "onHold" && otherStatus == "onHold"){
-                updateUsersTradeStatus(crRoomId, userId, "Confirmed")
-                updateUsersTradeStatus(crRoomId, otherUserId, "Confirmed")
+                updateTradeUserStatus(crRoomId, userId, "Confirmed")
+                updateTradeUserStatus(crRoomId, otherUserId, "Confirmed")
             }
         }
     }
@@ -1559,12 +1533,12 @@ class ChatRiseViewModel(
                 Log.d("ChatViewModel", "Fetching Top Player Room ID for crRoomId: $crRoomId")
 
                 val roomId = chatRepository.getTopPlayerRoomId(crRoomId, userId)
-                _topPlayerRoomId.value = roomId
 
                 if (roomId != null) {
+                    _topPlayerRoomId.value = roomId
                     Log.d("ChatViewModel", "Top Player Room ID found: $roomId")
                 } else {
-                    Log.w("ChatViewModel", "No valid Top Player Room ID found.")
+                    Log.d("ChatViewModel", "No valid Top Player Room ID found.")
                 }
 
             } catch (e: Exception) {
