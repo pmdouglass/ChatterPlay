@@ -208,6 +208,33 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
             null // Return null in case of an exception
         }
     }
+    suspend fun addUserToChatRoom(crRoomId: String, userId: List<String>): Boolean {
+        return try {
+            val roomRef = crGameRoomsCollection.document(crRoomId)
+            val snapshot = roomRef.get().await()
+
+            if (snapshot.exists()){
+                val currentMembers = snapshot.get("members") as? List<String> ?: emptyList()
+                val newUsers = userId.filterNot { it in currentMembers }
+                if (newUsers.isNotEmpty()){
+                    val updatedmembers = currentMembers + userId
+
+                    roomRef.update("members", updatedmembers).await()
+                    Log.d("RoomCreateRepository", "User $userId successfully added to chat room $crRoomId")
+                    return true
+                }else {
+                    Log.d("RoomCreateRepository", "User $userId is already a member of chat room $crRoomId")
+                    return false
+                }
+            }else {
+                Log.w("RoomCreateRepository", "chat room $crRoomId does not exist")
+                return false
+            }
+        }catch (e: Exception){
+            Log.e("RoomCreateRepository", "Error adding user $userId to chat room $crRoomId", e)
+            return false
+        }
+    }
 
 
 }

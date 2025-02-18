@@ -632,6 +632,7 @@ fun AlertLastMessage(
                         message = message
                     )
                     crViewModel.updateSystemAlertType(crRoomId, AlertType.last_message, AllRisers, userId, context)
+                    crViewModel.saveUserLocalCrRoomId("0", userId)
                     navController.navigate("roomSelect"){
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }

@@ -131,7 +131,7 @@ fun MainScreen(
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val memberCount by viewModel.chatRoomMembersCount.collectAsState()
     var showButtons by remember { mutableStateOf(false)}
-    val topPlayers by crViewModel.topPlayers.collectAsState()
+    val topPlayers by crViewModel.topTwoPlayers.collectAsState()
     val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
     val blockedPlayerId by crViewModel.blockedPlayerId.collectAsState()
     val currentUserTradeStatus by crViewModel.currentUsersTradeStatus.collectAsState()
@@ -145,6 +145,9 @@ fun MainScreen(
     val isTopPlayer by remember {
         derivedStateOf {
             topPlayers?.let { (rank1, rank2) ->
+                val rank1 = rank1.first
+                val rank2 = rank2.first
+
                 userId == rank1 || userId == rank2
             } ?: false
         }
@@ -154,7 +157,7 @@ fun MainScreen(
     val tabs by remember {
         derivedStateOf {
             when {
-                isTopPlayer -> {
+                systemsAlertType == AlertType.top_discuss.string && isTopPlayer -> {
                     listOf(
                         "null" to Icons.Default.Home,  // home 0
                         "null" to Icons.Default.Person,  // profile 1
@@ -187,11 +190,11 @@ fun MainScreen(
         crViewModel.loadUserLocalAlertType(currentUser?.uid ?: "")
         crViewModel.fetchSystemAlertType(crRoomId)
         crViewModel.checkforUserAlert(crRoomId)
-        crViewModel.getTopPlayers(crRoomId)
+        crViewModel.getTopTwoPlayers(crRoomId) // topPlayers
         crViewModel.getBlockedPlayer(crRoomId) // initialize blockedPlayerId
     }
     LaunchedEffect(topPlayers){
-        if (isTopPlayer){
+        if (systemsAlertType == AlertType.top_discuss.string && isTopPlayer){
             crViewModel.fetchTradeStatus(crRoomId, userId)
             crViewModel.fetchTopPlayerRoomId(crRoomId)
         }
@@ -232,8 +235,8 @@ fun MainScreen(
         derivedStateOf {
             when {
                 userHasAnswered == false -> 2
-                isTopPlayer && currentUserTradeStatus != "Confirmed" -> 5
-                isTopPlayer && currentUserTradeStatus == "Confirmed" -> 0
+                isTopPlayer && systemsAlertType == AlertType.top_discuss.string -> 5
+                isTopPlayer && systemsAlertType != AlertType.top_discuss.string -> 0
                 else -> 0
             }
         }
@@ -260,11 +263,8 @@ fun MainScreen(
             if (allMembersHasAnswered == true){
                 disabledTabs.add(0)
             }
-            if (currentUserTradeStatus != "Confirmed" && isTopPlayer){
-                disabledTabs.addAll(listOf(0,1,2, 4))
-            }
-            if (currentUserTradeStatus == "Confirmed" && isTopPlayer){
-                disabledTabs.add(5)
+            if (isTopPlayer && systemsAlertType == AlertType.top_discuss.string){
+                disabledTabs.addAll(listOf(0,1,2,4))
             }
             if (usersAlertType == AlertType.blocking.string){
                 disabledTabs.add(4)
@@ -502,12 +502,10 @@ fun MainScreen(
                                     .fillMaxWidth()
                             ){
                                 Button(onClick = {
-                                    crViewModel.updateSystemAlertType(
+                                    crViewModel.searchForNewPlayer(
                                         crRoomId = crRoomId,
-                                        alertType = AlertType.new_player,
                                         allMembers = RisersAll,
-                                        context = context,
-                                        userId = userId
+                                        context = context
                                     )
                                     coroutineScope.launch {
                                         viewModel.fetchAllRisers(crRoomId)
@@ -545,25 +543,30 @@ fun MainScreen(
 
                         if (showAlert == true){
                             val tabIndex = if (isTopPlayer) 5 else 0
-                            AlertingScreen(
-                                crRoomId = crRoomId,
-                                onDone = {
-                                    when (systemsAlertType){
-                                        AlertType.none.string -> {selectedTabindex = 0}
-                                        AlertType.new_player.string -> {selectedTabindex = 0}
-                                        AlertType.game.string -> {selectedTabindex = 2}
-                                        AlertType.game_results.string -> {selectedTabindex = 2}
-                                        AlertType.ranking.string -> {selectedTabindex = 3}
-                                        AlertType.rank_results.string -> {selectedTabindex = 3}
-                                        AlertType.top_discuss.string -> {selectedTabindex = tabIndex}
-                                        AlertType.blocking.string -> {selectedTabindex = 0}
-                                        AlertType.last_message.string -> {selectedTabindex = 0}
-                                        else -> {selectedTabindex = 0}
+                            if (systemsAlertType != AlertType.none.string){
+                                AlertingScreen(
+                                    crRoomId = crRoomId,
+                                    onDone = {
+                                        when (systemsAlertType){
+                                            AlertType.none.string -> {selectedTabindex = 0}
+                                            AlertType.new_player.string -> {selectedTabindex = 0}
+                                            AlertType.game.string -> {selectedTabindex = 2}
+                                            AlertType.game_results.string -> {selectedTabindex = 2}
+                                            AlertType.ranking.string -> {selectedTabindex = 3}
+                                            AlertType.rank_results.string -> {selectedTabindex = 3}
+                                            AlertType.top_discuss.string -> {selectedTabindex = tabIndex}
+                                            AlertType.blocking.string -> {selectedTabindex = 0}
+                                            AlertType.last_message.string -> {selectedTabindex = 0}
+                                            else -> {selectedTabindex = 0}
+                                        }
+                                        crViewModel.updateShowAlert(crRoomId, false)
+                                        //crViewModel.updateAlertChangeToFalse()
                                     }
-                                    crViewModel.updateShowAlert(crRoomId, false)
-                                    //crViewModel.updateAlertChangeToFalse()
-                                }
-                            )
+                                )
+                            }else {
+                                crViewModel.updateShowAlert(crRoomId, false)
+                            }
+
 
                         }
                         if (blockedPlayerId == userId){
@@ -673,22 +676,18 @@ fun MainScreen(
                                 PlayersLastWords(crRoomId = crRoomId)
                             }
                             5 -> {
-                                topPlayers?.let { (rank1, rank2) ->
-                                    val isTopPlayer = userId == rank1 || userId == rank2
-                                    Log.d("MainScreen", "Top player is ${topPlayers?.first} and ${topPlayers?.second}")
-                                    if (isTopPlayer){
-                                        Log.d("MainScreen", "You are a top player")
-                                        topPlayerRoomId?.let { roomId ->
-                                            LeaderChatScreen(
-                                                crRoomId = crRoomId,
-                                                roomId = roomId,
-                                                currentUserId = userId,
-                                                otherUserId = if (userId == topPlayers?.first) topPlayers?.second ?: "" else topPlayers?.first ?: ""
-                                            )
-                                        }
-                                    } else {
-                                        Text("You are NOT a Top Player", color = Color.Gray)
+                                if (isTopPlayer){
+                                    Log.d("MainScreen", "You are a top player")
+                                    topPlayerRoomId?.let { roomId ->LeaderChatScreen(
+                                        crRoomId = crRoomId,
+                                        roomId = roomId,
+                                        currentUserId = userId,
+                                        otherUserId = if (userId == topPlayers?.first?.first) topPlayers?.second?.first ?: "" else topPlayers?.first?.first ?: ""
+                                    )
+
                                     }
+                                } else {
+                                    Text("You are NOT a Top Player", color = Color.Gray)
                                 }
                             }
                             else -> {}

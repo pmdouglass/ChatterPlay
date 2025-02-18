@@ -20,6 +20,7 @@ import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.firestore
+import com.google.firebase.firestore.snapshots
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.FilterOperator
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.encodeToString
@@ -933,6 +936,32 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             null // Return null if an exception occurs
         }
     }
+    suspend fun assignRanks(crRoomId: String) {
+        try {
+            val rankingSnapshot = getAllRankDocuments(crRoomId) // Fetch all rank documents
+
+            if (rankingSnapshot != null) {
+                val userPointsList = rankingSnapshot.documents.mapNotNull { document ->
+                    val userId = document.id
+                    val totalPoints = document.getLong("totalPoints")?.toInt() ?: 0
+                    val userProfile = getcrUserProfile(crRoomId, userId)
+                    userProfile?.let { Pair(it, totalPoints) }
+                }
+
+                // Sort users in descending order based on totalPoints
+                val sortedUserPointsList = userPointsList.sortedByDescending { it.second }
+
+                // Assign ranks and update Firestore
+                sortedUserPointsList.forEachIndexed { index, (userProfile, _) ->
+                    val rank = index + 1
+                    updateCurrentRank(crRoomId, userProfile.userId, rank)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("Repository", "Error updating rankings: ${e.message}")
+        }
+    }
+
 
 
     suspend fun getUserVotes(crRoomId: String, userId: String){
@@ -953,6 +982,54 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             null
         }
     }
+    suspend fun getUserRankingStatusFlow(crRoomId: String, userId: String): Flow<String?>{
+        return flow {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .document(userId)
+                .snapshots()
+
+            snapshot.collect{ document ->
+                emit(document.getString("rankingStatus"))
+            }
+        }.flowOn(Dispatchers.IO)
+    }
+    suspend fun getUserSeenRankingsFlow(crRoomId: String, userId: String): Flow<Boolean?>{
+        return flow {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+                .document(userId)
+                .snapshots()
+
+            snapshot.collect{ document ->
+                emit(document.getBoolean("seenRankResult"))
+            }
+        }.flowOn(Dispatchers.IO)
+    }
+
+    suspend fun updateUsersSeenRankResults(crRoomId: String, userId: String, seenResult: Boolean){
+        val documentRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection(users)
+            .document(userId)
+
+        documentRef.set(mapOf("seenRankResult" to seenResult), SetOptions.merge())
+    }
+    suspend fun getSeenRankResult(crRoomId: String, userId: String): Boolean{
+        val documentRef = crGameRoomsCollection
+            .document(crRoomId)
+            .collection(users)
+            .document(userId)
+
+        return try {
+            val snapshot = documentRef.get().await()
+            snapshot.getBoolean("seenRankResult") ?: false
+        }catch (e: Exception){
+            false
+        }
+    }
     fun updateUserRankingStatus(crRoomId: String, userId: String, updatedStatus: String){
         val data = mapOf(
             "rankingStatus" to updatedStatus
@@ -963,6 +1040,33 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             .document(userId)
             .set(data, SetOptions.merge())
     }
+    suspend fun getCurrentRanks(crRoomId: String): List<Pair<UserProfile, Int>> {
+        val collectionRef = crGameRoomsCollection.document(crRoomId).collection(users)
+
+        return try {
+            val snapshot = collectionRef.get().await()
+            val rankList = snapshot.documents.mapNotNull { document ->
+                val userId = document.id
+                val currentRank = document.getLong("currentRank")?.toInt() ?: return@mapNotNull null
+
+                val userProfile = UserProfile(
+                    userId = userId,
+                    fname = document.getString("fname") ?: "Unknown",
+                    imageUrl = document.getString("imageUrl") ?: ""
+                )
+
+                userProfile to currentRank
+            }.sortedBy { it.second } // ✅ Ensures sorting from "1" → "2" → "3" → "4"
+
+            Log.d("ChatRiseRepository", "Fetched Ranks: $rankList") // ✅ Debugging
+
+            rankList
+        } catch (e: Exception) {
+            Log.e("ChatRiseRepository", "Error fetching ranks: ${e.message}", e)
+            emptyList()
+        }
+    }
+
     fun updatePointsBasedOnVote(crRoomId: String, userId: String, hasVoted: Boolean) {
         val rankingRef = crGameRoomsCollection
             .document(crRoomId)
@@ -1086,27 +1190,41 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
     }
     suspend fun removeBlockedPlayer(crRoomId: String, userId: String) {
         try {
-            val userDoc = userCollection.document(userId)
+            val userDocRef = userCollection.document(userId)
             val userRef = crGameRoomsCollection.document(crRoomId).collection("Users").document(userId)
+            val roomRef = crGameRoomsCollection.document(crRoomId)
 
+            // Fetch the current room details
+            val snapshot = roomRef.get().await()
+            if (snapshot.exists()) {
+                val currentMembers = snapshot.get("members") as? List<String> ?: emptyList()
+
+                // Remove user from members list if present
+                if (userId in currentMembers) {
+                    val updatedMembers = currentMembers - userId
+                    roomRef.update("members", updatedMembers).await()
+                    Log.d("ChatRiseRepository", "User $userId removed from members list in room $crRoomId.")
+                }
+            }
+
+            // Batch operation for efficiency
+            val batch = FirebaseFirestore.getInstance().batch()
 
             // Update user pending status to "NotPending"
-            userDoc.update(
-                mapOf(
-                    "gameRoomId" to "0",
-                    "pending" to "NotPending"
-                )
-            ).await()
-            Log.d("ChatRiseRepository", "Successfully updated user $userId to NotPending.")
+            batch.update(userDocRef, mapOf("gameRoomId" to "0", "pending" to "NotPending"))
 
-            // Remove user from the room
-            userRef.delete().await()
-            Log.d("ChatRiseRepository", "Successfully removed user $userId from room $crRoomId.")
+            // Remove user document from chat room
+            batch.delete(userRef)
+
+            batch.commit().await()
+
+            Log.d("ChatRiseRepository", "Successfully removed blocked user $userId from room $crRoomId.")
 
         } catch (e: Exception) {
-            Log.e("ChatRiseRepository", "Error removing blocked player: ${e.message}", e)
+            Log.e("ChatRiseRepository", "Error removing blocked player $userId from room $crRoomId: ${e.message}", e)
         }
     }
+
 
     suspend fun sendBlockedMessage(crRoomId: String, userId: String, message: ChatMessage) {
         val roomRef = crGameRoomsCollection
@@ -1526,12 +1644,10 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             transaction.update(topPlayerRef, userId, "Canceled")
         }
     }
-    fun saveTopPlayers(crRoomId: String, rank1: String, rank2: String){
+    suspend fun saveTopTwoPlayers(crRoomId: String, rank1: String, rank2: String) {
         val topPlayersData = hashMapOf(
             "Rank1" to rank1,
-            "Rank2" to rank2,
-            rank1 to "Canceled",
-            rank2 to "Canceled"
+            "Rank2" to rank2
         )
 
         crGameRoomsCollection
@@ -1539,7 +1655,9 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             .collection("TopPlayers")
             .document("TopPlayers")
             .set(topPlayersData)
+            .await() // ✅ Ensures Firestore write completes before returning
     }
+
     suspend fun getTopPlayers(crRoomId: String): Pair<String?, String?>? {
         return try {
             val topPlayerSnapshot = crGameRoomsCollection
@@ -1553,6 +1671,32 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
 
             Pair(rank1, rank2)
         } catch (e: Exception){
+            null
+        }
+    }
+    suspend fun getTopTwoPlayers(crRoomId: String): Pair<Pair<String?, Int?>, Pair<String?, Int?>>? {
+        return try {
+            val documentRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(users)
+
+            val snapshot = documentRef.get().await()
+            if (snapshot.isEmpty) return null
+
+            val userRankList = snapshot.documents.mapNotNull { document ->
+                val userId = document.id
+                val currentRank = document.getLong("currentRank")?.toInt() ?: return@mapNotNull null
+                userId to currentRank
+            }
+
+            val sortedRanks = userRankList.sortedBy { it.second }
+
+            val rank1 = sortedRanks.getOrNull(0)
+            val rank2 = sortedRanks.getOrNull(1)
+
+            Log.d("ChatRiseRepository", "Top two players -> rank1: $rank1, rank2: $rank2")
+            Pair(rank1 ?: (null to null), rank2 ?: (null to null))
+        }catch (e: Exception){
             null
         }
     }
