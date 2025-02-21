@@ -234,9 +234,10 @@ fun MainScreen(
     val startIndex by remember {
         derivedStateOf {
             when {
-                userHasAnswered == false -> 2
-                isTopPlayer && systemsAlertType == AlertType.top_discuss.string -> 5
-                isTopPlayer && systemsAlertType != AlertType.top_discuss.string -> 0
+                systemsAlertType == AlertType.game.string || systemsAlertType == AlertType.game_results.string && userHasAnswered == false -> 2
+                systemsAlertType == AlertType.game.string || systemsAlertType == AlertType.game_results.string && allMembersHasAnswered == true -> 2
+                systemsAlertType == AlertType.top_discuss.string && isTopPlayer -> 5
+                //systemsAlertType != AlertType.top_discuss.string && isTopPlayer -> 0
                 else -> 0
             }
         }
@@ -260,8 +261,8 @@ fun MainScreen(
             if (gameInfo == null){
                 disabledTabs.add(2)
             }
-            if (allMembersHasAnswered == true){
-                disabledTabs.add(0)
+            if (userHasAnswered == false){
+                disabledTabs.addAll(listOf(0,1,3,4))
             }
             if (isTopPlayer && systemsAlertType == AlertType.top_discuss.string){
                 disabledTabs.addAll(listOf(0,1,2,4))
@@ -678,14 +679,14 @@ fun MainScreen(
                             5 -> {
                                 if (isTopPlayer){
                                     Log.d("MainScreen", "You are a top player")
-                                    topPlayerRoomId?.let { roomId ->LeaderChatScreen(
-                                        crRoomId = crRoomId,
-                                        roomId = roomId,
-                                        currentUserId = userId,
-                                        otherUserId = if (userId == topPlayers?.first?.first) topPlayers?.second?.first ?: "" else topPlayers?.first?.first ?: ""
-                                    )
-
-                                    }
+                                    topPlayerRoomId?.let { roomId ->
+                                        LeaderChatScreen(
+                                            crRoomId = crRoomId,
+                                            roomId = roomId,
+                                            currentUserId = userId,
+                                            otherUserId = if (userId == topPlayers?.first?.first) topPlayers?.second?.first ?: "" else topPlayers?.first?.first ?: ""
+                                        )
+                                    } ?: Text("No roomId")
                                 } else {
                                     Text("You are NOT a Top Player", color = Color.Gray)
                                 }

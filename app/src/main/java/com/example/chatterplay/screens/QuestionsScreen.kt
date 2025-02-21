@@ -54,6 +54,7 @@ import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Title
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
 import com.example.chatterplay.view_model.ChatRiseViewModelFactory
@@ -64,7 +65,7 @@ import com.google.firebase.auth.FirebaseAuth
 fun QuestionsScreen(
     crRoomId: String,
     gameInfo: Title,
-    done: Boolean,
+    AllRisers: List<UserProfile>,
     viewModel: ChatViewModel = viewModel()
 ){
     // Create SharedPreferences
@@ -78,17 +79,19 @@ fun QuestionsScreen(
 
     Log.d("QuestionsScreen", "Inside QuestionsScreen")
     val question by crViewModel.currentQuestion.collectAsState()
-    val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
-    val hasAnswered by crViewModel.isAllDoneAnswering
+    val allAnswers = remember { mutableStateOf<List<Answers>>(emptyList())}
     val usersAnswer by crViewModel.userAnswer.collectAsState()
+    val done by crViewModel.allDoneAnswering.collectAsState()
 
 
+    LaunchedEffect(Unit){
+        crViewModel.startListeningForAllAnswered(crRoomId, gameInfo, AllRisers, context)
+    }
     LaunchedEffect(gameInfo){
         crViewModel.fetchQuestionForUser(crRoomId, gameInfo.title) // initialize question
-        crViewModel.checkForUsersCompleteAnswer(crRoomId, gameInfo.title) // initialize hasAnswered
         crViewModel.fetchUsersAnswers(crRoomId, gameInfo.title) // initialize usersAnswer
-        crViewModel.fetchAnswers(crRoomId, gameInfo.title){retrievedAnswers ->
-            answers.value = retrievedAnswers
+        crViewModel.fetchAnswers(crRoomId, gameInfo.title){retrievedAnswers -> // allAnswers
+            allAnswers.value = retrievedAnswers
         }
 
 
@@ -119,10 +122,9 @@ fun QuestionsScreen(
      */
     //Log.d("QuestionsScreen", "isLoading: $isLoading")
     Log.d("QuestionsScreen", "question: $question")
-    Log.d("QuestionsScreen", "hasAnswered: $hasAnswered")
     Log.d("QuestionsScreen", "usersAnswer: $usersAnswer")
     //Log.d("QuestionsScreen", "isAllDoneWithQuestions: $isAllDoneWithQuestions")
-    Log.d("QuestionsScreen", "answers: ${answers.value}")
+    Log.d("QuestionsScreen", "answers: ${allAnswers.value}")
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -159,12 +161,11 @@ fun QuestionsScreen(
                     Spacer(modifier = Modifier.padding(10.dp))
                     AnonBubble(
                         message = when {
-                            hasAnswered == true -> if(usersAnswer != null) usersAnswer!!.choice else "usersAnswer is null"
-                            hasAnswered == false -> null
+                            usersAnswer != null -> usersAnswer!!.choice
                             else -> null
                         }
                     )
-                    if (hasAnswered == true){
+                    if (usersAnswer != null){
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -176,7 +177,7 @@ fun QuestionsScreen(
                     }else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    if (hasAnswered == false){
+                    if (usersAnswer == null){
                         questionSend(
                             crRoomId = crRoomId,
                             gameInfo = gameInfo,
@@ -184,6 +185,7 @@ fun QuestionsScreen(
                         )
                     }
                 }else {
+                    // everyones answer
                     Log.d("QuestionsScreen", "Inside Lazycolumn")
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(50.dp),
@@ -191,7 +193,7 @@ fun QuestionsScreen(
                             .fillMaxSize()
                             .padding(6.dp)
                     ){
-                        items(answers.value){answer ->
+                        items(allAnswers.value){ answer ->
                             AnonBubble(
                                 message = answer.question,
                                 systemMessage = true
@@ -251,6 +253,12 @@ fun questionSend(
             gameInfo = gameInfo,
             context = context
         )
+        crViewModel.updateUserHasAnswered(
+            crRoomId = crRoomId,
+            gameInfo = gameInfo,
+            context = context
+        )
+
         input = ""
         sent = true
     }

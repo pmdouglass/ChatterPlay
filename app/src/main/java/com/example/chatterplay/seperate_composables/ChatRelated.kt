@@ -379,6 +379,7 @@ fun AlertingScreen(
 
     // Create SharedPreferences
     val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
 
     // Initialize ChatRiseViewModel with the factory
@@ -388,15 +389,29 @@ fun AlertingScreen(
 
     val systemAlertType by crViewModel.systemAlertType.collectAsState() // checks what AlertType it is
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from room
+    val topPlayers by crViewModel.topTwoPlayers.collectAsState()
+    val isTopPlayer by remember {
+        derivedStateOf {
+            topPlayers?.let { (rank1, rank2) ->
+                val rank1 = rank1.first
+                val rank2 = rank2.first
+
+                userId == rank1 || userId == rank2
+            } ?: false
+        }
+    }
 
     LaunchedEffect(Unit){
+        // figure out what alert to show
         crViewModel.fetchSystemAlertType(crRoomId) // initialize systemAlertType
-
     }
     LaunchedEffect(systemAlertType){
         when (systemAlertType){
             AlertType.game.string -> {
                 crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
+            }
+            AlertType.top_discuss.string -> {
+                crViewModel.getTopTwoPlayers(crRoomId)
             }
         }
     }
@@ -415,7 +430,12 @@ fun AlertingScreen(
             AlertType.game_results.string -> {"The results are in"}
             AlertType.ranking.string -> "It's time to rank your fellow players and decide who stands out in the game."
             AlertType.rank_results.string -> {"The moment you've been waiting for is here"}
-            AlertType.top_discuss.string -> {"The power is in their hands."}
+            AlertType.top_discuss.string -> {
+                if (isTopPlayer)
+                    "You are a top player"
+                else
+                    "The power is in their hands."
+            }
             AlertType.blocking.string -> {"The wait is over."}
             AlertType.last_message.string -> {"The blocked player may be gone."}
             else -> {""}
@@ -438,7 +458,11 @@ fun AlertingScreen(
             } ?: "Game Information Not Available"
             AlertType.ranking.string -> "Your rankings will shape the competition, so choose wisely and strategically."
             AlertType.rank_results.string -> {"The votes are locked in!"}
-            AlertType.top_discuss.string -> {"The top two players are stepping into a private chat to make a game-changing decision."}
+            AlertType.top_discuss.string -> {
+                if (isTopPlayer)
+                    "You must now go to a seperate chat"
+                else
+                    "The top two players are stepping into a private chat to make a game-changing decision."}
             AlertType.blocking.string -> {"The top two players have reached their decision, and someone's game is about to end."}
             AlertType.last_message.string -> {"But they've left one final message for the group."}
             else -> "nothing selected"
@@ -459,7 +483,11 @@ fun AlertingScreen(
             AlertType.game_results.string -> {"The results May suprize you!"}
             AlertType.ranking.string -> "Remember, your decisions remain confidential, but your choices could change everything."
             AlertType.rank_results.string -> {"it's time to see where everyone stands."}
-            AlertType.top_discuss.string -> {"One of you will be blocked... but who will it be?"}
+            AlertType.top_discuss.string -> {
+                if (isTopPlayer)
+                    "And decide who to remove from the game."
+                else
+                    "One of you will be blocked... but who will it be?"}
             AlertType.blocking.string -> {"Who will it be?"}
             AlertType.last_message.string -> {"What will their last words reveal?"}
             else -> "Nothing"

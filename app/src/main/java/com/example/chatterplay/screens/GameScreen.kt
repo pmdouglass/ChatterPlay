@@ -129,7 +129,7 @@ fun ChoiceGameScreen(
     LaunchedEffect(gameInfo){
         gameInfo?.let { game ->
             crViewModel.fetchQuestions(game.title) // initialize 'questions'
-            crViewModel.areAllMembersAnswered(crRoomId, game.title, context)
+            crViewModel.areAllMembersAnswered(crRoomId, game.title, context) // allMembersHasAnswered
 
         }
     }
@@ -167,8 +167,8 @@ fun ChoiceGameScreen(
                         "questions" -> {
                             QuestionsScreen(
                                 crRoomId = crRoomId,
-                                done = allMembersHasAnswered!!,
-                                gameInfo = gameInfo!!
+                                gameInfo = gameInfo!!,
+                                AllRisers = allChatRoomMembers
                             )
                         }
                     }
@@ -185,8 +185,8 @@ fun ChoiceGameScreen(
                         "questions" -> {
                             QuestionsScreen(
                                 crRoomId = crRoomId,
-                                done = allMembersHasAnswered!!,
-                                gameInfo = gameInfo!!
+                                gameInfo = gameInfo!!,
+                                AllRisers = allChatRoomMembers
                             )
                         }
                     }

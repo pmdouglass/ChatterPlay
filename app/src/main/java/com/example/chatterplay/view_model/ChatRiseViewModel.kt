@@ -118,11 +118,6 @@ class ChatRiseViewModel(
             }
         }
     }
-    fun updateAlertChangeToFalse(){
-        _alertChange.value = false
-    }
-
-
 
 
     /**
@@ -146,12 +141,6 @@ class ChatRiseViewModel(
         } catch (e: Exception) {
             Log.e("ChatRiseViewModel", "Error fetching user profile for $otherUserId", e)
             null // Return null in case of failure
-        }
-    }
-
-    fun blockSelectedMember(crRoomId: String, userId: String){
-        viewModelScope.launch {
-            chatRepository.RemoveSelectedPlayer(crRoomId, userId)
         }
     }
 
@@ -330,7 +319,9 @@ class ChatRiseViewModel(
                 // update has answered
                 // check for users completed answers
                 //updateHasAnswered(crRoomId)
+                fetchUsersAnswers(crRoomId, gameInfo.title)
                 checkUserForAllCompleteAnswers(crRoomId, gameInfo.title, context)
+
             }catch (e: Exception){
                 Log.d("ViewModel", "Error saving questionStatement")
             }
@@ -460,6 +451,11 @@ class ChatRiseViewModel(
             }
         }
     }
+    fun updateUserHasAnswered(crRoomId: String, gameInfo: Title, context: Context){
+        viewModelScope.launch {
+            chatRepository.updateUsersHasAnswered(crRoomId, gameInfo.title, userId, context)
+        }
+    }
 
     fun checkUsersHasAnswered(crRoomId: String, title: String, context: Context) {
         viewModelScope.launch {
@@ -481,6 +477,27 @@ class ChatRiseViewModel(
                 }
             } catch (e: Exception) {
                 Log.e("ViewModel", "Error checking if user has answered: ${e.message}", e)
+            }
+        }
+    }
+    private val _allDoneAnswering = MutableStateFlow(false)
+    val allDoneAnswering: StateFlow<Boolean> = _allDoneAnswering
+    fun startListeningForAllAnswered(crRoomId: String, gameInfo: Title, allMembers: List<UserProfile>, context: Context){
+        viewModelScope.launch {
+            try {
+                chatRepository.listenForAllMembersAnswered(crRoomId, gameInfo.title) {
+                    updateSystemAlertType(
+                        crRoomId = crRoomId,
+                        alertType = AlertType.game_results,
+                        allMembers = allMembers,
+                        userId = "",
+                        context = context
+                    )
+                }.collect { allAnswered ->
+                    _allDoneAnswering.value = allAnswered
+                }
+            } catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error monitoring until all users has answered ${e.message}", e)
             }
         }
     }
@@ -511,7 +528,7 @@ class ChatRiseViewModel(
     }
     fun areAllMembersAnswered(crRoomId: String, title: String, context: Context){
         viewModelScope.launch {
-            val response = chatRepository.areAllMembersAnswered(crRoomId, title)
+            val response = chatRepository.checkIfAllMembersAnswered(crRoomId, title)
             _allMembersHasAnswered.value = response
         }
     }
@@ -536,27 +553,7 @@ class ChatRiseViewModel(
             }
         }
     }
-    @SuppressLint("SuspiciousIndentation")
-    fun fetchUsersAnswers(crRoomId: String, title: String){
-        viewModelScope.launch {
-            try {
-                val response = client.postgrest["answers"]
-                    .select(
-                        filter = {
-                            filter("title", FilterOperator.EQ, title)
-                            filter("crRoomId", FilterOperator.EQ, crRoomId)
-                            filter("userId", FilterOperator.EQ, userId)
-                        }
-                    )
-                    .decodeSingle<Answers>()
 
-                Log.d("ViewModel", "Fetched $response")
-                _userAnswer.value = response
-            }catch (e: Exception){
-                Log.d("ViewModel", "Error fetching answers ${e.message}")
-            }
-        }
-    }
     suspend fun checkUserForAllCompleteAnswers(crRoomId: String, title: String, context: Context): Boolean{
         return try {
             if (title.isEmpty()){
@@ -591,6 +588,27 @@ class ChatRiseViewModel(
             Log.d("ViewModel", "Error checking user answers: ${e.message}")
             _isAllDoneAnswering.value = null
             false
+        }
+    }
+    @SuppressLint("SuspiciousIndentation")
+    fun fetchUsersAnswers(crRoomId: String, title: String){
+        viewModelScope.launch {
+            try {
+                val response = client.postgrest["answers"]
+                    .select(
+                        filter = {
+                            filter("title", FilterOperator.EQ, title)
+                            filter("crRoomId", FilterOperator.EQ, crRoomId)
+                            filter("userId", FilterOperator.EQ, userId)
+                        }
+                    )
+                    .decodeSingle<Answers>()
+
+                Log.d("ViewModel", "Fetched $response")
+                _userAnswer.value = response
+            }catch (e: Exception){
+                Log.d("ViewModel", "Error fetching answers ${e.message}")
+            }
         }
     }
     suspend fun checkForUsersCompleteAnswer(crRoomId: String, title: String): Boolean{

@@ -399,7 +399,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             onError(e)
         }
     }
-    suspend fun areAllMembersAnswered(crRoomId: String, gameName: String): Boolean {
+    suspend fun checkIfAllMembersAnswered(crRoomId: String, gameName: String): Boolean {
         return try {
             // Access the document in Firestore
             val gameDocRef = crGameRoomsCollection
@@ -437,6 +437,48 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             false // On exception, return false
         }
     }
+
+    fun listenForAllMembersAnswered(crRoomId: String, gameName: String, trigger: () -> Unit): Flow<Boolean> = callbackFlow {
+        val gameDocRef = firestore
+            .collection("ChatriseRooms")
+            .document(crRoomId)
+            .collection("Games")
+            .document(gameName)
+
+        val listener = gameDocRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.e("ChatRiseRepository", "Error listening for updates: ${error.message}", error)
+                close(error) // Stop flow on error
+            }
+
+            if (snapshot != null && snapshot.exists()) {
+                val hasAnsweredMap = snapshot.get("hasAnswered") as? Map<String, Boolean> ?: emptyMap()
+                val allAnswered = hasAnsweredMap.isNotEmpty() && hasAnsweredMap.all { (_, answered) -> answered }
+                val previousAllAnswered = snapshot.getBoolean("allAnswered") ?: false
+
+                Log.d("ChatRiseRepository", "Listening for all members answered. Status: $allAnswered (Previous: $previousAllAnswered)")
+
+                trySend(allAnswered) // ✅ Emit current status (True/False)
+
+                // ✅ Only update Firestore if the value changed from false → true
+                if (!previousAllAnswered && allAnswered) {
+                    trigger()
+
+                    gameDocRef.update("allAnswered", true)
+                        .addOnSuccessListener {
+                            Log.d("ChatRiseRepository", "✅ Successfully updated 'allAnswered' to true (Only once)")
+                        }
+                        .addOnFailureListener { e ->
+                            Log.e("ChatRiseRepository", "Error updating 'allAnswered': ${e.message}", e)
+                        }
+                }
+            }
+        }
+
+        awaitClose { listener.remove() } // ✅ Ensure cleanup on ViewModel destruction
+    }
+
+
 
 
 
