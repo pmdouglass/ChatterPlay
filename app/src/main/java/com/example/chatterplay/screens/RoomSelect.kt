@@ -40,6 +40,7 @@ import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,7 +75,7 @@ fun MainRoomSelect(
 
 
     val chatRooms by viewModel.allChatRooms.collectAsState()
-    val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp }
+    val allRooms = chatRooms.sortedBy { it.lastMessageTimestamp }
     //val userProfile by viewModel.userProfile.collectAsState()
     val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -82,6 +83,12 @@ fun MainRoomSelect(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     var search by remember { mutableStateOf("")}
+
+    val filteredRooms by remember(search, chatRooms) {
+        derivedStateOf {
+            chatRooms.filter { it.roomName.contains(search, ignoreCase = true) }
+        }
+    }
 
 
     val context = LocalContext.current
@@ -253,7 +260,7 @@ fun MainRoomSelect(
                         modifier = Modifier
                             .fillMaxSize()
                     ){
-                        items(allRooms){ room ->
+                        items(filteredRooms){ room ->
                             val crRoomId = "0"
                             RoomSelectionView(
                                 game = false,
