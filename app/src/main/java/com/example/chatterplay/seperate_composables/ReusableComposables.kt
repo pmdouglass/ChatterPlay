@@ -184,6 +184,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
     var altSelect by remember { mutableStateOf(false)}
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUser?.uid ?: "", viewModel)
     val crRoomId by roomCreate.crRoomId.collectAsState()
+    val unreadCount by viewModel.unreadMessageCount.collectAsState()
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val alertChange by crViewModel.alertChange.collectAsState()
     var checkAlertChangeDone by remember { mutableStateOf(false)}
@@ -240,7 +241,6 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
     Log.d("Reusable", "crRoomId: $crRoomId")
     Log.d("Reusable", "gameInfo: $gameInfo")
     Log.d("Reusable", "isDoneAnswering: $userDoneAnswering")
-    Log.d("Reusable", "isReadyToDisplay: $isReadyToDisplay")
     Log.d("Reusable", "userStatus: $userStatus")
 
 
@@ -295,30 +295,32 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                         }
                         userStatus == "Pending" -> {}
                         roomReady -> {
-
-                            LaunchedEffect(Unit){
-                                if (crRoomId != "0"){
-                                    crRoomId?.let {room ->
+                            if (crRoomId != "0"){
+                                crRoomId?.let { room ->
+                                    LaunchedEffect(Unit){
                                         viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
+                                        viewModel.fetchCRUnreadMessageCount(room)
                                     }
+
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            "${allChatRoomMembers.size}",
+                                            style = CRAppTheme.typography.infoMedium
+                                        )
+                                        Text(
+                                            "People",
+                                            style = CRAppTheme.typography.infoSmall
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(15.dp))
+                                    DynamicCircleBox(
+                                        number = 0
+                                    )
                                 }
                             }
-
-                            Column(
-                                verticalArrangement = Arrangement.Center,
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    "${allChatRoomMembers.size}",
-                                    style = CRAppTheme.typography.infoMedium
-                                )
-                                Text(
-                                    "People",
-                                    style = CRAppTheme.typography.infoSmall
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(15.dp))
-                            DynamicCircleBox(number = 121)
                         }
                     }
 
@@ -603,12 +605,6 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                                             }
                                         }
                                     }
-
-
-
-
-
-
                                 }
                             }
                         }
@@ -1308,6 +1304,11 @@ fun PrivateDrawerRoomList(crRoomId: String, onInvite: () -> Unit, viewModel: Cha
 
     val chatRooms by viewModel.allRiserRooms.collectAsState()
     val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp}
+    val unreadMessageCount by viewModel.unreadCRMessageCount.collectAsState()
+
+    LaunchedEffect(Unit){
+        viewModel.fetchCRUnreadMessageCount(crRoomId)
+    }
 
 
 
@@ -1398,8 +1399,9 @@ fun PrivateDrawerRoomList(crRoomId: String, onInvite: () -> Unit, viewModel: Cha
                     game = true,
                     room = room,
                     membersCount = room.members.size,
-                    replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
+                    replyCount = unreadMessageCount[room.roomId] ?: 0,
                     onClick = {
+                        viewModel.updateLastCRSeenTimestamp(crRoomId, room.roomId)
                         navController.navigate("chatScreen/${crRoomId}/${room.roomId}/true/false")
                     }
                 )

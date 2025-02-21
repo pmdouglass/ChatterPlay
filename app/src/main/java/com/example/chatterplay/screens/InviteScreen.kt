@@ -84,7 +84,7 @@ import com.google.firebase.auth.FirebaseAuth
     }
     val filteredUsers by remember(searchtxt, allUsers) {
         derivedStateOf {
-            allUsers.filter { it.fname.contains(searchtxt, ignoreCase = true) }
+            allUsers.filter { it.fname.contains(searchtxt, ignoreCase = true) || it.lname.contains(searchtxt, ignoreCase = true) }
         }
     }
 
@@ -382,7 +382,7 @@ fun InviteSelectScreen(
 
     val filteredUsers by remember(searchtxt, users) {
         derivedStateOf {
-            users.filter { it.fname.contains(searchtxt, ignoreCase = true) }
+            users.filter { it.fname.contains(searchtxt, ignoreCase = true)}
         }
     }
 

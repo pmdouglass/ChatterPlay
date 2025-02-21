@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 data class ChatRoom(
+    val crRoomId: String = "",
     val roomId: String = "",
     val roomName: String = "",
     val members: List<String> = listOf(),
@@ -17,7 +18,9 @@ data class ChatRoom(
     val hiddenTimestamp: Map<String, Timestamp> = emptyMap(),
     val unreadMessageCounts: Map<String, Int> = mapOf(),
     val createdAt: Timestamp = Timestamp.now(),
-    val AlertType: String = "none"
+    val AlertType: String = "none",
+    val isGame: Boolean = false,
+    val isMainChat: Boolean = false
 )
 
 fun formattedDayTimestamp(timestamp: Timestamp): String{
