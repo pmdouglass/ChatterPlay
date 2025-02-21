@@ -1,6 +1,11 @@
 package com.example.chatterplay.screens
 
+import android.content.Context
 import android.os.Bundle
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -16,6 +21,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -33,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,29 +57,42 @@ import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.seperate_composables.rememberCRProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
+import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 
 @Composable
 fun RankingScreen(
     crRoomId: String,
     allChatRoomMembers: List<UserProfile>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel()
 ){
 
-    val currentMode by crViewModel.rankingStatus.collectAsState()
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
 
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+    val currentMode by crViewModel.rankingStatus.collectAsState()
+    val profile = rememberCRProfile(crRoomId)
     val currentUser = FirebaseAuth.getInstance().currentUser
+    val allRisers by viewModel.allRisers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
-    val rankedMembers by crViewModel.rankedUsers.collectAsState()
-    val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(chatRoomMembers.size) {add(null)} }}
-    val leftRiser = remember {
-        mutableStateListOf<UserProfile?>().apply {
-            addAll(chatRoomMembers)
+    val RisersAll = allRisers
+        .toMutableList()
+        .apply {
+            add(profile)
         }
-    }
+
     val selectedAction = remember { mutableStateOf<Int?>(null)}
     val isSwapWithRightMode = remember { mutableStateOf(false) }
     val swapWithRightIndex = remember { mutableStateOf<Int?>(null) }
@@ -81,20 +102,30 @@ fun RankingScreen(
     val isRightSideClickable = remember { mutableStateOf(true)}
     val selectedImage = remember { mutableStateOf<UserProfile?>(null)}
 
-    isRightSideComplete.value = rightRiser.all { it != null }
 
     LaunchedEffect(crRoomId, currentMode){
+        viewModel.fetchAllRisers(crRoomId)
         crViewModel.checkUserRankingStatus(crRoomId = crRoomId, userId = currentUser?.uid ?: "")
-        crViewModel.fetchAndSortRankings(crRoomId)
+        crViewModel.fetchRankingsList(crRoomId) // rankingList
+        crViewModel.monitorUsersDoneRankingStatus(crRoomId, RisersAll,context)
+    }
+    val rightRiser = remember { mutableStateListOf<UserProfile?>().apply { repeat(allRisers.size) {add(null)} }}
+    val leftRiser = remember {
+        mutableStateListOf<UserProfile?>().apply {
+            addAll(allRisers)
+        }
     }
 
+    isRightSideComplete.value = rightRiser.all { it != null }
+
+
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
             putString("screen_name", "RankingScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -112,7 +143,7 @@ fun RankingScreen(
         Text(
             when (currentMode){
                 "View" -> {
-                    "Player Ranks"
+                    "Current Ranks"
                 }
                 "Ranking" -> {
                     "Vote your players"
@@ -123,36 +154,12 @@ fun RankingScreen(
                 else -> {
                     "Other"
                 }
-                /*Mode.NewRankingMode -> {
-                    "Final Rankings"
-                }*/
             },
             style = CRAppTheme.typography.T4,
             color = Color.White,
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .padding(20.dp))
-        when (currentMode) {
-            "View" -> {
-                Button(onClick = {
-                    crViewModel.updateToRanking(crRoomId, currentUser?.uid ?: "")
-                }){Text("Go to Ranking")}
-            }
-            "Ranking" -> {
-            }
-            "Done" -> {
-                Button(onClick = {
-                    crViewModel.setAllVotesToDone(crRoomId)
-                    crViewModel.checkUserRankingStatus(crRoomId, currentUser?.uid ?: "")
-                }){
-                    Text("Final Final Rankings Do Not Press")
-                }
-
-            }
-            else -> {
-
-            }
-        }
         HorizontalDivider()
 
         Box(
@@ -167,9 +174,8 @@ fun RankingScreen(
             ) {
                 when (currentMode) {
                     "View" -> {
-                        CurrentRanks(memberRanks = rankedMembers)
+                        CurrentRanks(crRoomId = crRoomId)
                     }
-
 
                     "Ranking" -> {
                         LeftList(
@@ -182,7 +188,7 @@ fun RankingScreen(
                             isSwapWithRightMode = isSwapWithRightMode
                         )
 
-                        NewPlace(
+                        rightList(
                             rightRiser = rightRiser,
                             selectedAction = selectedAction,
                             selectedImage = selectedImage,
@@ -194,24 +200,11 @@ fun RankingScreen(
                             isRightSideClickable = isRightSideClickable
                         )
                     }
-
 
                     "Done" -> {
-                        NewPlace(
-                            rightRiser = rightRiser,
-                            selectedAction = selectedAction,
-                            selectedImage = selectedImage,
-                            leftRiser = leftRiser,
-                            isSwapWithRightMode = isSwapWithRightMode,
-                            swapWithRightIndex = swapWithRightIndex,
-                            isSwapWithLeftMode = isSwapWithLeftMode,
-                            swapWithLeftIndex = swapWithLeftIndex,
-                            isRightSideClickable = isRightSideClickable
-                        )
+                        UsersSelectedRank(crRoomId)
                     }
                 }
-
-
             }
             Box(
                 modifier = Modifier
@@ -309,42 +302,159 @@ fun RankingScreen(
     }
 }
 @Composable
-fun CurrentRanks(memberRanks: List<Pair<UserProfile, Int>>){
+fun CurrentRanks(
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
+){
 
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+    val userAlertType by crViewModel.usersAlertType.collectAsState()
+    val systemAlertType by crViewModel.systemAlertType.collectAsState()
+    val allRisers by viewModel.allRisers.collectAsState()
+    val profile = rememberCRProfile(crRoomId = crRoomId)
+    val AllRisers = allRisers
+        .toMutableList()
+        .apply {
+            add(profile)
+        }
+    val rankingList by crViewModel.userRankList.collectAsState()
+    val hasSeenRankResult by crViewModel.hasSeenRankResult.collectAsState()
+    val displayRanks = if (rankingList.isEmpty()) AllRisers.map { it to 0 } else rankingList
+    val sortedRanks = displayRanks
+    val revealOrder = sortedRanks
+    var revealindex by remember { mutableStateOf(0)}
+
+
+    LaunchedEffect(crRoomId){
+        crViewModel.fetchRankingsList(crRoomId) // rankingList
+        crViewModel.checkSeenRankResult(crRoomId)
+        crViewModel.fetchSystemAlertType(crRoomId) // systemAlertType
+        viewModel.fetchAllRisers(crRoomId)
+        if (systemAlertType != null){
+            systemAlertType?.let {alertType ->
+                crViewModel.monitorForAllSeenResult(crRoomId,AllRisers, alertType = alertType ,context)
+            }
+        }
+    }
+    LaunchedEffect(revealOrder){
+        for (i in 1..revealOrder.size){
+            delay(3000L)
+            revealindex = i
+        }
+    }
+    LaunchedEffect(revealindex){
+        if (revealindex == revealOrder.size && !hasSeenRankResult){
+            crViewModel.updateSeenRankResult(crRoomId, true)
+            crViewModel.checkSeenRankResult(crRoomId)
+        }
+    }
 
         Column(
-            verticalArrangement = Arrangement.SpaceEvenly,
-            horizontalAlignment = Alignment.CenterHorizontally,
+            //verticalArrangement = Arrangement.SpaceEvenly,
+            //horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
-                .fillMaxHeight()
+                .fillMaxSize()
         ){
-            memberRanks.forEachIndexed { index, (member) ->
-                Row (
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxSize()
+            ){
+                LazyColumn(
+                    verticalArrangement = Arrangement.SpaceEvenly,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    reverseLayout = if (!hasSeenRankResult) true else false,
                     modifier = Modifier
-                        .then(if (index == 0 || index == 1){
-                            Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
-                        } else {
-                            Modifier
-                        })
-                        .padding(2.dp)
-                ){
-                    Text(getOrdinal(index + 1),
-                        color = Color.White)
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ){
-                        Image(
-                            painter = rememberAsyncImagePainter(member.imageUrl),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(50.dp)
-                                .clip(CircleShape)
-                        )
-                        Text(member.fname, color = Color.White)
+                        .fillMaxHeight()
+                ) {
+                    if (hasSeenRankResult){
+                        itemsIndexed(displayRanks){ index, (member) ->
+                            Row (
+                                modifier = Modifier
+                                    .then(
+                                        if (rankingList.isEmpty()){
+                                            Modifier
+                                        }else {
+                                            if (index == 0 || index == 1){
+                                                Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                                            } else {
+                                                Modifier
+                                            }
+                                        }
+                                    )
+                                    .padding(2.dp)
+                            ){
+                                Text(
+                                    if (rankingList.isEmpty()) "" else getOrdinal(index + 1),
+                                    color = Color.White)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ){
+                                    Image(
+                                        painter = rememberAsyncImagePainter(member.imageUrl),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(CircleShape)
+                                    )
+                                    Text(member.fname, color = Color.White)
+                                }
+                            }
+                        }
+
+                    }else {
+                        itemsIndexed(revealOrder.reversed()) { index, (member) ->
+                            var isVisible by remember { mutableStateOf(false) }
+
+                            LaunchedEffect(index){
+                                delay(index * 5000L)
+                                isVisible = true
+                            }
+                            AnimatedVisibility(
+                                visible = isVisible,
+                                enter = fadeIn(animationSpec = tween(durationMillis = 5000)) + slideInVertically()
+                            ){
+                                Row(
+                                    modifier = Modifier
+                                        .then(
+                                            if (rankingList.isNotEmpty() && (index == sortedRanks.size -1 || index == sortedRanks.size - 2)){
+                                                Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                                            }else Modifier
+                                        )
+                                        .padding(2.dp)
+                                ){
+                                    Text(
+                                        if (rankingList.isEmpty()) "" else getOrdinal(sortedRanks.size - index),
+                                        color = Color.White
+                                    )
+                                    Column(
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(member.imageUrl),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(50.dp)
+                                                .clip(CircleShape)
+                                        )
+                                        Text(member.fname, color = Color.White)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-        }
+            }
     }
 
 }
@@ -414,6 +524,7 @@ fun LeftList(
                             baseModifier
                         }
                     }
+                    /*
                     .let { baseModifier ->
                         if (currentMode == "Ranking" && (index == 0 || index == 1)) {
                             baseModifier.border(2.dp, CRAppTheme.colorScheme.highlight)
@@ -421,6 +532,8 @@ fun LeftList(
                             baseModifier
                         }
                     }
+
+                     */
                     .padding(2.dp)
 
             ){
@@ -457,7 +570,7 @@ fun LeftList(
 }
 
 @Composable
-fun NewPlace(
+fun rightList(
     leftRiser: MutableList<UserProfile?>,
     rightRiser: MutableList<UserProfile?>,
     selectedAction: MutableState<Int?>,
@@ -569,6 +682,80 @@ fun NewPlace(
                 selectedAction.value = null
             }
         )
+    }
+}
+@Composable
+fun UsersSelectedRank(
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
+) {
+
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+
+    LaunchedEffect(crRoomId){
+        crViewModel.fetchUserVote(crRoomId)
+    }
+    val rankVote by crViewModel.userRankVote.collectAsState()
+    val usesdfrVote by remember { crViewModel.userRankVote }.collectAsState()
+
+    Column(
+        verticalArrangement = Arrangement.SpaceEvenly,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .fillMaxHeight()
+    ) {
+        Text(
+            "Your New Choices",
+            style = CRAppTheme.typography.H2,
+            color = Color.White
+        )
+        rankVote.forEachIndexed { index, (member) ->
+            Row (
+                modifier = Modifier
+                    .then(if (index == 0 || index == 1){
+                        Modifier.border(2.dp, CRAppTheme.colorScheme.highlight)
+                    } else {
+                        Modifier
+                    })
+
+            ){
+                Text(getOrdinal(index + 1), color = Color.White, modifier = Modifier.padding(8.dp))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+
+                ) {
+                    if (member != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(member.imageUrl),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Black, CircleShape)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .border(2.dp, Color.Black, CircleShape)
+                        )
+                    }
+                    Text("")
+                }
+            }
+        }
     }
 }
 

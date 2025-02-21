@@ -1,6 +1,7 @@
 package com.example.chatterplay.screens
 
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -52,6 +53,8 @@ import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
+import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 
@@ -103,10 +106,18 @@ fun notes(){
 fun ChoiceGameScreen(
     crRoomId: String,
     allChatRoomMembers: List<UserProfile>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel()
 ){
+// Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
 
-    val isAllDoneWithQuestions by crViewModel.isAllDoneWithQuestions // waits until everyone done with answers
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+    val allMembersHasAnswered by crViewModel.allMembersHasAnswered // waits until everyone done with answers
     val questions by crViewModel.gameQuestion.collectAsState()  // gets questions from supabase "questions" table
     val gameInfo by crViewModel.gameInfo.collectAsState()  // gets gameInfo from UserProfile
 
@@ -118,18 +129,18 @@ fun ChoiceGameScreen(
     LaunchedEffect(gameInfo){
         gameInfo?.let { game ->
             crViewModel.fetchQuestions(game.title) // initialize 'questions'
-            crViewModel.monitorUntilAllUsersDoneAnswering(crRoomId, game.title) // initialize 'isAllDoneWithQuestions'
+            crViewModel.areAllMembersAnswered(crRoomId, game.title, context) // allMembersHasAnswered
 
         }
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
             putString("screen_name", "ChoiceGameScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -144,7 +155,7 @@ fun ChoiceGameScreen(
                 .background(CRAppTheme.colorScheme.onGameBackground)
         ) {
             gameInfo?.let { game ->
-                if (!isAllDoneWithQuestions) {
+                if (!allMembersHasAnswered!!) {
                     when (game.mode){
                         "pair", "multiple" -> {
                             ChoiceQuestions(
@@ -156,8 +167,8 @@ fun ChoiceGameScreen(
                         "questions" -> {
                             QuestionsScreen(
                                 crRoomId = crRoomId,
-                                done = isAllDoneWithQuestions,
-                                gameInfo = gameInfo!!
+                                gameInfo = gameInfo!!,
+                                AllRisers = allChatRoomMembers
                             )
                         }
                     }
@@ -174,8 +185,8 @@ fun ChoiceGameScreen(
                         "questions" -> {
                             QuestionsScreen(
                                 crRoomId = crRoomId,
-                                done = isAllDoneWithQuestions,
-                                gameInfo = gameInfo!!
+                                gameInfo = gameInfo!!,
+                                AllRisers = allChatRoomMembers
                             )
                         }
                     }
@@ -205,15 +216,25 @@ fun ChoiceQuestions(
     crRoomId: String,
     gameInfo: Title,
     questions: List<Questions>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel()
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val currentQuestionIndex = remember { mutableStateOf(0) }
     val recordedAnswers = remember { mutableStateListOf<Answers>()}
-    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+    val userDoneAnswering by crViewModel.userDoneAnswering // sees if current user done with answers
 
     LaunchedEffect(crRoomId){
-        crViewModel.checkUserForAllCompleteAnswers(crRoomId, gameInfo.title) // initialize 'isDoneAnswering'
+        //crViewModel.checkUserForAllCompleteAnswers(crRoomId, gameInfo.title, context) // initialize 'isDoneAnswering'
+        crViewModel.checkUsersHasAnswered(crRoomId = crRoomId, title = gameInfo.title, context = context) // initialize userDoneAnswering
     }
     Column(
         verticalArrangement = Arrangement.Top,
@@ -235,7 +256,7 @@ fun ChoiceQuestions(
                 style = CRAppTheme.typography.H1
             )
         } else {
-            if (isDoneAnswering == false){
+            if (userDoneAnswering == false){
                 if (currentQuestionIndex.value < questions.size){
                     val currentQuestion = questions[currentQuestionIndex.value]
                     val onAnswer: ((Boolean) -> Unit)? = when (gameInfo.mode) {
@@ -286,7 +307,7 @@ fun ChoiceQuestions(
                 } else {
                     // all finished operations
 
-                    crViewModel.savePairAnswers(crRoomId, recordedAnswers, gameInfo)
+                    crViewModel.savePairAnswers(crRoomId, recordedAnswers, gameInfo, context)
 
                 }
             } else {
@@ -474,16 +495,24 @@ fun ChoiceAnswerScreen(
     gameInfo: Title,
     questions: List<Questions>,
     allChatRoomMembers: List<UserProfile>,
-    crViewModel: ChatRiseViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel()
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
     val userProfiles = remember { mutableStateOf<Map<String, UserProfile>>(emptyMap())}
     val currentQuestionIndex = remember { mutableStateOf(0)}
     val showAll = remember { mutableStateOf(false) }
 
 
-    LaunchedEffect(true){
-
+    LaunchedEffect(Unit){
         crViewModel.fetchAnswers(crRoomId, gameInfo.title) { retrievedAnswers ->
             answers.value = retrievedAnswers
         }

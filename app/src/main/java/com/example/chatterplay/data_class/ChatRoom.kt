@@ -16,7 +16,8 @@ data class ChatRoom(
     val hiddenFor: List<String> = listOf(),
     val hiddenTimestamp: Map<String, Timestamp> = emptyMap(),
     val unreadMessageCounts: Map<String, Int> = mapOf(),
-    val createdAt: Timestamp = Timestamp.now()
+    val createdAt: Timestamp = Timestamp.now(),
+    val AlertType: String = "none"
 )
 
 fun formattedDayTimestamp(timestamp: Timestamp): String{

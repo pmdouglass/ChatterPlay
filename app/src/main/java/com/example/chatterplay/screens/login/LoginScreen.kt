@@ -48,6 +48,7 @@ fun LoginScreen(navController: NavController) {
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
             putString("screen_name", "LoginScreen")
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -216,6 +217,28 @@ fun LoginScreen(navController: NavController) {
                 )
             }
 
+        }
+        Row (
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
+        ){
+            Button(
+                onClick = {
+                    FirebaseAuth.getInstance().signInWithEmailAndPassword("dave@gmail.com", "qqqqqq")
+                        .addOnCompleteListener { task ->
+                            if (task.isSuccessful){
+                                navController.navigate("roomSelect")
+                            }
+                        }
+                },
+                modifier = Modifier
+                    .padding(bottom = 25.dp)
+            ) {
+                Text (
+                    "dave",
+                    style = CRAppTheme.typography.titleMedium,
+                )
+            }
         }
 
 

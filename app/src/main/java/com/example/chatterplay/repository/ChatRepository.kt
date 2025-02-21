@@ -19,7 +19,7 @@ class ChatRepository {
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     private val more = "Alternate"
     private val chatrise = "ChatRise"
-    private val private = "Private Chats"
+    private val private = "PrivateChats"
 
 
 
@@ -76,6 +76,13 @@ class ChatRepository {
             Log.e("ChatRepository", "Error fetching profile for userId: $userId", e)
             null
         }
+    }
+    suspend fun getRealUserProfile(userId: String): UserProfile?{
+        val snapshot = usersCollection
+            .document(userId)
+            .get().await()
+
+        return snapshot.toObject(UserProfile::class.java)
     }
 
     suspend fun getUserProfile(userId: String, game: Boolean): UserProfile? {
@@ -453,32 +460,34 @@ class ChatRepository {
         }
     }
 
-    suspend fun getChatRoom(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): ChatRoom? {
-        return try {
-            val snapshot =
-                if (!game)
-                    chatRoomsCollection.document(roomId)
-                else
-                    if (mainChat)
-                        crGameRoomsCollection.document(crRoomId)
-                    else
-                        crGameRoomsCollection.document(crRoomId).collection(private).document(roomId)
+    suspend fun getChatRoom(crRoomId: String, roomId: String?, game: Boolean, mainChat: Boolean): ChatRoom? {
+        if (roomId.isNullOrBlank()) {
+            Log.e("ChatRepository", "Error: roomId is blank or null!")
+            return null
+        }
 
+        return try {
+            val snapshot = when {
+                !game -> chatRoomsCollection.document(roomId)
+                mainChat -> crGameRoomsCollection.document(crRoomId)
+                else -> crGameRoomsCollection.document(crRoomId).collection("PrivateChats").document(roomId)
+            }
 
             Log.d("ChatRepository", "Fetching chat room for crRoomId: $crRoomId roomId: $roomId")
             val documentSnapshot = snapshot.get().await()
             val chatRoom = documentSnapshot.toObject(ChatRoom::class.java)
-            if (chatRoom != null) {
-                Log.d("ChatRepository", "Successfully fetched chat room: $chatRoom")
-            } else {
-                Log.d("ChatRepository", "No chat room found for roomId: $roomId")
-            }
+
+            chatRoom?.let {
+                Log.d("ChatRepository", "Successfully fetched chat room: $it")
+            } ?: Log.d("ChatRepository", "No chat room found for roomId: $roomId")
+
             chatRoom
         } catch (e: Exception) {
             Log.e("ChatRepository", "Error fetching chat room with roomId: $roomId - ${e.message}", e)
             null
         }
     }
+
 
     suspend fun getRoomInfo(crRoomId: String, roomId: String): ChatRoom? {
         return try {
@@ -633,8 +642,15 @@ class ChatRepository {
                 .await()
 
             val messages = querySnapshot.documents.mapNotNull { document ->
-                document.toObject(ChatMessage::class.java).also {
+                val message = document.toObject(ChatMessage::class.java)
+
+                // Exclude "blockedMessage" field
+                if (message != null && !document.contains("BlockedMessage")){
                     Log.d("ChatRepository", "Fetched message with id: ${document.id}")
+                    message
+                }else {
+                    Log.d("ChatRepository", "Excluded message with BlockedMessage field: ${document.id}")
+                    null
                 }
             }
 

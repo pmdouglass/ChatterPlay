@@ -20,11 +20,18 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.data_class.UserProfile
 
 @Composable
-fun AllMembersRow(selectedMember: ((UserProfile) -> Unit)? = null, chatRoomMembers: List<UserProfile>, game: Boolean, self: Boolean, navController: NavController) {
+fun AllMembersRow(
+    selectedMember: ((UserProfile) -> Unit)? = null,
+    chatRoomMembers: List<UserProfile>,
+    game: Boolean,
+    self: Boolean,
+    navController: NavController = rememberNavController()
+) {
     LazyRow (
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -48,7 +55,15 @@ fun AllMembersRow(selectedMember: ((UserProfile) -> Unit)? = null, chatRoomMembe
 }
 
 @Composable
-fun UserProfileIcon(selectedMember: ((UserProfile) -> Unit)? = null, chatMember: UserProfile, imgSize: Int = 30, txtSize: Int = 10, game: Boolean, self: Boolean, navController: NavController) {
+fun UserProfileIcon(
+    selectedMember: ((UserProfile) -> Unit)? = null,
+    chatMember: UserProfile,
+    imgSize: Int = 30,
+    txtSize: Int = 10,
+    game: Boolean,
+    self: Boolean,
+    navController: NavController = rememberNavController()
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,

@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.compose.foundation.Image
@@ -53,42 +54,56 @@ import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.Title
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
+import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun QuestionsScreen(
     crRoomId: String,
     gameInfo: Title,
-    done: Boolean,
-    crViewModel: ChatRiseViewModel = viewModel()
+    AllRisers: List<UserProfile>,
+    viewModel: ChatViewModel = viewModel()
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     Log.d("QuestionsScreen", "Inside QuestionsScreen")
     val question by crViewModel.currentQuestion.collectAsState()
-    val answers = remember { mutableStateOf<List<Answers>>(emptyList())}
-    val hasAnswered by crViewModel.isDoneAnswering
+    val allAnswers = remember { mutableStateOf<List<Answers>>(emptyList())}
     val usersAnswer by crViewModel.userAnswer.collectAsState()
+    val done by crViewModel.allDoneAnswering.collectAsState()
 
 
+    LaunchedEffect(Unit){
+        crViewModel.startListeningForAllAnswered(crRoomId, gameInfo, AllRisers, context)
+    }
     LaunchedEffect(gameInfo){
         crViewModel.fetchQuestionForUser(crRoomId, gameInfo.title) // initialize question
-        crViewModel.checkForUsersCompleteAnswer(crRoomId, gameInfo.title) // initialize hasAnswered
         crViewModel.fetchUsersAnswers(crRoomId, gameInfo.title) // initialize usersAnswer
-        crViewModel.fetchAnswers(crRoomId, gameInfo.title){retrievedAnswers ->
-            answers.value = retrievedAnswers
+        crViewModel.fetchAnswers(crRoomId, gameInfo.title){retrievedAnswers -> // allAnswers
+            allAnswers.value = retrievedAnswers
         }
 
 
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
             putString("screen_name", "QuestionsScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }
@@ -107,10 +122,9 @@ fun QuestionsScreen(
      */
     //Log.d("QuestionsScreen", "isLoading: $isLoading")
     Log.d("QuestionsScreen", "question: $question")
-    Log.d("QuestionsScreen", "hasAnswered: $hasAnswered")
     Log.d("QuestionsScreen", "usersAnswer: $usersAnswer")
     //Log.d("QuestionsScreen", "isAllDoneWithQuestions: $isAllDoneWithQuestions")
-    Log.d("QuestionsScreen", "answers: ${answers.value}")
+    Log.d("QuestionsScreen", "answers: ${allAnswers.value}")
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -147,12 +161,11 @@ fun QuestionsScreen(
                     Spacer(modifier = Modifier.padding(10.dp))
                     AnonBubble(
                         message = when {
-                            hasAnswered == true -> if(usersAnswer != null) usersAnswer!!.choice else "usersAnswer is null"
-                            hasAnswered == false -> null
+                            usersAnswer != null -> usersAnswer!!.choice
                             else -> null
                         }
                     )
-                    if (hasAnswered == true){
+                    if (usersAnswer != null){
                         Column(
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -164,7 +177,7 @@ fun QuestionsScreen(
                     }else {
                         Spacer(modifier = Modifier.weight(1f))
                     }
-                    if (hasAnswered == false){
+                    if (usersAnswer == null){
                         questionSend(
                             crRoomId = crRoomId,
                             gameInfo = gameInfo,
@@ -172,6 +185,7 @@ fun QuestionsScreen(
                         )
                     }
                 }else {
+                    // everyones answer
                     Log.d("QuestionsScreen", "Inside Lazycolumn")
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(50.dp),
@@ -179,7 +193,7 @@ fun QuestionsScreen(
                             .fillMaxSize()
                             .padding(6.dp)
                     ){
-                        items(answers.value){answer ->
+                        items(allAnswers.value){ answer ->
                             AnonBubble(
                                 message = answer.question,
                                 systemMessage = true
@@ -202,20 +216,24 @@ fun QuestionsScreen(
 
     }
 }
-/*
-@Composable
-fun skdf(){
 
-}
 
- */
 @Composable
 fun questionSend(
     crRoomId: String,
     gameInfo: Title,
     question: String,
-    crViewModel: ChatRiseViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel()
 ){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val currentUser = FirebaseAuth.getInstance().currentUser
     Log.d("Debug-Message", "Current user: ${currentUser?.uid}")
     var input by remember { mutableStateOf("") }
@@ -232,8 +250,15 @@ fun questionSend(
         crViewModel.saveQuestionStatement(
             crRoomId = crRoomId,
             answer = answer,
-            gameInfo = gameInfo
+            gameInfo = gameInfo,
+            context = context
         )
+        crViewModel.updateUserHasAnswered(
+            crRoomId = crRoomId,
+            gameInfo = gameInfo,
+            context = context
+        )
+
         input = ""
         sent = true
     }
@@ -317,7 +342,7 @@ fun AnonBubble(
                             bottomEnd = borderRad
                         )
                     )
-                    .background(Color.Gray)
+                    .background(if (!systemMessage) Color.White else Color.Gray)
                     .then(if (systemMessage)
                         Modifier.border(
                             1.dp,
@@ -337,7 +362,7 @@ fun AnonBubble(
                 ) {
                 Text(
                     text = message ?: "Type your response here. Once submitted, your reply will appear in this space.",
-                    color = Color.Black,
+                    color = if (!systemMessage) Color.Black else Color.White,
                     lineHeight = 23.sp,
                     letterSpacing = 1.sp
                 )

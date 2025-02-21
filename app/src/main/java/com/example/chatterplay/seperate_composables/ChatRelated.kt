@@ -1,18 +1,19 @@
 package com.example.chatterplay.seperate_composables
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,7 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -54,16 +55,20 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
+import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.ChatMessage
-import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 
 @Composable
 fun ChatLazyColumn(
@@ -366,58 +371,141 @@ fun ChatInput(viewModel: ChatViewModel = viewModel(), memberCount: Int, crRoomId
 
 }
 @Composable
-fun AlertDialogSplash(
+fun AlertingScreen(
     crRoomId: String,
-    game: Boolean = false,
-    rank: Boolean = false,
-    system: Boolean = false,
-    gameInfo: Title? = null,
     onDone: () -> Unit,
-    crViewModel: ChatRiseViewModel = viewModel()
+    viewModel: ChatViewModel = viewModel()
 ){
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+    val systemAlertType by crViewModel.systemAlertType.collectAsState() // checks what AlertType it is
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from room
+    val topPlayers by crViewModel.topTwoPlayers.collectAsState()
+    val isTopPlayer by remember {
+        derivedStateOf {
+            topPlayers?.let { (rank1, rank2) ->
+                val rank1 = rank1.first
+                val rank2 = rank2.first
+
+                userId == rank1 || userId == rank2
+            } ?: false
+        }
+    }
+
+    LaunchedEffect(Unit){
+        // figure out what alert to show
+        crViewModel.fetchSystemAlertType(crRoomId) // initialize systemAlertType
+    }
+    LaunchedEffect(systemAlertType){
+        when (systemAlertType){
+            AlertType.game.string -> {
+                crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
+            }
+            AlertType.top_discuss.string -> {
+                crViewModel.getTopTwoPlayers(crRoomId)
+            }
+        }
+    }
+
+
     val pitch0 = "Alert!"
     val pitch1 =
-        when{
-            game ->
+        when (systemAlertType){
+            AlertType.none.string -> {"false alert"}
+            AlertType.new_player.string -> {"The game just got more interesting!"}
+            AlertType.fresh_player.string -> {"You've officially joined the group!"}
+            AlertType.game.string ->
                 gameInfo?.let { game ->
                     "You will now Play\n\n\n${game.title}"
                 } ?: "Game Information Not Available"
-
-            rank -> "It's time to rank your fellow players and decide who stands out in the game."
-            system -> "this is system"
-            else -> "No Specific Alert type"
+            AlertType.game_results.string -> {"The results are in"}
+            AlertType.ranking.string -> "It's time to rank your fellow players and decide who stands out in the game."
+            AlertType.rank_results.string -> {"The moment you've been waiting for is here"}
+            AlertType.top_discuss.string -> {
+                if (isTopPlayer)
+                    "You are a top player"
+                else
+                    "The power is in their hands."
+            }
+            AlertType.blocking.string -> {"The wait is over."}
+            AlertType.last_message.string -> {"The blocked player may be gone."}
+            else -> {""}
 
         }
     val pitch2 =
-        when {
-            game ->
+        when (systemAlertType) {
+            AlertType.none.string -> {"I got you"}
+            AlertType.new_player.string -> {"A new member has arrived"}
+            AlertType.fresh_player.string -> {"Alliances have been formed and rivalries exist."}
+            AlertType.game.string ->
                 gameInfo?.let { game ->
                     when (game.mode){
                         "questions" -> "You will be asked a Question"
                         else -> "You will be presented with a series of Questions"
                     }
                 } ?: "Game Information Not Available"
-            rank -> "Your rankings will shape the competition, so choose wisely and strategically."
+            AlertType.game_results.string -> gameInfo?.let {game ->
+                "See what everyone else answered for\n\n${game.title}"
+            } ?: "Game Information Not Available"
+            AlertType.ranking.string -> "Your rankings will shape the competition, so choose wisely and strategically."
+            AlertType.rank_results.string -> {"The votes are locked in!"}
+            AlertType.top_discuss.string -> {
+                if (isTopPlayer)
+                    "You must now go to a seperate chat"
+                else
+                    "The top two players are stepping into a private chat to make a game-changing decision."}
+            AlertType.blocking.string -> {"The top two players have reached their decision, and someone's game is about to end."}
+            AlertType.last_message.string -> {"But they've left one final message for the group."}
             else -> "nothing selected"
         }
     val pitch3 =
-        when {
-            game -> gameInfo?.let { game ->
+        when (systemAlertType) {
+            AlertType.none.string -> {"something to keep you on your toes."}
+            AlertType.new_player.string -> {"Will they be a friend, an ally, or your next biggest threat?"}
+            AlertType.fresh_player.string -> {"but there's still plenty of room to make your mark."}
+            AlertType.game.string -> gameInfo?.let { game ->
                 when(game.type){
                     "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"
                     "yes/no" -> "Respond with\n\n\nYes or No"
-                    "anonymousStatement" -> "Reply anonymously"
+                    "anonymousStatement" -> "Your Reply will be kept anonymous"
                     else -> "nothing"
                 }
             } ?: "Game Information Not Available"
-
-            rank -> "Remember, your decisions remain confidential, but your choices could change everything."
-            system -> "System Alert: Pleas pay attention to this important information."
+            AlertType.game_results.string -> {"The results May suprize you!"}
+            AlertType.ranking.string -> "Remember, your decisions remain confidential, but your choices could change everything."
+            AlertType.rank_results.string -> {"it's time to see where everyone stands."}
+            AlertType.top_discuss.string -> {
+                if (isTopPlayer)
+                    "And decide who to remove from the game."
+                else
+                    "One of you will be blocked... but who will it be?"}
+            AlertType.blocking.string -> {"Who will it be?"}
+            AlertType.last_message.string -> {"What will their last words reveal?"}
             else -> "Nothing"
         }
     val texts = listOf(pitch0, pitch1, pitch2, pitch3)
     var currentIndex by remember { mutableStateOf(0)}
     val isLastItem = currentIndex == texts.size -1
+
+    LaunchedEffect(currentIndex){
+        if (!isLastItem){
+            delay(3000)
+            currentIndex++
+        }else {
+            delay(3000)
+            onDone()
+        }
+    }
+
     val transition = updateTransition(currentIndex, label = "Text Transition")
     val alpha by transition.animateFloat(label = "Alpha Transition") { index ->
         if (index == currentIndex) 1f else 0f
@@ -429,37 +517,19 @@ fun AlertDialogSplash(
         modifier = Modifier
             .fillMaxSize()
             .background(CRAppTheme.colorScheme.onGameBackground)
+            /*
             .clickable(
                 indication = rememberRipple(false),
                 interactionSource = remember { MutableInteractionSource()}
             ) {
                 if (isLastItem){
                     onDone()
-                    when{
-                        game -> {
-                            gameInfo?.let { game ->
-                                crViewModel.updateGameAlert(
-                                    crRoomId = crRoomId,
-                                    gameName = game.title,
-                                    hadAlert = true
-                                )
-                            }
-                        }
-                        rank -> {
-
-                        }
-                        system -> {
-
-                        }
-                        else -> {
-
-                        }
-                    }
                 } else {
                     currentIndex++
                 }
-                    //currentIndex = (currentIndex + 1) % texts.size
             }
+
+             */
     ){
         Text(
             texts[currentIndex],
@@ -472,4 +542,138 @@ fun AlertDialogSplash(
         )
     }
 }
+@Composable
+fun AlertLastMessage(
+    crRoomId: String,
+    AllRisers: List<UserProfile>,
+    viewModel: ChatViewModel = viewModel(),
+    navController: NavController
+){
 
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val profile = rememberCRProfile(crRoomId = crRoomId)
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
+    val systemAlertType by crViewModel.systemAlertType.collectAsState() // checks what AlertType it is
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from room
+
+    LaunchedEffect(Unit){
+        crViewModel.fetchSystemAlertType(crRoomId) // initialize systemAlertType
+
+    }
+    LaunchedEffect(systemAlertType){
+        when (systemAlertType){
+            AlertType.game.string -> {
+                crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
+            }
+        }
+    }
+
+
+    val askdjf = "ALERT! A player has been blocked and must leave the game immediately. their time is up, but their actions may still shape what happens next."
+    val pitch0 = "Alert!"
+    val pitch1 = "Your time in the game has come to an end."
+    val pitch2 = "but before you go, you have one final chance to make an impact."
+    val pitch3 = "Leave one last message for the group."
+    val pitch4 = "Will you reaveal secrets.\nStir up chaos.\nOr leave on a high note?"
+    val pitch5 = "The choice is yours."
+
+    val texts = listOf(pitch0, pitch1, pitch2, pitch3, pitch4, pitch5)
+    var currentIndex by remember { mutableStateOf(0)}
+    val isLastItem = currentIndex == texts.size -1
+    var messageDone by remember { mutableStateOf(true) }
+    var input by remember { mutableStateOf("") }
+
+    LaunchedEffect(currentIndex){
+        if (!isLastItem){
+            delay(3000)
+            currentIndex++
+        }else {
+            delay(3000)
+            messageDone = true
+        }
+    }
+
+    val transition = updateTransition(currentIndex, label = "Text Transition")
+    val alpha by transition.animateFloat(label = "Alpha Transition") { index ->
+        if (index == currentIndex) 1f else 0f
+    }
+
+    if (!messageDone){
+        Column(
+            verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(CRAppTheme.colorScheme.onGameBackground)
+        ){
+            Text(
+                texts[currentIndex],
+                style = if (texts[currentIndex] == pitch0) CRAppTheme.typography.H7 else CRAppTheme.typography.H4,
+                textAlign = TextAlign.Center,
+                color = Color.Red,
+                modifier = Modifier
+                    .alpha(alpha)
+                    .padding(horizontal = 16.dp)
+            )
+        }
+    }else {
+        Column(
+            verticalArrangement = Arrangement.SpaceEvenly,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(10.dp)
+        ) {
+            Text(
+                "This is your last chance to leave your mark before you exit the game. Whether you choose to share your thoughts, expose secrets, or deliver a final farewell, your message will be seen by everyone. Choose your words wisely—this is how they will remember you.",
+                color = Color.White,
+                style = CRAppTheme.typography.H1,
+                textAlign = TextAlign.Center
+            )
+            TextField(
+                value = input ,
+                onValueChange = {input = it},
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .border(3.dp, Color.Black)
+            )
+            Button(onClick = {
+                val message = ChatMessage(
+                    senderId = userId,
+                    senderName = profile?.fname ?: "Unknown",
+                    message = input,
+                    image = profile?.imageUrl ?: "",
+                    timestamp = Timestamp.now()
+                )
+                if (input.isNotBlank()){
+                    crViewModel.sendBlockedMessage(
+                        crRoomId = crRoomId,
+                        message = message
+                    )
+                    crViewModel.updateSystemAlertType(crRoomId, AlertType.last_message, AllRisers, userId, context)
+                    crViewModel.saveUserLocalCrRoomId("0", userId)
+                    navController.navigate("roomSelect"){
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                    }
+                    Log.d("ChatRelated", "Send Blocked Message clicked")
+                }
+            },
+                enabled = input.isNotBlank()
+                ){
+                Text(
+                    "Submit and Leave Game."
+                )
+            }
+        }
+    }
+
+}

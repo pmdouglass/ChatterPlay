@@ -118,8 +118,17 @@ class ChatViewModel: ViewModel() {
         }
     }
 
+    suspend fun getRealUserProfile(userId: String): UserProfile? {
+        return try {
+            val profile = chatRepository.getRealUserProfile(userId)
+            profile
+        } catch (e: Exception) {
+            Log.e("ChatRiseViewModel", "Error fetching user profile for $userId", e)
+            null // Return null in case of failure
+        }
+    }
 
-    suspend fun fetchUserProfile(userId: String) {
+    suspend fun fetchUserProfile(userId: String): UserProfile? {
         viewModelScope.launch {
             try {
                 Log.d("ChatViewModel", "Fetching user profile for userId: $userId")
@@ -145,6 +154,7 @@ class ChatViewModel: ViewModel() {
                 Log.e("ChatViewModel", "Error fetching user profile for userId: $userId - ${e.message}", e)
             }
         }
+        return null
     }
 
     private suspend fun fetchAllUsers() {
@@ -399,6 +409,9 @@ class ChatViewModel: ViewModel() {
                 // Fetch updated messages
                 fetchChatMessages(context, crRoomId, roomId, game, mainChat)
 
+
+                // firebase analytics
+
                 val messageId = UUID.randomUUID().toString()
                 val senderType = "player"
                 val roomType =
@@ -527,6 +540,7 @@ class ChatViewModel: ViewModel() {
                     game = game,
                     mainChat = mainChat
                 )
+                Log.d("ChatViewModel", "Fetched room members $members")
                 _allChatRoomMembers.value = members
 
                 Log.d("ChatViewModel", "Successfully fetched ${members.size} members for roomId: $roomId")
@@ -672,7 +686,7 @@ class ChatViewModel: ViewModel() {
         val currentUser = FirebaseAuth.getInstance().currentUser
         currentUser?.let { user ->
             try {
-                chatRepository.getRiserRoom().document(crRoomId).collection("Private Chats")
+                chatRepository.getRiserRoom().document(crRoomId).collection("PrivateChats")
                     .whereArrayContains("members", user.uid)
                     .addSnapshotListener { snapshot, e ->
                         if (e != null) {
@@ -773,4 +787,33 @@ class ChatViewModel: ViewModel() {
     }
 
      */
+
+
+    /**
+     *  Blocked Player Management
+     */
+    fun announceBlockedPlayer(
+        crRoomId: String,
+        blockedPlayer: UserProfile,
+        context: Context
+    ){
+        viewModelScope.launch {
+            val systemMessage = ChatMessage(
+                senderId = "System",
+                senderName = "ChatRise",
+                message = "The Top Players have made their decision . . .  \n\nThe player leaving the game is . . . \n\n${blockedPlayer.fname}!",
+                image = ""
+            )
+
+            chatRepository.sendMessage(crRoomId = crRoomId, roomId = crRoomId, chatMessage = systemMessage, game = true, mainChat = true)
+            fetchChatMessages(
+                context = context,
+                crRoomId = crRoomId,
+                roomId = crRoomId,
+                game = true,
+                mainChat = true
+            )
+
+        }
+    }
 }

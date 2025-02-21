@@ -72,6 +72,7 @@ fun ChattingScreen(
         val params = Bundle().apply {
             putString("screen_name", "ChattingScreen")
             putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
         }
         AnalyticsManager.getInstance(context).logEvent("screen_view", params)
     }

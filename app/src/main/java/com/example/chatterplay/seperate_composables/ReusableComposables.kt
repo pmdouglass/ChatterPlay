@@ -2,6 +2,7 @@
 
 package com.example.chatterplay.seperate_composables
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
@@ -47,7 +48,6 @@ import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -110,7 +110,9 @@ import com.example.chatterplay.screens.login.calculateBDtoAge
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
+import com.example.chatterplay.view_model.EntryViewModelFactory
 import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
@@ -139,22 +141,42 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
 
 }
 @Composable
-fun rememberCRProfile(crRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
+fun rememberCRProfile(
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
+): UserProfile{
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val viewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val profileState by viewModel.userProfile.collectAsState()
     val profile = profileState ?: UserProfile()
     LaunchedEffect(Unit){
-        viewModel.getUserProfile(crRoomId = crRoomId)
+        viewModel.getcrUserProfile(crRoomId = crRoomId)
     }
     return profile
 }
 @Composable
-fun ChatRiseThumbnail(
-    viewModel: ChatViewModel = viewModel(),
-    crViewModel: ChatRiseViewModel = viewModel(),
-    roomCreate: RoomCreationViewModel = viewModel(),
-    navController: NavController
-) {
+fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: NavController) {
+    // Create SharedPreferences
     val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+    val roomCreate: RoomCreationViewModel = viewModel(
+        factory = EntryViewModelFactory(sharedPreferences)
+    )
+
+
+
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -163,6 +185,8 @@ fun ChatRiseThumbnail(
     val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUser?.uid ?: "", viewModel)
     val crRoomId by roomCreate.crRoomId.collectAsState()
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+    val alertChange by crViewModel.alertChange.collectAsState()
+    var checkAlertChangeDone by remember { mutableStateOf(false)}
 
 
     val width = 100
@@ -174,42 +198,48 @@ fun ChatRiseThumbnail(
     val hasAlternateProfile = alternateProfile.fname.isNotBlank()
 
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-    val usersGameAlertStatus by crViewModel.usersAlertStatus.collectAsState()
-    val isDoneAnswering by crViewModel.isDoneAnswering // sees if current user done with answers
+    //val usersGameAlertStatus by crViewModel.usersGameAlertStatus.collectAsState()
+    val userDoneAnswering by crViewModel.userDoneAnswering // sees if current user done with answers
     val thereIsAnAlertMessage by remember {
         derivedStateOf {
-            gameInfo != null && usersGameAlertStatus == false}
+            //gameInfo != null && usersGameAlertStatus == false
+        }
     }
 
-
     LaunchedEffect(crRoomId, gameInfo){
+        roomCreate.checkUserState()
         crRoomId?.let { roomId ->
             if (roomId.isNotEmpty()){
                 if (gameInfo == null){
                     crViewModel.fetchGameInfo(roomId) // initialize gameInfo
                 }else {
                     gameInfo?.let { game ->
-                        crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
-                        crViewModel.checkUserForAllCompleteAnswers(roomId, game.title) // initialize isDoneAnswering
+                        //crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
+                        //crViewModel.checkUserForAllCompleteAnswers(roomId, game.title, context) // initialize isDoneAnswering
+                        crViewModel.checkUsersHasAnswered(crRoomId = roomId, title = game.title, context = context) // initialize userDoneAnswering
                     }
                 }
             }
+            crViewModel.checkForAlertChange(roomId) // initialize alertChange
         }
     }
 
 
     val isReadyToDisplay by remember {
         derivedStateOf {
-            crRoomId != null &&
-                    crRoomId!!.isNotEmpty() &&
-                    gameInfo != null &&
-                    isDoneAnswering != null &&
-                    userStatus != null
+                    userStatus != null &&
+                    userDoneAnswering != null &&
+                    alertChange != null
+        }
+    }
+    val readyToDisplay  by remember {
+        derivedStateOf {
+            crRoomId != null && userStatus != null && userDoneAnswering != null && alertChange != null
         }
     }
     Log.d("Reusable", "crRoomId: $crRoomId")
     Log.d("Reusable", "gameInfo: $gameInfo")
-    Log.d("Reusable", "isDoneAnswering: $isDoneAnswering")
+    Log.d("Reusable", "isDoneAnswering: $userDoneAnswering")
     Log.d("Reusable", "isReadyToDisplay: $isReadyToDisplay")
     Log.d("Reusable", "userStatus: $userStatus")
 
@@ -219,77 +249,80 @@ fun ChatRiseThumbnail(
             .fillMaxWidth()
             .padding(15.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(CRAppTheme.colorScheme.onBackground)
-                .border(2.dp, CRAppTheme.colorScheme.highlight, RoundedCornerShape(15.dp))
-                .padding(start = 10.dp, end = 10.dp)
-        ){
-            /*
-            if (userStatus != null){
-            }
-             */
-            Row (
-                verticalAlignment = Alignment.CenterVertically,
+        if (readyToDisplay){
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(CRAppTheme.colorScheme.onBackground)
+                    .border(
+                        2.dp,
+                        if (crRoomId != "0")
+                            if (alertChange) Color.Red
+                            else
+                                CRAppTheme.colorScheme.highlight
+                        else CRAppTheme.colorScheme.highlight,
+                        RoundedCornerShape(15.dp))
+                    .padding(start = 10.dp, end = 10.dp)
             ){
-                Text(
-                    text = "ChatRise",
-                    style = CRAppTheme.typography.headingMedium,
+                Row (
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .then(if (userStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
-                )
-                when  {
-                    userStatus == "NotPending" -> {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black)
-                                .clickable { navController.navigate("aboutChatrise") }
-                        ) {
-                            Icon(
-                                Icons.Default.QuestionMark,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-                    }
-                    userStatus == "Pending" -> {}
-                    roomReady -> {
-
-                        LaunchedEffect(Unit){
-                            if (crRoomId != "0"){
-                                crRoomId?.let {room ->
-                                    viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
-                                }
+                        .fillMaxWidth()
+                ){
+                    Text(
+                        text = "ChatRise",
+                        style = CRAppTheme.typography.headingMedium,
+                        modifier = Modifier
+                            .then(if (userStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                    )
+                    when  {
+                        userStatus == "NotPending" -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black)
+                                    .clickable { navController.navigate("aboutChatrise") }
+                            ) {
+                                Icon(
+                                    Icons.Default.QuestionMark,
+                                    contentDescription = null,
+                                    tint = Color.White
+                                )
                             }
                         }
+                        userStatus == "Pending" -> {}
+                        roomReady -> {
 
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "${allChatRoomMembers.size}",
-                                style = CRAppTheme.typography.infoMedium
-                            )
-                            Text(
-                                "People",
-                                style = CRAppTheme.typography.infoSmall
-                            )
+                            LaunchedEffect(Unit){
+                                if (crRoomId != "0"){
+                                    crRoomId?.let {room ->
+                                        viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
+                                    }
+                                }
+                            }
+
+                            Column(
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    "${allChatRoomMembers.size}",
+                                    style = CRAppTheme.typography.infoMedium
+                                )
+                                Text(
+                                    "People",
+                                    style = CRAppTheme.typography.infoSmall
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(15.dp))
+                            DynamicCircleBox(number = 121)
                         }
-                        Spacer(modifier = Modifier.width(15.dp))
-                        DynamicCircleBox(number = 121)
                     }
-                }
 
-            }
-            if (isReadyToDisplay){
+                }
                 when {
                     userStatus == "NotPending" -> {
                         Column(
@@ -546,41 +579,26 @@ fun ChatRiseThumbnail(
                                         }
                                 ) {
 
-                                    if (thereIsAnAlertMessage){
-                                        Row(
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier
-                                                .fillMaxSize()
-                                        ){
-                                            Text(
-                                                "ALERT!",
-                                                style = CRAppTheme.typography.H6,
-                                                color = Color.Red
-                                            )
-                                        }
+                                    if (userDoneAnswering == true){
+                                        ChatMainPreviewLazyColumn(
+                                            crRoomId = crRoomId,
+                                            roomId = crRoomId,
+                                        )
                                     }else {
-                                        if (isDoneAnswering == true){
-                                            ChatMainPreviewLazyColumn(
-                                                crRoomId = crRoomId,
-                                                roomId = crRoomId,
-                                            )
-                                        }else {
-                                            if (gameInfo != null){
-                                                gameInfo?.let { game ->
-                                                    Row(
-                                                        horizontalArrangement = Arrangement.Center,
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        modifier = Modifier
-                                                            .fillMaxSize()
-                                                    ){
-                                                        Text(
-                                                            "You Must Complete\n\n${game.title}",
-                                                            style = CRAppTheme.typography.H3,
-                                                            color = Color.Black,
-                                                            textAlign = TextAlign.Center
-                                                        )
-                                                    }
+                                        if (gameInfo != null){
+                                            gameInfo?.let { game ->
+                                                Row(
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                ){
+                                                    Text(
+                                                        "You Must Complete\n\n${game.title}",
+                                                        style = CRAppTheme.typography.H3,
+                                                        color = Color.Black,
+                                                        textAlign = TextAlign.Center
+                                                    )
                                                 }
                                             }
                                         }
@@ -598,29 +616,13 @@ fun ChatRiseThumbnail(
                     else -> {
                         Text("Nothing Selected")
                     }
-
-
-                }
-            }else {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .fillMaxSize()
-                ){
-                    CircularProgressIndicator(color = Color.Black)
                 }
             }
-
         }
-
     }
 }
 @Composable
-fun ThumbnailChatList(
-    image: String,
-    message: ChatMessage,
-    isFromMe: Boolean,
-){
+fun ThumbnailChatList(image: String, message: ChatMessage, isFromMe: Boolean){
     Row (
         verticalAlignment = Alignment.Top,
         horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
@@ -1034,8 +1036,10 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
 @Composable
 fun ChatRiseTopBar(
+    crRoomId: String,
     profile: UserProfile,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     onAction: () -> Unit,
     showTopBarInfo: Boolean,
     navController: NavController
@@ -1047,21 +1051,18 @@ fun ChatRiseTopBar(
     ) {
         TopBar(
             onClick = {onClick()},
+            enabled = enabled,
             onAction = {onAction()},
             navController = navController)
 
         if (showTopBarInfo){
-            TopBarInformation(profile = profile)
+            TopBarInformation(crRoomId = crRoomId, profile = profile)
         }
     }
 }
 
 @Composable
-fun TopBar(
-    onClick: () -> Unit,
-    onAction: () -> Unit,
-    navController: NavController
-){
+fun TopBar(onClick: () -> Unit, onAction: () -> Unit, enabled: Boolean = true, navController: NavController){
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1088,24 +1089,40 @@ fun TopBar(
             modifier = Modifier
                 .clickable { onClick() }
         )
-
-        IconButton(onClick = {onAction()}){
-            Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .size(35.dp)
+        if (enabled){
+            IconButton(onClick = {onAction()}){
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(35.dp)
+                )
+            }
+        }else {
+            Text(
+                ""
             )
         }
     }
 }
 @Composable
-fun TopBarInformation(
-    profile: UserProfile
-){
+fun TopBarInformation(crRoomId: String, profile: UserProfile, viewModel: ChatViewModel = viewModel()){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val pad = 15
 
+    val currentRank by crViewModel.currentRank.collectAsState()
+    LaunchedEffect(profile){
+        crViewModel.getUserRank(crRoomId)
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -1138,7 +1155,7 @@ fun TopBarInformation(
                 .fillMaxWidth()
         ) {
             Text(
-                "Rating: 1",
+                "Rating: $currentRank",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
@@ -1164,12 +1181,7 @@ fun TopBarInformation(
 
 }
 @Composable
-fun NavigationRow(
-    tabs: List<Pair<String, ImageVector>>,
-    selectedTabIndex: Int,
-    onTabSelected: (Int) -> Unit,
-    disabledTabIndices: List<Int> = emptyList()
-) {
+fun NavigationRow(tabs: List<Pair<String, ImageVector>>, selectedTabIndex: Int, onTabSelected: (Int) -> Unit, disabledTabIndices: List<Int> = emptyList()) {
     val selectedColor = Color.White
     val unselectedColor = Color.Gray
 
@@ -1227,24 +1239,10 @@ fun NavigationRow(
         }
     }
 }
-
-
-
-
-
-
-
-
 @Composable
-fun RightSideModalDrawer(
-    drawerContent: @Composable () -> Unit,
-    reset: () -> Unit,
-    modifier: Modifier = Modifier,
-    drawerState: DrawerState = rememberDrawerState(
+fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, reset: () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
         DrawerValue.Closed
-    ),
-    content: @Composable () -> Unit
-) {
+    ), content: @Composable () -> Unit) {
     val scope = rememberCoroutineScope()
     val drawerWidth = 350.dp // Adjust the width as needed
     val drawerWidthPx = with(LocalDensity.current) { drawerWidth.toPx() }
@@ -1290,12 +1288,16 @@ fun RightSideModalDrawer(
     }
 }
 @Composable
-fun PrivateDrawerRoomList(
-    crRoomId: String,
-    onInvite: () -> Unit,
-    viewModel: ChatViewModel = viewModel(),
-    navController: NavController
-) {
+fun PrivateDrawerRoomList(crRoomId: String, onInvite: () -> Unit, viewModel: ChatViewModel = viewModel(), navController: NavController) {
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
 
     var searchChats by remember{ mutableStateOf("") }
 
@@ -1406,12 +1408,6 @@ fun PrivateDrawerRoomList(
 
     }
 }
-
-
-
-
-
-
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
@@ -1887,23 +1883,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
     }
 }
 @Composable
-fun SettingsInfoRow(
-    game: Boolean = false,
-    amount: Int = 1,
-    icon: ImageVector? = null,
-    contentDescription: String? = null,
-    title: String,
-    body: String = "",
-    secondBody: String = "",
-    arrow: Boolean = false,
-    extraChoice: Boolean = false,
-    onClick: () -> Unit,
-    select: Boolean = false,
-    bio: Boolean = false,
-    edit: Boolean = false,
-    editClick: Boolean = true,
-    image: Boolean = false
-) {
+fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, extraChoice: Boolean = false, onClick: () -> Unit, select: Boolean = false, bio: Boolean = false, edit: Boolean = false, editClick: Boolean = true, image: Boolean = false) {
     when {
         select -> {
             Column (
