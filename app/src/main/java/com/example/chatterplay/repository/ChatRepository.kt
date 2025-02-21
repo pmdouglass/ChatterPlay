@@ -264,7 +264,6 @@ class ChatRepository {
             null
         }
     }
-
     suspend fun checkIfSingleRoomExists(crRoomId: String, userId: String, otherMemberId: String): String? {
         return try {
             if (crRoomId == "0") {
@@ -300,7 +299,6 @@ class ChatRepository {
             null
         }
     }
-
     suspend fun createChatRoom(crRoomId: String, members: List<String>, roomName: String): String {
         val sortedMembers = members.sorted()
         val roomId = chatRoomsCollection.document().id
@@ -325,7 +323,6 @@ class ChatRepository {
             ""
         }
     }
-
     suspend fun addMemberToRoom(crRoomId: String, roomId: String, memberId: String) {
         try {
             if (crRoomId == "0") {
@@ -346,7 +343,6 @@ class ChatRepository {
             Log.e("ChatRepository", "Error while adding member to room: ${e.message}", e)
         }
     }
-
     suspend fun getMainChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
         Log.d("ChatRepository", "Fetching main chat room members. crRoomId: $crRoomId, roomId: $roomId, game: $game, mainChat: $mainChat")
 
@@ -400,7 +396,6 @@ class ChatRepository {
             emptyList()
         }
     }
-
     suspend fun getMembersForGame(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean): List<UserProfile> {
         Log.d("ChatRepository", "Getting Members for Game")
         Log.d("ChatRepository", "Parameters - crRoomId: $crRoomId, roomId: $roomId, game: $game, mainChat: $mainChat")
@@ -459,7 +454,6 @@ class ChatRepository {
             emptyList()
         }
     }
-
     suspend fun getChatRoom(crRoomId: String, roomId: String?, game: Boolean, mainChat: Boolean): ChatRoom? {
         if (roomId.isNullOrBlank()) {
             Log.e("ChatRepository", "Error: roomId is blank or null!")
@@ -487,8 +481,6 @@ class ChatRepository {
             null
         }
     }
-
-
     suspend fun getRoomInfo(crRoomId: String, roomId: String): ChatRoom? {
         return try {
             val snapshot = if (crRoomId == "0") {
@@ -512,6 +504,16 @@ class ChatRepository {
             Log.e("ChatRepository", "Error fetching room info for roomId: $roomId and crRoomId: $crRoomId - ${e.message}", e)
             null
         }
+    }
+    suspend fun updateLastSeenTimestamp(roomId: String, userId: String){
+        val roomRef = chatRoomsCollection.document(roomId)
+        val timestamp = Timestamp.now()
+        roomRef.update("lastSeenTimestamps.$userId", timestamp).await()
+    }
+    suspend fun updateLastCRSeenTimestamp(crRoomId: String, roomId: String, userId: String){
+        val roomRef = crGameRoomsCollection.document(crRoomId).collection("PrivateChats").document(roomId)
+        val timestamp = Timestamp.now()
+        roomRef.update("lastSeenTimestamps.$userId", timestamp).await()
     }
 
     suspend fun getUnreadMessageCount(roomId: String, userId: String): Int {
@@ -543,14 +545,36 @@ class ChatRepository {
             0
         }
     }
+    suspend fun getCRUnreadMessageCount(crRoomId: String, roomId: String, userId: String): Int {
+        Log.d("ChatRepository", "Fetching unread message count for roomId: $roomId and userId: $userId")
+        return try {
+            val roomRef = crGameRoomsCollection.document(crRoomId).collection("PrivateChats").document(roomId)
+            val roomSnapshot = roomRef.get().await()
+            val chatRoom = roomSnapshot.toObject(ChatRoom::class.java)
 
-    suspend fun sendMessage(
-        crRoomId: String,
-        roomId: String,
-        chatMessage: ChatMessage,
-        game: Boolean,
-        mainChat: Boolean
-    ) {
+            if (chatRoom == null) {
+                Log.d("ChatRepository", "Chat room not found for crRoomId: $crRoomId in roomId: $roomId")
+                return 0
+            }
+
+            val lastSeenTimestamp = chatRoom.lastSeenTimestamps?.get(userId) ?: Timestamp(0, 0)
+            Log.d("ChatRepository", "Last seen timestamp for userId: $userId is $lastSeenTimestamp")
+
+            val messagesSnapshot = roomRef.collection("messages")
+                .whereGreaterThan("timestamp", lastSeenTimestamp)
+                .whereNotEqualTo("senderId", userId)
+                .get()
+                .await()
+
+            val unreadCount = messagesSnapshot.size()
+            Log.d("ChatRepository", "Unread message count for userId: $userId in crRoomId: $crRoomId in roomId: $roomId is $unreadCount")
+            unreadCount
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "Error fetching unread message count for roomId: $roomId and userId: $userId - ${e.message}", e)
+            0
+        }
+    }
+    suspend fun sendMessage(crRoomId: String, roomId: String, chatMessage: ChatMessage, game: Boolean, mainChat: Boolean) {
         try {
             Log.d("ChatRepository", "Sending message to roomId: $roomId, crRoomId: $crRoomId, game: $game, mainChat: $mainChat")
 
@@ -593,14 +617,7 @@ class ChatRepository {
             Log.e("ChatRepository", "Error sending message to roomId: $roomId and crRoomId: $crRoomId - ${e.message}", e)
         }
     }
-
-    suspend fun getChatMessages(
-        crRoomId: String,
-        roomId: String,
-        userId: String,
-        game: Boolean,
-        mainChat: Boolean
-    ): List<ChatMessage> {
+    suspend fun getChatMessages(crRoomId: String, roomId: String, userId: String, game: Boolean, mainChat: Boolean): List<ChatMessage> {
         return try {
             Log.d(
                 "ChatRepository",
@@ -665,7 +682,6 @@ class ChatRepository {
             emptyList()
         }
     }
-
     fun observeChatMessages(userId: String, roomId: String, game: Boolean, onMessagesChanged: (List<ChatMessage>) -> Unit){
         val room = if (game) crGameRoomsCollection else chatRoomsCollection
         room.document(roomId)

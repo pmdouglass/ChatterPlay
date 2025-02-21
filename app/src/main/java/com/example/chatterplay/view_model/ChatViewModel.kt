@@ -42,7 +42,7 @@ class ChatViewModel: ViewModel() {
             //getChatRoomsWithUnreadCount()
             fetchAllChatRooms()
             //fetchCRUnreadMessageCount()
-            //fetchUnreadMessageCount()
+            fetchUnreadMessageCount()
             fetchUsersStatus()
         }
     }
@@ -318,19 +318,13 @@ class ChatViewModel: ViewModel() {
     private val _roomInfo = MutableStateFlow<ChatRoom?>(null)
     val roomInfo: StateFlow<ChatRoom?> get() = _roomInfo
     private var isUnreadMessageCountFetched = false
-    private val _unreadMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val unreadMessageCount: StateFlow<Map<String, Int>> = _unreadMessageCount
-    private val _unreadCRMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
-    val unreadCRMessageCount: StateFlow<Map<String, Int>> = _unreadCRMessageCount
+    private var isUnreadCRMessageCountFetched = false
+
+
     private var isListenerAdded = false
 
 
-    fun createAndInviteToChatRoom(
-        crRoomId: String,
-        memberIds: List<String>,
-        roomName: String,
-        onRoomCreated: (String) -> Unit
-    ) {
+    fun createAndInviteToChatRoom(crRoomId: String, memberIds: List<String>, roomName: String, onRoomCreated: (String) -> Unit) {
         viewModelScope.launch {
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser ?: run {
@@ -371,16 +365,7 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-
-    fun sendMessage(
-        context: Context,
-        crRoomId: String,
-        roomId: String,
-        message: String,
-        memberCount: Int,
-        game: Boolean,
-        mainChat: Boolean
-    ) {
+    fun sendMessage(context: Context, crRoomId: String, roomId: String, message: String, memberCount: Int, game: Boolean, mainChat: Boolean) {
         val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
         viewModelScope.launch {
             try {
@@ -408,6 +393,8 @@ class ChatViewModel: ViewModel() {
 
                 // Fetch updated messages
                 fetchChatMessages(context, crRoomId, roomId, game, mainChat)
+                //fetchUnreadMessageCount(crRoomId, roomId, game, mainChat)
+                fetchCRUnreadMessageCount(crRoomId)
 
 
                 // firebase analytics
@@ -459,14 +446,7 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-
-    fun fetchChatMessages(
-        context: Context,
-        crRoomId: String,
-        roomId: String,
-        game: Boolean,
-        mainChat: Boolean
-    ) {
+    fun fetchChatMessages(context: Context, crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
         viewModelScope.launch {
             try {
                 Log.d("ChatViewModel", "Fetching chat messages for roomId: $roomId, crRoomId: $crRoomId")
@@ -527,7 +507,6 @@ class ChatViewModel: ViewModel() {
             Log.e("ChatViewModel", "Error setting up message observer for roomId: $roomId - ${e.message}", e)
         }
     }
-
     fun fetchChatRoomMembers(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
         viewModelScope.launch {
             try {
@@ -559,7 +538,6 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-
     fun fetchChatRoomMemberCount(crRoomId: String, roomId: String, game: Boolean, mainChat: Boolean) {
         Log.d("ChatViewModel", "Attempting to fetch single chat room member count for roomId: $roomId")
 
@@ -578,20 +556,28 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-/*
+    fun updateLastSeenTimestamp(roomId: String){
+        viewModelScope.launch {
+            chatRepository.updateLastSeenTimestamp(roomId, userId)
+            fetchUnreadMessageCount()
+        }
+    }
+    fun updateLastCRSeenTimestamp(crRoomId: String, roomId: String){
+        viewModelScope.launch {
+            chatRepository.updateLastCRSeenTimestamp(crRoomId, roomId, userId)
+            fetchCRUnreadMessageCount(crRoomId)
+        }
+    }
+
+    private val _unreadMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val unreadMessageCount: StateFlow<Map<String, Int>> = _unreadMessageCount
     fun fetchUnreadMessageCount() {
         Log.d("ChatViewModel", "Attempting to fetch unread message counts")
-
-        val currentUser = FirebaseAuth.getInstance().currentUser ?: run {
-            Log.e("ChatViewModel", "No current user found. Unable to fetch unread message counts.")
-            return
-        }
-
         viewModelScope.launch {
             try {
                 // Fetch unread message counts for all chat rooms
                 val counts = allChatRooms.value.associate { room ->
-                    val count = chatRepository.getUnreadMessageCount(room.roomId, currentUser.uid)
+                    val count = chatRepository.getUnreadMessageCount(room.roomId, userId)
                     room.roomId to count
                 }
 
@@ -606,7 +592,28 @@ class ChatViewModel: ViewModel() {
         }
     }
 
- */
+    private val _unreadCRMessageCount = MutableStateFlow<Map<String, Int>>(emptyMap())
+    val unreadCRMessageCount: StateFlow<Map<String, Int>> = _unreadCRMessageCount
+    fun fetchCRUnreadMessageCount(crRoomId: String) {
+        Log.d("ChatViewModel", "Attempting to fetch unread message counts")
+        viewModelScope.launch {
+            try {
+                // Fetch unread message counts for all chat rooms
+                val counts = allRiserRooms.value.associate { room ->
+                    val count = chatRepository.getCRUnreadMessageCount(crRoomId, room.roomId, userId)
+                    room.roomId to count
+                }
+
+                // Update the unread message count state
+                _unreadCRMessageCount.value = counts
+
+                Log.d("ChatViewModel", "Successfully fetched unread message counts for ${counts.size} rooms")
+
+            } catch (e: Exception) {
+                Log.e("ChatViewModel", "Error fetching unread message counts - ${e.message}", e)
+            }
+        }
+    }
 
     private fun fetchAllChatRooms() {
         Log.d("ChatViewModel", "Attempting to fetch all chat rooms")
@@ -630,7 +637,10 @@ class ChatViewModel: ViewModel() {
                                 !room.hiddenFor.contains(user.uid)
                             }.sortedByDescending { it.lastMessageTimestamp } // Sort in descending order
                             _allChatRooms.value = rooms
-
+                            if (!isUnreadMessageCountFetched){
+                                fetchUnreadMessageCount()
+                                isUnreadMessageCountFetched = true
+                            }
                             Log.d("ChatViewModel", "Successfully fetched ${rooms.size} chat rooms")
 
                             /*
@@ -651,12 +661,7 @@ class ChatViewModel: ViewModel() {
             Log.e("ChatViewModel", "No current user found. Unable to fetch chat rooms.")
         }
     }
-
-    fun fetchSingleRoom(
-        crRoomId: String,
-        otherUserId: String,
-        onResult: (String?) -> Unit
-    ) {
+    fun fetchSingleRoom(crRoomId: String, otherUserId: String, onResult: (String?) -> Unit) {
         viewModelScope.launch {
             try {
                 Log.d("ChatViewModel", "Checking if a single room exists for crRoomId: $crRoomId, otherUserId: $otherUserId")
@@ -673,7 +678,6 @@ class ChatViewModel: ViewModel() {
             }
         }
     }
-
     fun fetchAllRiserRooms(crRoomId: String) {
         if (isListenerAdded) {
             Log.d("ChatViewModel", "Listener already added. Skipping fetch for riser rooms.")
@@ -707,15 +711,15 @@ class ChatViewModel: ViewModel() {
 
                             Log.d("ChatViewModel", "Successfully fetched ${rooms.size} riser rooms for crRoomId: $crRoomId")
 
-                            /*
+
                             // Fetch unread message counts if not already fetched
-                            if (!isUnreadMessageCountFetched) {
-                                fetchUnreadMessageCount()
-                                isUnreadMessageCountFetched = true
+                            if (!isUnreadCRMessageCountFetched) {
+                                fetchCRUnreadMessageCount(crRoomId)
+                                isUnreadCRMessageCountFetched = true
                                 Log.d("ChatViewModel", "Unread message counts fetched")
                             }
 
-                             */
+
                         }
                     }
             } catch (e: Exception) {
@@ -725,7 +729,6 @@ class ChatViewModel: ViewModel() {
             Log.e("ChatViewModel", "No current user found. Unable to fetch riser rooms.")
         }
     }
-
     fun getRoomInfo(crRoomId: String, roomId: String) {
         viewModelScope.launch {
             try {
