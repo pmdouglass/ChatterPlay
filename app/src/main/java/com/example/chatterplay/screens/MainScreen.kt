@@ -323,7 +323,7 @@ fun MainScreen(
                 bottomBar = {
                     when(selectedTabindex){
                         0 -> {
-                            if (blockedPlayerId == userId){
+                            if (blockedPlayerId == userId || showAlert == true){
 
                             }else{
                                 ChatInput(

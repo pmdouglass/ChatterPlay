@@ -4,7 +4,6 @@ package com.example.chatterplay.seperate_composables
 
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
@@ -225,23 +224,15 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
         }
     }
 
-
-    val isReadyToDisplay by remember {
-        derivedStateOf {
-                    userStatus != null &&
-                    userDoneAnswering != null &&
-                    alertChange != null
-        }
-    }
     val readyToDisplay  by remember {
         derivedStateOf {
-            crRoomId != null && userStatus != null && userDoneAnswering != null && alertChange != null
+            if (roomReady){
+                crRoomId != null && userStatus != null && userDoneAnswering != null && alertChange != null
+            } else {
+                true
+            }
         }
     }
-    Log.d("Reusable", "crRoomId: $crRoomId")
-    Log.d("Reusable", "gameInfo: $gameInfo")
-    Log.d("Reusable", "isDoneAnswering: $userDoneAnswering")
-    Log.d("Reusable", "userStatus: $userStatus")
 
 
     Column (
@@ -581,6 +572,45 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                                         }
                                 ) {
 
+                                    when{
+                                        alertChange -> {
+                                            Column(
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                            ){
+                                                Text("Alert!",
+                                                    style = CRAppTheme.typography.H6,
+                                                    color = Color.Red
+                                                    )
+                                            }
+                                        }
+                                        gameInfo != null && userDoneAnswering == false -> {
+                                            gameInfo?.let { game ->
+                                                Row(
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                ){
+                                                    Text(
+                                                        "You Must Complete\n\n${game.title}",
+                                                        style = CRAppTheme.typography.H3,
+                                                        color = Color.Black,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        else -> {
+                                            ChatMainPreviewLazyColumn(
+                                                crRoomId = crRoomId,
+                                                roomId = crRoomId
+                                            )
+                                        }
+                                    }
+                                    /*
                                     if (userDoneAnswering == true){
                                         ChatMainPreviewLazyColumn(
                                             crRoomId = crRoomId,
@@ -605,6 +635,8 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                                             }
                                         }
                                     }
+
+                                     */
                                 }
                             }
                         }
