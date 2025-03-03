@@ -130,6 +130,8 @@ fun MainScreen(
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val chatRoomMembers = allChatRoomMembers.filter { it.userId != currentUser?.uid }
     val memberCount by viewModel.chatRoomMembersCount.collectAsState()
+    val currentMode by crViewModel.rankingStatus.collectAsState()
+    val hasSeenRankResult by crViewModel.hasSeenRankResult.collectAsState()
     var showButtons by remember { mutableStateOf(false)}
     val topPlayers by crViewModel.topTwoPlayers.collectAsState()
     val topPlayerRoomId by crViewModel.topPlayerRoomId.collectAsState()
@@ -189,6 +191,8 @@ fun MainScreen(
         crViewModel.fetchGameInfo(crRoomId) // initialize 'gameInfo
         crViewModel.loadUserLocalAlertType(currentUser?.uid ?: "")
         crViewModel.fetchSystemAlertType(crRoomId)
+        crViewModel.checkUserRankingStatus(crRoomId = crRoomId, userId = userId) // currentMode
+        crViewModel.checkSeenRankResult(crRoomId) // hasSeenRankResult
         crViewModel.checkforUserAlert(crRoomId)
         crViewModel.getTopTwoPlayers(crRoomId) // topPlayers
         crViewModel.getBlockedPlayer(crRoomId) // initialize blockedPlayerId
@@ -237,6 +241,7 @@ fun MainScreen(
                 systemsAlertType == AlertType.game.string || systemsAlertType == AlertType.game_results.string && userHasAnswered == false -> 2
                 systemsAlertType == AlertType.game.string || systemsAlertType == AlertType.game_results.string && allMembersHasAnswered == true -> 2
                 systemsAlertType == AlertType.top_discuss.string && isTopPlayer -> 5
+                systemsAlertType == AlertType.ranking.string && currentMode != "Done" -> 3
                 //systemsAlertType != AlertType.top_discuss.string && isTopPlayer -> 0
                 else -> 0
             }
@@ -252,27 +257,38 @@ fun MainScreen(
     LaunchedEffect(startIndex){
         selectedTabindex = startIndex
     }
+
     val disabledTabIndices by remember {
         derivedStateOf {
             Log.d("MainScreen", "Evaluating disabledTabIndices")
 
             val disabledTabs = mutableListOf<Int>()
 
-            if (gameInfo == null){
-                disabledTabs.add(2)
-            }
-            if (userHasAnswered == false){
-                disabledTabs.addAll(listOf(0,1,3,4))
-            }
-            if (isTopPlayer && systemsAlertType == AlertType.top_discuss.string){
-                disabledTabs.addAll(listOf(0,1,2,4))
-            }
-            if (usersAlertType == AlertType.blocking.string){
-                disabledTabs.add(4)
+            when {
+                //usersAlertType == AlertType.none.string -> { disabledTabs.distinct() }
+                gameInfo == null -> {
+                    disabledTabs.add(2)
+                }
+                userHasAnswered == false -> {
+                    disabledTabs.addAll(listOf(0, 1, 3, 4))
+                }
+                isTopPlayer && systemsAlertType == AlertType.top_discuss.string -> {
+                    disabledTabs.addAll(listOf(0, 1, 2, 4))
+                }
+                usersAlertType == AlertType.blocking.string -> {
+                    disabledTabs.add(4)
+                }
+                currentMode == "Ranking" -> {
+                    disabledTabs.addAll(listOf(0, 1, 2, 4))
+                }
+                currentMode != "Ranking" && !hasSeenRankResult -> {
+                    disabledTabs.addAll(listOf(0, 1, 2, 4))
+                }
             }
             disabledTabs.distinct()
         }
     }
+
 
     RightSideModalDrawer(
         drawerState  = drawerState,
@@ -309,10 +325,16 @@ fun MainScreen(
                         crRoomId = crRoomId,
                         profile = profile,
                         onClick = {showTopBarInfo = !showTopBarInfo},
-                        enabled =
+                        backEnabled =
+                        when {
+                            showAlert == true -> {false}
+                            usersAlertType == AlertType.rank_results.string && !hasSeenRankResult -> {false}
+                            else -> {true}
+                        },
+                        drawerEnabled =
                         when {
                             blockedPlayerId == userId -> {false}
-                            isTopPlayer && currentUserTradeStatus != "Confirmed" -> {false}
+                            isTopPlayer && systemsAlertType == AlertType.top_discuss.string-> {false}
                             else -> {true}
                         },
                         onAction = { coroutineScope.launch { drawerState.open() }},
@@ -536,7 +558,11 @@ fun MainScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                             ){
-
+                                Button(onClick = {
+                                    crViewModel.removePlayerFromPrivateRooms(crRoomId, "iRybj66UY1PyYeR5QTIsxLT4i6t1")
+                                }){
+                                    Text("Delete Rooms")
+                                }
                             }
                         }
 

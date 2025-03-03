@@ -175,6 +175,61 @@ fun ChatMainPreviewLazyColumn(
     }
 }
 @Composable
+fun TopPlayersPreviewLazyColumn(
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
+) {
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val messages by crViewModel.topPlayerMessages.collectAsState()
+    val roomId by crViewModel.topPlayerRoomId.collectAsState()
+    val listState = rememberLazyListState()
+
+    // Fetch chat messages when roomId or game changes
+    LaunchedEffect(roomId) {
+        if (roomId.isNullOrEmpty()){
+            crViewModel.fetchTopPlayerRoomId(crRoomId)
+        }else {
+            roomId?.let { roomId ->
+                crViewModel.fetchTopPlayerChatMessages(crRoomId, roomId)
+            }
+        }
+    }
+
+
+    // Scroll to bottom when new messages arrive
+    val scrollToBottom = remember {
+        derivedStateOf {
+            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index != messages.size - 1
+        }
+    }
+    LaunchedEffect(messages.size, scrollToBottom) {
+        if (messages.isNotEmpty() && scrollToBottom.value) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    // Chat List UI
+    LazyColumn(
+        state = listState,
+        verticalArrangement = Arrangement.Bottom,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        // Messages
+        itemsIndexed(messages) { index, message ->
+            ThumbnailChatList(
+                image = message.image,
+                message = message,
+                isFromMe = message.senderId == currentUser?.uid
+            )
+        }
+    }
+}
+@Composable
 fun UserInfoFooter(profile: UserProfile, game: Boolean) {
     Row(
         horizontalArrangement = Arrangement.Center,

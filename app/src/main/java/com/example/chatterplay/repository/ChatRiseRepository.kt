@@ -1097,7 +1097,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
                     imageUrl = document.getString("imageUrl") ?: ""
                 )
 
-                userProfile to currentRank
+                if (currentRank == 0) null else userProfile to currentRank
             }.sortedBy { it.second } // ✅ Ensures sorting from "1" → "2" → "3" → "4"
 
             Log.d("ChatRiseRepository", "Fetched Ranks: $rankList") // ✅ Debugging
@@ -1196,7 +1196,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("ChatRiseRepository", "Error updating BlockedPlayer: ${e.message}", e)
         }
     }
-
     suspend fun getCurrentBlockedPlayer(crRoomId: String): String?{
         return try {
             val querySnapshot = crGameRoomsCollection
@@ -1230,6 +1229,37 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             emptyList() // Return empty list in case of an error
         }
     }
+    suspend fun removeBlockedPlayerFromPrivateAndGroupChats(crRoomId: String, userId: String) {
+        try {
+            val docRef = crGameRoomsCollection
+                .document(crRoomId)
+                .collection(private)
+
+            // Fetch all chat documents
+            val snapshot = docRef.get().await()
+
+            for (document in snapshot.documents) {
+                val membersList = document.get("members") as? List<String> ?: emptyList()
+
+                // Check if the user is part of the chat
+                if (userId in membersList) {
+                    if (membersList.size == 2) {
+                        // If only two members (private chat), delete the entire document
+                        document.reference.delete().await()
+                        Log.d("Firestore", "Deleted private chat for user: $userId")
+                    } else {
+                        // If more than two members (group chat), remove the user from the members list
+                        val updatedMembers = membersList.filterNot { it == userId }
+                        document.reference.update("members", updatedMembers).await()
+                        Log.d("Firestore", "Removed user $userId from group chat in $crRoomId")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("Firestore", "Error removing user $userId from chats", e)
+        }
+    }
+
     suspend fun removeBlockedPlayer(crRoomId: String, userId: String) {
         try {
             val userDocRef = userCollection.document(userId)
@@ -1266,8 +1296,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("ChatRiseRepository", "Error removing blocked player $userId from room $crRoomId: ${e.message}", e)
         }
     }
-
-
     suspend fun sendBlockedMessage(crRoomId: String, userId: String, message: ChatMessage) {
         val roomRef = crGameRoomsCollection
             .document(crRoomId)
@@ -1293,7 +1321,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             emptyList()
         }
     }
-
     suspend fun getBloccfdgkedMessage(crRoomId: String, blockedUserId: String): ChatMessage? {
         return try {
             val roomRef = crGameRoomsCollection
@@ -1319,7 +1346,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             null
         }
     }
-
     suspend fun sendSystemMessage(
         crRoomId: String,
         chatMessage: ChatMessage
@@ -1728,7 +1754,7 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             val userRankList = snapshot.documents.mapNotNull { document ->
                 val userId = document.id
                 val currentRank = document.getLong("currentRank")?.toInt() ?: return@mapNotNull null
-                userId to currentRank
+                if (currentRank == 0) null else userId to currentRank
             }
 
             val sortedRanks = userRankList.sortedBy { it.second }

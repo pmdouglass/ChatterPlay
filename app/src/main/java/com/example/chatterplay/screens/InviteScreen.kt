@@ -1,5 +1,6 @@
 package com.example.chatterplay.screens
 
+import android.content.Context
 import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
@@ -61,6 +64,8 @@ import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.ui.theme.darkPurple
+import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
 
@@ -155,7 +160,8 @@ import com.google.firebase.auth.FirebaseAuth
                             .clickable {
                                 if (selectedUsers.isNotEmpty()){
                                     if (currentUser != null){
-                                        val theRoomName = roomName.ifBlank {
+                                        val theRoomName =
+                                            roomName.ifBlank {
                                             selectedUsers.joinToString(", ") { it.fname }
                                         }
                                         if (game){
@@ -365,6 +371,11 @@ fun InviteSelectScreen(
 ) {
 
 
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
 
     val currentUser = FirebaseAuth.getInstance().currentUser
     var roomName by remember { mutableStateOf("")}
@@ -373,6 +384,10 @@ fun InviteSelectScreen(
     val isGroup by remember(selectedUsers) {
         derivedStateOf { selectedUsers.size > 1 }
     }
+    val blockedPlayerId by crViewModel.blockedPlayerId.collectAsState()
+    var showAlertDialog by remember { mutableStateOf(false)}
+
+
 
     LaunchedEffect(crRoomId) {
         viewModel.fetchAllRisers(crRoomId)
@@ -380,14 +395,17 @@ fun InviteSelectScreen(
 
     val users = if (game) viewModel.allRisers.collectAsState().value else viewModel.allUsers.collectAsState().value
 
-    val filteredUsers by remember(searchtxt, users) {
+
+    val filteredUsers by remember(searchtxt, users, blockedPlayerId) {
         derivedStateOf {
-            users.filter { it.fname.contains(searchtxt, ignoreCase = true)}
+            users.filter { user ->
+                user.fname.contains(searchtxt, ignoreCase = true) &&
+                        (blockedPlayerId == null || user.userId != blockedPlayerId)
+            }
         }
     }
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
@@ -441,21 +459,26 @@ fun InviteSelectScreen(
                     .clickable {
                         if (selectedUsers.isNotEmpty()){
                             if (currentUser != null){
-                                val theRoomname = roomName.ifBlank {
-                                    selectedUsers.joinToString(", ") { it.fname }
-                                }
                                 if (game){
-                                    viewModel.createAndInviteToChatRoom(
-                                        crRoomId = crRoomId,
-                                        memberIds = selectedUsers.map { it.userId },
-                                        roomName = theRoomname
-                                    ){ roomId ->
-                                        // handle navigation to chat screen
-                                        // game = true
-                                        navController.navigate("chatScreen/$crRoomId/$roomId/true/false")
-                                        onCreate()
+                                    if (roomName.isBlank()){
+                                        showAlertDialog = true
+                                    }else {
+                                        viewModel.createAndInviteToChatRoom(
+                                            crRoomId = crRoomId,
+                                            memberIds = selectedUsers.map { it.userId },
+                                            roomName = roomName
+                                        ){ roomId ->
+                                            // handle navigation to chat screen
+                                            // game = true
+                                            navController.navigate("chatScreen/$crRoomId/$roomId/true/false")
+                                            onCreate()
+                                        }
                                     }
                                 } else {
+                                    val theRoomname = roomName.ifBlank {
+                                        selectedUsers.joinToString(", ") { it.fname }
+                                    }
+
                                     viewModel.createAndInviteToChatRoom(
                                         crRoomId = crRoomId,
                                         memberIds = selectedUsers.map { it.userId },
@@ -480,7 +503,7 @@ fun InviteSelectScreen(
                 TextField(
                     value = roomName,
                     onValueChange = { roomName = it },
-                    placeholder = { Text("Group Name (Optional)",
+                    placeholder = { Text("Name of Group",
                         style = CRAppTheme.typography.infoLarge,
                         color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground
                     )},
@@ -641,13 +664,18 @@ fun InviteSelectScreen(
                     modifier = Modifier.padding(8.dp)
                 )
             }
-
-
-
         }
-
-
-
-
+    }
+    if (showAlertDialog) {
+        AlertDialog(
+            onDismissRequest = { showAlertDialog = false },
+            title = { Text(text = "Error") },
+            text = { Text(text = "Must name the group") },
+            confirmButton = {
+                TextButton(onClick = { showAlertDialog = false }) {
+                    Text(text = "OK")
+                }
+            }
+        )
     }
 }
