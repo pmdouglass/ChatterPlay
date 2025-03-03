@@ -99,6 +99,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
+import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
@@ -166,6 +167,7 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
     // Create SharedPreferences
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     // Initialize ChatRiseViewModel with the factory
     val crViewModel: ChatRiseViewModel = viewModel(
@@ -187,27 +189,31 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
     val unreadCount by viewModel.unreadMessageCount.collectAsState()
     val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
     val alertChange by crViewModel.alertChange.collectAsState()
-    var checkAlertChangeDone by remember { mutableStateOf(false)}
+    val usersAlertType by crViewModel.usersAlertType.collectAsState()
+    val topPlayers by crViewModel.topTwoPlayers.collectAsState()
+
+    val isTopPlayer by remember {
+        derivedStateOf {
+            topPlayers?.let { (rank1, rank2) ->
+                val rank1 = rank1.first
+                val rank2 = rank2.first
+
+                userId == rank1 || userId == rank2
+            } ?: false
+        }
+    }
 
 
     val width = 100
 
     val userStatus by roomCreate.userStatus.collectAsState()
     val roomReady by roomCreate.roomReady.collectAsState()
-
-
     val hasAlternateProfile = alternateProfile.fname.isNotBlank()
-
     val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
-    //val usersGameAlertStatus by crViewModel.usersGameAlertStatus.collectAsState()
     val userDoneAnswering by crViewModel.userDoneAnswering // sees if current user done with answers
-    val thereIsAnAlertMessage by remember {
-        derivedStateOf {
-            //gameInfo != null && usersGameAlertStatus == false
-        }
-    }
 
-    LaunchedEffect(crRoomId, gameInfo){
+
+    LaunchedEffect(Unit, crRoomId, gameInfo){
         roomCreate.checkUserState()
         crRoomId?.let { roomId ->
             if (roomId.isNotEmpty()){
@@ -215,33 +221,29 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                     crViewModel.fetchGameInfo(roomId) // initialize gameInfo
                 }else {
                     gameInfo?.let { game ->
-                        //crViewModel.fetchUsersGameAlert(roomId, currentUser?.uid ?: "", game.title) // initialize hadAlert
-                        //crViewModel.checkUserForAllCompleteAnswers(roomId, game.title, context) // initialize isDoneAnswering
                         crViewModel.checkUsersHasAnswered(crRoomId = roomId, title = game.title, context = context) // initialize userDoneAnswering
+
                     }
                 }
             }
             crViewModel.checkForAlertChange(roomId) // initialize alertChange
+            crViewModel.getTopTwoPlayers(roomId) // topPlayers
+            crViewModel.loadUserLocalAlertType(userId)
         }
     }
 
-
-    val isReadyToDisplay by remember {
-        derivedStateOf {
-                    userStatus != null &&
-                    userDoneAnswering != null &&
-                    alertChange != null
-        }
-    }
     val readyToDisplay  by remember {
         derivedStateOf {
-            crRoomId != null && userStatus != null && userDoneAnswering != null && alertChange != null
+            if (roomReady){
+                crRoomId != null && alertChange != null
+            } else {
+                true
+            }
         }
     }
-    Log.d("Reusable", "crRoomId: $crRoomId")
-    Log.d("Reusable", "gameInfo: $gameInfo")
-    Log.d("Reusable", "isDoneAnswering: $userDoneAnswering")
-    Log.d("Reusable", "userStatus: $userStatus")
+    Log.d("ReusableComposable", "crRoomId: $crRoomId")
+    Log.d("ReusableComposable", "alertChange: $alertChange")
+
 
 
     Column (
@@ -581,13 +583,21 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                                         }
                                 ) {
 
-                                    if (userDoneAnswering == true){
-                                        ChatMainPreviewLazyColumn(
-                                            crRoomId = crRoomId,
-                                            roomId = crRoomId,
-                                        )
-                                    }else {
-                                        if (gameInfo != null){
+                                    when{
+                                        alertChange -> {
+                                            Column(
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                            ){
+                                                Text("Alert!",
+                                                    style = CRAppTheme.typography.H6,
+                                                    color = Color.Red
+                                                    )
+                                            }
+                                        }
+                                        gameInfo != null && userDoneAnswering == false -> {
                                             gameInfo?.let { game ->
                                                 Row(
                                                     horizontalArrangement = Arrangement.Center,
@@ -603,6 +613,15 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: Nav
                                                     )
                                                 }
                                             }
+                                        }
+                                        usersAlertType == AlertType.top_discuss.string && isTopPlayer -> {
+                                            TopPlayersPreviewLazyColumn(crRoomId)
+                                        }
+                                        else -> {
+                                            ChatMainPreviewLazyColumn(
+                                                crRoomId = crRoomId,
+                                                roomId = crRoomId
+                                            )
                                         }
                                     }
                                 }
@@ -1035,7 +1054,8 @@ fun ChatRiseTopBar(
     crRoomId: String,
     profile: UserProfile,
     onClick: () -> Unit,
-    enabled: Boolean = true,
+    backEnabled: Boolean = true,
+    drawerEnabled: Boolean = true,
     onAction: () -> Unit,
     showTopBarInfo: Boolean,
     navController: NavController
@@ -1047,7 +1067,8 @@ fun ChatRiseTopBar(
     ) {
         TopBar(
             onClick = {onClick()},
-            enabled = enabled,
+            backEnabled = backEnabled,
+            drawerEnabled = drawerEnabled,
             onAction = {onAction()},
             navController = navController)
 
@@ -1058,7 +1079,7 @@ fun ChatRiseTopBar(
 }
 
 @Composable
-fun TopBar(onClick: () -> Unit, onAction: () -> Unit, enabled: Boolean = true, navController: NavController){
+fun TopBar(onClick: () -> Unit, onAction: () -> Unit, backEnabled: Boolean = true, drawerEnabled: Boolean = true, navController: NavController){
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1067,12 +1088,16 @@ fun TopBar(onClick: () -> Unit, onAction: () -> Unit, enabled: Boolean = true, n
             .fillMaxWidth()
     ){
         IconButton(onClick = {
-            navController.popBackStack()
+            if (backEnabled){
+                navController.navigate("roomSelect"){
+                    popUpTo(0){inclusive = true}
+                }
+            }
         }) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
-                tint = Color.White,
+                tint = if(backEnabled) Color.White else Color.Gray,
                 modifier = Modifier
                     .size(35.dp)
             )
@@ -1085,7 +1110,7 @@ fun TopBar(onClick: () -> Unit, onAction: () -> Unit, enabled: Boolean = true, n
             modifier = Modifier
                 .clickable { onClick() }
         )
-        if (enabled){
+        if (drawerEnabled){
             IconButton(onClick = {onAction()}){
                 Icon(
                     imageVector = Icons.Default.Menu,

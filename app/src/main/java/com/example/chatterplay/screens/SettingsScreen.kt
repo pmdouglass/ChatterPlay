@@ -1,5 +1,7 @@
 package com.example.chatterplay.screens
 
+import android.app.Application
+import android.content.Context
 import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +21,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -49,19 +52,30 @@ import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.SettingsInfoRow
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.SettingsViewModel
+import com.example.chatterplay.view_model.SettingsViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel(), navController: NavController) {
+fun SettingsScreen(
+    game: Boolean,
+    navController: NavController
+) {
 
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+    val application = context.applicationContext as Application
+    val settingsModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModelFactory(application, sharedPreferences)
+    )
     val coroutineScope = rememberCoroutineScope()
     val isAnalyticsEnabled by settingsModel.isAnalyticsEnabled.collectAsState(true)
+    val startScreen = settingsModel.startOnMainScreen.collectAsState()
 
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val context = LocalContext.current
     LaunchedEffect(Unit){
+
         // Log the event in Firebase Analytics
         val params = Bundle().apply {
             putString("screen_name", "SettingsScreen")
@@ -201,6 +215,32 @@ fun SettingsScreen(game: Boolean, settingsModel: SettingsViewModel = viewModel()
                                 coroutineScope.launch {
                                     settingsModel.setAnalyticsEnabled(isChecked)
                                 }
+                            }
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                    ){
+                        Icon(
+                            Icons.Default.Sensors,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .padding(end = 30.dp)
+                        )
+                        Text(
+                            "Start in Game",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = startScreen.value,
+                            onCheckedChange = { isChecked ->
+                                settingsModel.updateStartScreen(userId, isChecked)
                             }
                         )
                     }

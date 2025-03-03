@@ -792,6 +792,7 @@ class ChatRiseViewModel(
                             chatRepository.saveSelectedBlockedPlayer(crRoomId, removedUser.userId)
                             viewModel.announceBlockedPlayer(crRoomId, removedUser, context)
                             chatRepository.deleteTopPlayerCollection(crRoomId)
+                            chatRepository.removeBlockedPlayerFromPrivateAndGroupChats(crRoomId, removedUser.userId)
                         }
                     }
                     AlertType.last_message.string -> {
@@ -809,19 +810,11 @@ class ChatRiseViewModel(
             }
         }
     }
-    /*
-    fun updateUsersAlertType(crRoomId: String, alertType: AlertType){
-        viewModelScope.launch {
-            Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")
-            try {
-                chatRepository.updateUsersAlertType(crRoomId, userId, alertType)
-                Log.d("ChatriseViewModel", "Updating AlertType successfully changed to: $alertType")
-            }catch (e: Exception){
-                Log.d("ViewModel", "failed to update AlertType: ${e.message}")
-            }
+    fun removePlayerFromPrivateRooms(crRoomId: String, userId: String){
+        viewModelScope.launch(Dispatchers.IO) {
+            chatRepository.removeBlockedPlayerFromPrivateAndGroupChats(crRoomId, userId)
         }
     }
-    */
     fun updateShowAlert(crRoomId: String, alertStatus: Boolean){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertStatus to $alertStatus")

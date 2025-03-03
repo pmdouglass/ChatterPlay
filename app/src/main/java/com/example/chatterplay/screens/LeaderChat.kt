@@ -322,62 +322,6 @@ fun LeaderChatScreen(
                     sendTopPlayerMessage(crRoomId = crRoomId, roomId = roomId)
                 }
             }
-            /*
-            bothDoneSelecting && result == currentUserId -> {
-                // Current user was chosen to send the message
-                var input by remember { mutableStateOf("") }
-
-                fun send() {
-                    if (input.isNotBlank()) {
-                        crViewModel.sendGoodbyeMessage(crRoomId, roomId, input, "")
-                        //crViewModel.sendGoodbyeMessage(crRoomId, roomId, input, selectedPlayer!!.userId)
-                        input = ""
-                    }
-                }
-
-                Column(
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    AllMembersRow(selectedMember = {}, chatRoomMembers = allRisers, game = true, self = false)
-
-                    Spacer(modifier = Modifier.height(100.dp))
-                    // Text input
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        TextField(value = input, onValueChange = { input = it }, modifier = Modifier.weight(1f))
-                        IconButton(onClick = {
-                            send()
-                            crViewModel.updateSystemAlertType(
-                                crRoomId = crRoomId,
-                                alertType = AlertType.blocking,
-                                allMembers = allRisers,
-                                userId = "",
-                                context = context
-                            )
-                            crViewModel.updateTradeStatus(crRoomId, otherUserId)
-                        }) {
-                            Icon(Icons.Default.Send, contentDescription = null)
-                        }
-                    }
-                }
-            }
-             */
-            /*
-            bothDoneSelecting -> {
-                // Other user was chosen to send the message
-                Column(
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Text("${otherUserProfile?.fname} was chosen to leave a message")
-                    Text("Waiting for ${otherUserProfile?.fname} to leave a message to the group")
-                }
-            }
-
-             */
-
             else -> {
                 // Both are not done making a selection
                 Column(

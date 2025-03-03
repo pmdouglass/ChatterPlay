@@ -65,3 +65,8 @@ data class askQuestion(
     val userId: String,
     val toUserId: String
 )
+@Serializable
+data class userPreferences(
+    val userId: String = "",
+    val startOnMainScreen: Boolean = false
+)

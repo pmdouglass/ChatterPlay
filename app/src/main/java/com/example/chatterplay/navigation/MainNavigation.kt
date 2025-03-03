@@ -1,8 +1,21 @@
 package com.example.chatterplay.navigation
 
+import android.app.Application
+import android.content.Context
 import android.os.Build
+import android.util.Log
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -24,13 +37,74 @@ import com.example.chatterplay.screens.login.SignupScreen3
 import com.example.chatterplay.screens.login.SignupScreen4
 import com.example.chatterplay.screens.subscreens.AboutChatRise
 import com.example.chatterplay.screens.subscreens.TermsAndConditionsScreen
+import com.example.chatterplay.view_model.EntryViewModelFactory
+import com.example.chatterplay.view_model.RoomCreationViewModel
+import com.example.chatterplay.view_model.SettingsViewModel
+import com.example.chatterplay.view_model.SettingsViewModelFactory
 import com.google.firebase.auth.FirebaseAuth
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun AppNavHost(navController: NavHostController) {
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+    val application = context.applicationContext as Application
+
+    val settingsViewModel: SettingsViewModel = viewModel(
+        factory = SettingsViewModelFactory(
+            application = application,
+            sharedPreferences = sharedPreferences
+        )
+    )
+    val entryViewModel: RoomCreationViewModel = viewModel(
+        factory = EntryViewModelFactory(sharedPreferences)
+    )
+
     val currentUser = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-    val startDestination = if (currentUser.isNotEmpty()) "roomSelect" else "loginScreen"
+    val crRoomIdState by entryViewModel.crRoomId.collectAsState()
+
+    if (crRoomIdState == null) {
+        Log.d("MainNavigation", "Waiting for crRoomId to load...")
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator() // Show loading indicator while waiting for crRoomId
+        }
+        return
+    }
+
+    val crRoomId = crRoomIdState ?: "0"
+    Log.d("MainNavigation", "crRoomId loaded: $crRoomId")
+
+    val startOnMainScreen = settingsViewModel.startOnMainScreen.collectAsState()
+
+    val startDestination =
+        if (currentUser.isNotEmpty()) {
+            if (startOnMainScreen.value) {
+                if (crRoomId != "0") {
+                    Log.d("MainNavigation", "Navigating to mainScreen with crRoomId: $crRoomId")
+                    "mainScreen/$crRoomId"
+                } else {
+                    Log.d("MainNavigation", "crRoomId is 0, navigating to settingsScreen")
+                    "settingsScreen"
+                }
+            } else {
+                Log.d("MainNavigation", "Navigating to roomSelect")
+                "roomSelect"
+            }
+        } else {
+            Log.d("MainNavigation", "User not logged in, navigating to loginScreen")
+            "loginScreen"
+        }
+
+    LaunchedEffect(crRoomId){
+        if (crRoomId != "0" && startOnMainScreen.value){
+            Log.d("MainNavigation", "crRoomId updated, navigating to mainScreen/$crRoomId")
+            navController.navigate("mainScreen/$crRoomId")
+        }
+    }
+
 
     if (startDestination != "Loading"){
         NavHost(navController = navController, startDestination =  startDestination){
@@ -116,9 +190,13 @@ fun AppNavHost(navController: NavHostController) {
                 MainRoomSelect(navController = navController)
             }
             composable("mainScreen/{crRoomId}"){backStackEntry ->
+                Log.d("MainNavigation", "Navigating to mainScreen")
                 val crRoomId = backStackEntry.arguments?.getString("crRoomId")
                 if (crRoomId != null){
+                    Log.d("MainScreen", "crRoomId: $crRoomId")
                     MainScreen(crRoomId = crRoomId, navController = navController)
+                }else {
+                    Log.d("MainScreen", "crRoomId is null, navigation error")
                 }
 
             }
