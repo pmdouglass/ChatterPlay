@@ -610,7 +610,7 @@ class ChatViewModel: ViewModel() {
                 Log.d("ChatViewModel", "Successfully fetched unread message counts for ${counts.size} rooms")
 
             } catch (e: Exception) {
-                Log.e("ChatViewModel", "Error fetching unread message counts - ${e.message}", e)
+                Log.e("ChatViewModel", "Error fetching CR unread message counts - ${e.message}", e)
             }
         }
     }

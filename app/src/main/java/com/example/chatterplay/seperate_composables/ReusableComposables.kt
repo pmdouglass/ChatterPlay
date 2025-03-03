@@ -1067,7 +1067,9 @@ fun TopBar(onClick: () -> Unit, onAction: () -> Unit, enabled: Boolean = true, n
             .fillMaxWidth()
     ){
         IconButton(onClick = {
-            navController.popBackStack()
+            navController.navigate("roomSelect"){
+                popUpTo(0){inclusive = true}
+            }
         }) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
