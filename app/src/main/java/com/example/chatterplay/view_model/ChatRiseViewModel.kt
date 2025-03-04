@@ -14,6 +14,7 @@ import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
@@ -58,6 +59,26 @@ class ChatRiseViewModel(
     val entryRepository = RoomCreateRepository(sharedPreferences)
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+
+    /**
+     *  Odds N' Ends
+     */
+    private val _mainRoomInfo = MutableStateFlow(ChatRoom())
+    val mainRoomInfo: StateFlow<ChatRoom> get() = _mainRoomInfo
+    fun getMainRoomInfo(crRoomId: String){
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val roomInfo = chatRepository.getMainRoomInfo(crRoomId) ?: ChatRoom()
+                _mainRoomInfo.value = roomInfo
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error fetching room info for MainChat with crRoomId: $crRoomId. ${e.message}", e)
+            }
+        }
+    }
+
+
+
 
 
     /**

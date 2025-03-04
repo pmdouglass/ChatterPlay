@@ -105,6 +105,7 @@ import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
+import com.example.chatterplay.repository.calculateRoomElapsedTime
 import com.example.chatterplay.repository.fetchUserProfile
 import com.example.chatterplay.screens.login.calculateAgeToDate
 import com.example.chatterplay.screens.login.calculateBDtoAge
@@ -1141,9 +1142,15 @@ fun TopBarInformation(crRoomId: String, profile: UserProfile, viewModel: ChatVie
     val pad = 15
 
     val currentRank by crViewModel.currentRank.collectAsState()
-    LaunchedEffect(profile){
+    val mainRoomInfo by crViewModel.mainRoomInfo.collectAsState()
+    val timeElapsed = calculateRoomElapsedTime(mainRoomInfo.createdAt)
+
+
+    LaunchedEffect(profile, crRoomId){
         crViewModel.getUserRank(crRoomId)
+        crViewModel.getMainRoomInfo(crRoomId)
     }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -1183,19 +1190,27 @@ fun TopBarInformation(crRoomId: String, profile: UserProfile, viewModel: ChatVie
                     .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
             )
             Text(
-                "Chat Info: ",
+                "Week: ${timeElapsed["week"]}",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
             )
             Text(
-                "Chat Info: ",
+                "Day: ${timeElapsed["day"]}",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
             )
+            Text(
+                "Total Days: ${timeElapsed["total"]}",
+                style = CRAppTheme.typography.infoMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
+            )
+
 
         }
     }
