@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.example.chatterplay"
-    compileSdk = 35
+    compileSdk = 34
 
     val properties = gradleLocalProperties(rootDir, project.providers)
     val supabaseUrl: String = properties.getProperty("supabaseUrl") ?: ""
@@ -34,7 +34,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -92,6 +92,18 @@ dependencies {
 
 
     implementation("ch.qos.logback:logback-classic:1.2.11")
+    /*
+    {
+        exclude("javax.servlet")
+        exclude("javax.management")
+    }
+
+     */
+
+
+
+    implementation("com.jakewharton.timber:timber:5.0.1")
+    // implementation("org.slf4j:slf4j-simple:2.0.7")
 
 
 
@@ -139,8 +151,8 @@ dependencies {
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
     //Glide for image Loading
-    implementation("com.github.bumptech.glide:glide:4.12.0")
-    implementation("com.github.bumptech.glide:compiler:4.12.0")
+    // implementation("com.github.bumptech.glide:glide:4.12.0")
+    // implementation("com.github.bumptech.glide:compiler:4.12.0")
 
     // Compose Material 3
     implementation("androidx.compose.material3:material3:1.2.1")
