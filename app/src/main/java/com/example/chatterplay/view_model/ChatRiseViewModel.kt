@@ -19,6 +19,7 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.repository.BackendService
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.example.chatterplay.repository.RoomCreateRepository
@@ -57,6 +58,7 @@ class ChatRiseViewModel(
     private val cRepository = ChatRepository()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
     val entryRepository = RoomCreateRepository(sharedPreferences)
+    val backendServices = BackendService()
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
@@ -695,6 +697,12 @@ class ChatRiseViewModel(
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to update game status to true: ${e.message}")
             }
+        }
+    }
+    fun fetchAlertType(crRoomId: String){
+        viewModelScope.launch {
+            val alertType = backendServices.getAlertType(crRoomId)
+            Log.d("ChatRiseViewModel", "Alert Type from Backend $alertType")
         }
     }
     fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, userId: String, context: Context){

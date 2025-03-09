@@ -91,6 +91,10 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 
 
+    implementation("ch.qos.logback:logback-classic:1.2.11")
+
+
+
     // more Icons
     implementation("androidx.compose.material:material-icons-extended-android:1.7.5")
 
