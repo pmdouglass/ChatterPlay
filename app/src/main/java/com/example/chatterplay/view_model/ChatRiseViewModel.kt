@@ -36,7 +36,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import javax.security.auth.callback.Callback
 
 class ChatRiseViewModelFactory(
     private val sharedPreferences: SharedPreferences,
@@ -703,9 +702,11 @@ class ChatRiseViewModel(
     fun fetchApiStatus() {
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.instance.getStatus()
-                val message = response["message"] ?: "Unknown")
-                Log.d("ChatRiseViewModel", "API Response: $message")
+                val response = RetrofitClient.api.getStatus()
+                if (response.isSuccessful){
+                    val message = response.body()?.get("message") ?: "Unknown"
+                    Log.d("ChatRiseViewModel", "API Response: $message")
+                }
             }catch (e: Exception){
                 Log.e("ChatRiseViewModel", "API Error: ${e.message}", e)
             }
