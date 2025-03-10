@@ -1,18 +1,31 @@
-# Use official Kotlin image
-FROM openjdk:17-jdk-slim
+# Use an official Kotlin image
+FROM gradle:8.5-jdk17 AS build
 
-# Set working directory
+# Set work directory
 WORKDIR /backend
 
-# Copy only the backend module
-COPY backend /backend
+# Copy the backend project files
+COPY backend/ ./
 
-# Install dependencies & build the backend
+# Give execution permission to Gradle
 RUN chmod +x gradlew
-RUN ./gradlew :backend:build
 
-# Expose port (Railway assigns it automatically)
+# Build the backend project
+RUN ./gradlew clean build -x check -x test
+
+# Use an official JDK runtime for the final image
+FROM openjdk:17-jdk-slim
+
+# Set work directory
+WORKDIR /backend
+
+# Copy only the built jar file from previous step
+COPY --from=build /backend/build/libs/backend-all.jar backend.jar
+
+# Expose the port (Railway will dynamically assign one)
 EXPOSE 8080
 
-# Run backend server
-CMD ["java", "-jar", "build/libs/backend-all.jar"]
+# Set the entry point to run the application
+CMD ["java", "-jar", "backend.jar"]
+
+# Expanded Code

@@ -1,5 +1,9 @@
-app/
-.idea/
+# Ignore Android-related files
+/app/
 .gradle/
-*.iml
+.idea/
+build/
 local.properties
+*.iml
+*.log
+*.tmp
