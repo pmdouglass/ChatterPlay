@@ -20,12 +20,12 @@ FROM openjdk:17-jdk-slim
 WORKDIR /backend
 
 # Copy only the built jar file from previous step
-COPY --from=build /backend/build/libs/backend-all.jar backend.jar
+COPY --from=build /backend/build/libs/backend-1.0.jar backend.jar
 
 # Expose the port (Railway will dynamically assign one)
 EXPOSE 8080
 
 # Set the entry point to run the application
-CMD ["java", "-jar", "backend.jar"]
+CMD ["java", "-jar", "/backend/backend-1.0.jar"]
 
 # Expanded Code
