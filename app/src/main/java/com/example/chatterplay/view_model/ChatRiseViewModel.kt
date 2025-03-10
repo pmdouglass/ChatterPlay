@@ -14,12 +14,14 @@ import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.ChatMessage
+import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
+import com.example.chatterplay.repository.KtorApiRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -56,8 +58,29 @@ class ChatRiseViewModel(
     private val cRepository = ChatRepository()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
     val entryRepository = RoomCreateRepository(sharedPreferences)
+    private val api = KtorApiRepository()
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+
+    /**
+     *  Odds N' Ends
+     */
+    private val _mainRoomInfo = MutableStateFlow(ChatRoom())
+    val mainRoomInfo: StateFlow<ChatRoom> get() = _mainRoomInfo
+    fun getMainRoomInfo(crRoomId: String){
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val roomInfo = chatRepository.getMainRoomInfo(crRoomId) ?: ChatRoom()
+                _mainRoomInfo.value = roomInfo
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error fetching room info for MainChat with crRoomId: $crRoomId. ${e.message}", e)
+            }
+        }
+    }
+
+
+
 
 
     /**
@@ -673,6 +696,16 @@ class ChatRiseViewModel(
                 Log.d("ViewModel", "Updated hasAnswered to true")
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to update game status to true: ${e.message}")
+            }
+        }
+    }
+    fun sendUpdateAlert(){
+        viewModelScope.launch {
+            try {
+                val response = api.updateAlert("room123", "game")
+                Log.d("ChatRiseViewModel", "Server Response: $response")
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error calling server: ${e.message}")
             }
         }
     }

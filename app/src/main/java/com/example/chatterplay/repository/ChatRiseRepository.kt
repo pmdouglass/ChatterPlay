@@ -66,6 +66,20 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
 
 
     /**
+     *  Odds N' Ends
+     */
+    suspend fun getMainRoomInfo(crRoomId: String): ChatRoom?{
+        return try {
+            val snapshot = crGameRoomsCollection
+                .document(crRoomId).get().await()
+            val chatRoom = snapshot.toObject(ChatRoom::class.java)
+            chatRoom
+        }catch (e: Exception){
+            null
+        }
+    }
+
+    /**
      *  User Management
      */
     suspend fun getcrUserProfile(crRoomId: String, userId: String): UserProfile?{
@@ -204,6 +218,12 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("Firestore", "Error fetching currentRank for user $userId in room $crRoomId", e)
             null
         }
+    }
+    suspend fun getRoomCreatedTimestamp(crRoomId: String){
+        val docRef = crGameRoomsCollection
+            .document(crRoomId)
+
+
     }
 
 
@@ -437,7 +457,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             false // On exception, return false
         }
     }
-
     fun listenForAllMembersAnswered(crRoomId: String, gameName: String, trigger: () -> Unit): Flow<Boolean> = callbackFlow {
         val gameDocRef = firestore
             .collection("ChatriseRooms")
@@ -477,13 +496,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
 
         awaitClose { listener.remove() } // ✅ Ensure cleanup on ViewModel destruction
     }
-
-
-
-
-
-
-
     suspend fun saveGameNameToAllUsers(crRoomId: String, members: List<String>, gameInfo: Title) {
         try {
             // Serialize the Title object to JSON
@@ -551,8 +563,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             Log.e("ChatRiseRepository", "Failed to save gameName to room: ${e.message}", e)
         }
     }
-
-
     suspend fun getRandomGameInfo(crRoomId: String): Title?{
         return try {
             // fetch all documents from "Games" in firestore
@@ -604,7 +614,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             false
         }
     }
-
     suspend fun getUsersGameAlert(crRoomId: String, userId: String, gameName: String): Boolean{
         return try {
             val gameDocRef = crGameRoomsCollection
@@ -652,7 +661,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             null
         }
     }
-
     private var cachedQuestions: List<Questions>? = null
     suspend fun getAllQuestions(title: String): List<Questions>{
         cachedQuestions?.let {
@@ -1633,14 +1641,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             transaction.update(topPlayerRef, userId, status)
         }
     }
-
-
-
-
-
-
-
-
     suspend fun updateTradeStatus(crRoomId: String, userId: String, status: String){
         try {
             val roomRef = crGameRoomsCollection
@@ -1725,7 +1725,6 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
             .set(topPlayersData)
             .await() // ✅ Ensures Firestore write completes before returning
     }
-
     suspend fun getTopPlayers(crRoomId: String): Pair<String?, String?>? {
         return try {
             val topPlayerSnapshot = crGameRoomsCollection
@@ -1913,3 +1912,20 @@ class ChatRiseRepository(private val sharedPreferences: SharedPreferences) {
 
 
 }
+
+
+fun calculateRoomElapsedTime(createdAt: Timestamp): Map<String, Int> {
+    val creationDateMillis = createdAt.toDate().time // Convert Firestore Timestamp to milliseconds
+    val currentDateMillis = System.currentTimeMillis()
+
+    val totalDays = ((currentDateMillis - creationDateMillis) / (1000 * 60 * 60 * 24)).toInt() // Ensures day 1 starts at creation
+    val Week = (totalDays / 8) + 1 // Starts at Week 1
+    val Day = (totalDays % 7).let { if (it == 0) 7 else it } // Ensures Day 1–7 cycle
+
+    return mapOf(
+        "total" to totalDays,
+        "week" to Week,
+        "day" to Day
+    )
+}
+

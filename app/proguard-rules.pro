@@ -19,3 +19,25 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# Keep Logback classes
+-keep class ch.qos.logback.** { *; }
+-dontwarn ch.qos.logback.**
+
+# Keep Java Management Extensions (JMX) classes
+-keep class javax.management.** { *; }
+-dontwarn javax.management.**
+
+# Keep Java Reflection classes
+-keep class sun.reflect.** { *; }
+-dontwarn sun.reflect.**
+
+# Keep Java Servlet API (only if needed)
+-keep class javax.servlet.** { *; }
+-dontwarn javax.servlet.**
+
+# Keep Janino (if Logback uses it)
+-keep class org.codehaus.janino.** { *; }
+-dontwarn org.codehaus.janino.**
+
+
+

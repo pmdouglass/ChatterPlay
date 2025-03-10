@@ -563,6 +563,11 @@ fun MainScreen(
                                 }){
                                     Text("Delete Rooms")
                                 }
+                                Button(onClick = {
+                                    crViewModel.sendUpdateAlert()
+                                }){
+                                    Text("Call Api")
+                                }
                             }
                         }
 

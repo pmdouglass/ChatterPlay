@@ -505,6 +505,7 @@ class ChatRepository {
             null
         }
     }
+
     suspend fun updateLastSeenTimestamp(roomId: String, userId: String){
         val roomRef = chatRoomsCollection.document(roomId)
         val timestamp = Timestamp.now()

@@ -10,7 +10,7 @@ plugins {
 
 android {
     namespace = "com.example.chatterplay"
-    compileSdk = 35
+    compileSdk = 34
 
     val properties = gradleLocalProperties(rootDir, project.providers)
     val supabaseUrl: String = properties.getProperty("supabaseUrl") ?: ""
@@ -91,6 +91,22 @@ dependencies {
     implementation("com.google.code.gson:gson:2.10.1")
 
 
+    implementation("ch.qos.logback:logback-classic:1.2.11")
+    /*
+    {
+        exclude("javax.servlet")
+        exclude("javax.management")
+    }
+
+     */
+
+
+
+    implementation("com.jakewharton.timber:timber:5.0.1")
+    // implementation("org.slf4j:slf4j-simple:2.0.7")
+
+
+
     // more Icons
     implementation("androidx.compose.material:material-icons-extended-android:1.7.5")
 
@@ -98,6 +114,12 @@ dependencies {
     implementation("io.github.vanpra.compose-material-dialogs:datetime:0.8.1-rc")
 
 
+    // Call to ktor API
+    implementation("io.ktor:ktor-client-core:2.3.4")
+    implementation("io.ktor:ktor-client-cio:2.3.4")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.4")
+    implementation("io.ktor:ktor-client-json:2.3.4")
+    implementation("io.ktor:ktor-client-serialization:2.3.4")
 
 
     // datastore
@@ -135,8 +157,8 @@ dependencies {
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
     //Glide for image Loading
-    implementation("com.github.bumptech.glide:glide:4.12.0")
-    implementation("com.github.bumptech.glide:compiler:4.12.0")
+    // implementation("com.github.bumptech.glide:glide:4.12.0")
+    // implementation("com.github.bumptech.glide:compiler:4.12.0")
 
     // Compose Material 3
     implementation("androidx.compose.material3:material3:1.2.1")
