@@ -6,6 +6,10 @@ plugins {
 group = "com.example.backend"
 version = "1.0"
 
+repositories{
+    mavenCentral()
+}
+
 dependencies {
     implementation("io.ktor:ktor-server-core:2.3.4")
     implementation("io.ktor:ktor-server-netty:2.3.4")
