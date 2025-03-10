@@ -97,7 +97,10 @@ dependencies {
     // date and time picker
     implementation("io.github.vanpra.compose-material-dialogs:datetime:0.8.1-rc")
 
-
+    // Call to API
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")
 
 
     // datastore
