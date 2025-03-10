@@ -114,6 +114,12 @@ dependencies {
     implementation("io.github.vanpra.compose-material-dialogs:datetime:0.8.1-rc")
 
 
+    // Call to ktor API
+    implementation("io.ktor:ktor-client-core:2.3.4")
+    implementation("io.ktor:ktor-client-cio:2.3.4")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.4")
+    implementation("io.ktor:ktor-client-json:2.3.4")
+    implementation("io.ktor:ktor-client-serialization:2.3.4")
 
 
     // datastore
