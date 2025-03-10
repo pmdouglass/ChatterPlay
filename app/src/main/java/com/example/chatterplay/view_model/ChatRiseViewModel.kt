@@ -19,6 +19,7 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.network.RetrofitClient
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.example.chatterplay.repository.RoomCreateRepository
@@ -35,6 +36,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import javax.security.auth.callback.Callback
 
 class ChatRiseViewModelFactory(
     private val sharedPreferences: SharedPreferences,
@@ -697,6 +699,19 @@ class ChatRiseViewModel(
             }
         }
     }
+
+    fun fetchApiStatus() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.instance.getStatus()
+                val message = response["message"] ?: "Unknown")
+                Log.d("ChatRiseViewModel", "API Response: $message")
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "API Error: ${e.message}", e)
+            }
+        }
+    }
+
     fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, userId: String, context: Context){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")
