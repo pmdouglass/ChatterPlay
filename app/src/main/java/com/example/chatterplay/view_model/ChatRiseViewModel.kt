@@ -19,9 +19,9 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.repository.BackendService
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
+import com.example.chatterplay.repository.KtorApiRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -36,7 +36,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import timber.log.Timber
 
 class ChatRiseViewModelFactory(
     private val sharedPreferences: SharedPreferences,
@@ -59,7 +58,7 @@ class ChatRiseViewModel(
     private val cRepository = ChatRepository()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
     val entryRepository = RoomCreateRepository(sharedPreferences)
-    val backendServices = BackendService()
+    private val api = KtorApiRepository()
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
@@ -700,10 +699,14 @@ class ChatRiseViewModel(
             }
         }
     }
-    fun fetchAlertType(crRoomId: String){
+    fun sendUpdateAlert(){
         viewModelScope.launch {
-            val alertType = backendServices.getAlertType(crRoomId)
-            Log.d("ChatRiseViewModel", "Alert Type from Backend $alertType")
+            try {
+                val response = api.updateAlert("room123", "game")
+                Log.d("ChatRiseViewModel", "Server Response: $response")
+            }catch (e: Exception){
+                Log.e("ChatRiseViewModel", "Error calling server: ${e.message}")
+            }
         }
     }
     fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, userId: String, context: Context){
