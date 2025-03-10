@@ -19,9 +19,9 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.network.RetrofitClient
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
-import com.example.chatterplay.repository.KtorApiRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -58,7 +58,6 @@ class ChatRiseViewModel(
     private val cRepository = ChatRepository()
     private val chatRepository = ChatRiseRepository(sharedPreferences)
     val entryRepository = RoomCreateRepository(sharedPreferences)
-    private val api = KtorApiRepository()
     private val crGameRoomsCollection = firestore.collection("ChatriseRooms")
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
@@ -699,16 +698,21 @@ class ChatRiseViewModel(
             }
         }
     }
-    fun sendUpdateAlert(){
+
+    fun fetchApiStatus() {
         viewModelScope.launch {
             try {
-                val response = api.updateAlert("room123", "game")
-                Log.d("ChatRiseViewModel", "Server Response: $response")
+                val response = RetrofitClient.api.getStatus()
+                if (response.isSuccessful){
+                    val message = response.body()?.get("message") ?: "Unknown"
+                    Log.d("ChatRiseViewModel", "API Response: $message")
+                }
             }catch (e: Exception){
-                Log.e("ChatRiseViewModel", "Error calling server: ${e.message}")
+                Log.e("ChatRiseViewModel", "API Error: ${e.message}", e)
             }
         }
     }
+
     fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, userId: String, context: Context){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")

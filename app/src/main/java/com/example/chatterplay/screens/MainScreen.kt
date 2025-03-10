@@ -564,9 +564,9 @@ fun MainScreen(
                                     Text("Delete Rooms")
                                 }
                                 Button(onClick = {
-                                    crViewModel.sendUpdateAlert()
+                                    crViewModel.fetchApiStatus()
                                 }){
-                                    Text("Call Api")
+                                    Text("Call to Api")
                                 }
                             }
                         }

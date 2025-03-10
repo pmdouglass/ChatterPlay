@@ -121,6 +121,10 @@ dependencies {
     implementation("io.ktor:ktor-client-json:2.3.4")
     implementation("io.ktor:ktor-client-serialization:2.3.4")
 
+    // SLF4J
+    implementation("org.slf4j:slf4j-api:2.0.9")
+    implementation("org.slf4j:slf4j-simple:2.0.9")
+
 
     // datastore
     implementation("androidx.datastore:datastore-preferences:1.1.1")
