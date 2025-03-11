@@ -17,6 +17,9 @@ class RoomCreateRepository(private val sharedPreferences: SharedPreferences) {
 
 
 
+    fun dummydata(){
+
+    }
     fun saveUserLocalcrRoomId(userId: String, crRoomId: String){
         sharedPreferences.edit().putString("crRoomId_$userId", crRoomId).apply()
         Log.d("ChatRiseRepository", "crRoomId saving to $userId")
