@@ -2,10 +2,9 @@
 
 package com.example.chatterplay.seperate_composables
 
-import android.net.Uri
+import android.content.Context
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
@@ -25,17 +24,19 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.ImageAspectRatio
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -44,32 +45,32 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -90,39 +91,41 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
 import com.example.chatterplay.R
-import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.ui.theme.CRAppTheme
-import com.example.chatterplay.ui.theme.darkPurple
-import com.example.chatterplay.view_model.ChatViewModel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.rememberNavController
+import com.example.chatterplay.data_class.AlertType
+import com.example.chatterplay.data_class.ChatMessage
 import com.example.chatterplay.data_class.ChatRoom
 import com.example.chatterplay.data_class.DateOfBirth
+import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.data_class.formattedDayTimestamp
-import com.example.chatterplay.data_class.uriToByteArray
+import com.example.chatterplay.repository.calculateRoomElapsedTime
 import com.example.chatterplay.repository.fetchUserProfile
 import com.example.chatterplay.screens.login.calculateAgeToDate
 import com.example.chatterplay.screens.login.calculateBDtoAge
+import com.example.chatterplay.ui.theme.CRAppTheme
+import com.example.chatterplay.ui.theme.darkPurple
 import com.example.chatterplay.view_model.ChatRiseViewModel
+import com.example.chatterplay.view_model.ChatRiseViewModelFactory
+import com.example.chatterplay.view_model.ChatViewModel
+import com.example.chatterplay.view_model.EntryViewModelFactory
 import com.example.chatterplay.view_model.RoomCreationViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 
 enum class RowState (val string: String){
-    none("nothing"),
-    follow("follow"),
-    check("check")
+    None("nothing"),
+    Follow("follow"),
+    Check("check")
 }
 
 @Composable
@@ -134,36 +137,114 @@ fun rememberProfileState(userId: String, viewModel: ChatViewModel = viewModel())
     val alternateProfile = alternateState ?: UserProfile()
 
     LaunchedEffect(Unit) {
-        viewModel.getUserProfile(userId = userId)
+        viewModel.fetchUserProfile(userId = userId)
     }
     return  Pair(personalProfile, alternateProfile)
 
 }
 @Composable
-fun rememberCRProfile(CRRoomId: String, viewModel: ChatRiseViewModel = viewModel()): UserProfile{
+fun rememberCRProfile(
+    crRoomId: String,
+    viewModel: ChatViewModel = viewModel()
+): UserProfile{
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val viewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val profileState by viewModel.userProfile.collectAsState()
     val profile = profileState ?: UserProfile()
     LaunchedEffect(Unit){
-        viewModel.getUserProfile(CRRoomId = CRRoomId)
+        viewModel.getcrUserProfile(crRoomId = crRoomId)
     }
     return profile
 }
 @Composable
-fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCreationViewModel = viewModel(), navController: NavController) {
+fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), navController: NavController) {
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+    val roomCreate: RoomCreationViewModel = viewModel(
+        factory = EntryViewModelFactory(sharedPreferences)
+    )
+
+
+
     val email by remember { mutableStateOf("email")}
     val password by remember { mutableStateOf("password")}
-    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val currentUser = FirebaseAuth.getInstance().currentUser
     var selfSelect by remember { mutableStateOf(true)}
     var altSelect by remember { mutableStateOf(false)}
-    val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUserId, viewModel)
+    val (personalProfile, alternateProfile) = rememberProfileState(userId = currentUser?.uid ?: "", viewModel)
+    val crRoomId by roomCreate.crRoomId.collectAsState()
+    val unreadCount by viewModel.unreadMessageCount.collectAsState()
+    val allChatRoomMembers by viewModel.allChatRoomMembers.collectAsState()
+    val alertChange by crViewModel.alertChange.collectAsState()
+    val usersAlertType by crViewModel.usersAlertType.collectAsState()
+    val topPlayers by crViewModel.topTwoPlayers.collectAsState()
+
+    val isTopPlayer by remember {
+        derivedStateOf {
+            topPlayers?.let { (rank1, rank2) ->
+                val rank1 = rank1.first
+                val rank2 = rank2.first
+
+                userId == rank1 || userId == rank2
+            } ?: false
+        }
+    }
+
 
     val width = 100
 
-    val userState by roomCreate.userState.collectAsState()
+    val userStatus by roomCreate.userStatus.collectAsState()
     val roomReady by roomCreate.roomReady.collectAsState()
+    val hasAlternateProfile = alternateProfile.fname.isNotBlank()
+    val gameInfo by crViewModel.gameInfo.collectAsState() // gets gameInfo 'Title' from UserProfile
+    val userDoneAnswering by crViewModel.userDoneAnswering // sees if current user done with answers
 
 
-    var hasAlternateProfile = if (alternateProfile.fname.isNullOrBlank()) false else true
+    LaunchedEffect(Unit, crRoomId, gameInfo){
+        roomCreate.checkUserState()
+        crRoomId?.let { roomId ->
+            if (roomId.isNotEmpty()){
+                if (gameInfo == null){
+                    crViewModel.fetchGameInfo(roomId) // initialize gameInfo
+                }else {
+                    gameInfo?.let { game ->
+                        crViewModel.checkUsersHasAnswered(crRoomId = roomId, title = game.title, context = context) // initialize userDoneAnswering
+
+                    }
+                }
+            }
+            crViewModel.checkForAlertChange(roomId) // initialize alertChange
+            crViewModel.getTopTwoPlayers(roomId) // topPlayers
+            crViewModel.loadUserLocalAlertType(userId)
+        }
+    }
+
+    val readyToDisplay  by remember {
+        derivedStateOf {
+            if (roomReady){
+                crRoomId != null && alertChange != null
+            } else {
+                true
+            }
+        }
+    }
+    Log.d("ReusableComposable", "crRoomId: $crRoomId")
+    Log.d("ReusableComposable", "alertChange: $alertChange")
+
 
 
     Column (
@@ -171,210 +252,267 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
             .fillMaxWidth()
             .padding(15.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(CRAppTheme.colorScheme.onBackground)
-                .border(2.dp, CRAppTheme.colorScheme.highlight, RoundedCornerShape(15.dp))
-                .padding(start = 10.dp, end = 10.dp)
-        ){
-            Row (
-                verticalAlignment = Alignment.CenterVertically,
+        if (readyToDisplay){
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(CRAppTheme.colorScheme.onBackground)
+                    .border(
+                        2.dp,
+                        if (crRoomId != "0")
+                            if (alertChange) Color.Red
+                            else
+                                CRAppTheme.colorScheme.highlight
+                        else CRAppTheme.colorScheme.highlight,
+                        RoundedCornerShape(15.dp))
+                    .padding(start = 10.dp, end = 10.dp)
             ){
-                Text(
-                    text = "ChatRise",
-                    style = CRAppTheme.typography.headingMedium,
+                Row (
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .then(if (userState == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
-                )
-                when  {
-                    userState == "NotPending" -> {
-                        Box(
-                            modifier = Modifier
-                                .size(20.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black)
-                                .clickable { navController.navigate("aboutChatrise") }
-                        ) {
-                            Icon(
-                                Icons.Default.QuestionMark,
-                                contentDescription = null,
-                                tint = Color.White
-                            )
-                        }
-                    }
-                    userState == "Pending" -> {}
-                    roomReady -> {
-                        Column(
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                "1.3k",
-                                style = CRAppTheme.typography.infoMedium
-                            )
-                            Text(
-                                "People",
-                                style = CRAppTheme.typography.infoSmall
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(15.dp))
-                        DynamicCircleBox(number = 121)
-                    }
-                }
-
-            }
-            when {
-                userState == "NotPending" -> {
-                    Column(
+                        .fillMaxWidth()
+                ){
+                    Text(
+                        text = "ChatRise",
+                        style = CRAppTheme.typography.headingMedium,
                         modifier = Modifier
-                            .fillMaxWidth()
-                    ){
-                        Row(
+                            .then(if (userStatus == "NotPending") Modifier.padding(end = 20.dp) else Modifier.weight(1f))
+                    )
+                    when  {
+                        userStatus == "NotPending" -> {
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black)
+                                    .clickable { navController.navigate("aboutChatrise") }
+                            ) {
+                                Icon(
+                                    Icons.Default.QuestionMark,
+                                    contentDescription = null,
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                        userStatus == "Pending" -> {}
+                        roomReady -> {
+                            if (crRoomId != "0"){
+                                crRoomId?.let { room ->
+                                    LaunchedEffect(Unit){
+                                        viewModel.fetchChatRoomMembers(crRoomId = room, roomId = room, game = true, mainChat = true)
+                                        viewModel.fetchCRUnreadMessageCount(room)
+                                    }
+
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            "${allChatRoomMembers.size}",
+                                            style = CRAppTheme.typography.infoMedium
+                                        )
+                                        Text(
+                                            "People",
+                                            style = CRAppTheme.typography.infoSmall
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(15.dp))
+                                    DynamicCircleBox(
+                                        number = 0
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                }
+                when {
+                    userStatus == "NotPending" -> {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                         ){
-                            Column (
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ){
-                                Text(
-                                    "Play as"
-                                )
-                                Row (
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Start,
-                                    modifier = Modifier
-                                ){
-
-                                    Text(
-                                        "Self",
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier
-                                            .width(width.dp)
-                                            .clip(RoundedCornerShape(25.dp))
-                                            .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
-                                            .background(if (selfSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
-                                            .padding(3.dp)
-                                            .clickable {
-                                                selfSelect = true
-                                                altSelect = false
-                                            }
-                                    )
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text(
-                                        "Someone Else",
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier
-                                            .width(width.dp)
-                                            .clip(RoundedCornerShape(25.dp))
-                                            .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
-                                            .background(if (altSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
-                                            .padding(3.dp)
-                                            .clickable {
-                                                selfSelect = false
-                                                altSelect = true
-                                            }
-                                    )
-
-                                }
-                            }
                             Row(
-                                horizontalArrangement = Arrangement.End,
                                 modifier = Modifier
                                     .fillMaxWidth()
                             ){
-                                if (selfSelect){
-                                    Column(
-                                        horizontalAlignment = Alignment.End,
-                                        modifier = Modifier
-                                            .padding(end = 20.dp)
-                                    ){
-                                        Text(personalProfile.fname,
-                                            fontSize = 10.sp
-                                        )
-                                        Text(personalProfile.age,
-                                            fontSize = 10.sp
-                                        )
-                                    }
-                                    Image(
-                                        painter = rememberAsyncImagePainter(personalProfile.imageUrl),
-                                        contentDescription =null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .size(40.dp)
-                                            .clip(CircleShape)
+                                Column (
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ){
+                                    Text(
+                                        "Play as"
                                     )
-                                }else {
-                                    if (hasAlternateProfile){
+                                    Row (
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Start,
+                                        modifier = Modifier
+                                    ){
+
+                                        Text(
+                                            "Self",
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier
+                                                .width(width.dp)
+                                                .clip(RoundedCornerShape(25.dp))
+                                                .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
+                                                .background(if (selfSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
+                                                .padding(3.dp)
+                                                .clickable {
+                                                    selfSelect = true
+                                                    altSelect = false
+                                                }
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text(
+                                            "Someone Else",
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier
+                                                .width(width.dp)
+                                                .clip(RoundedCornerShape(25.dp))
+                                                .border(2.dp, Color.Black, RoundedCornerShape(25.dp))
+                                                .background(if (altSelect) CRAppTheme.colorScheme.primary else CRAppTheme.colorScheme.background)
+                                                .padding(3.dp)
+                                                .clickable {
+                                                    selfSelect = false
+                                                    altSelect = true
+                                                }
+                                        )
+
+                                    }
+                                }
+                                Row(
+                                    horizontalArrangement = Arrangement.End,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                ){
+                                    if (selfSelect){
                                         Column(
                                             horizontalAlignment = Alignment.End,
                                             modifier = Modifier
                                                 .padding(end = 20.dp)
                                         ){
-                                            Text(alternateProfile.fname,
+                                            Text(personalProfile.fname,
                                                 fontSize = 10.sp
                                             )
-                                            Text(alternateProfile.age,
+                                            Text(personalProfile.age,
                                                 fontSize = 10.sp
                                             )
                                         }
                                         Image(
-                                            painter = rememberAsyncImagePainter(alternateProfile.imageUrl),
+                                            painter = rememberAsyncImagePainter(personalProfile.imageUrl),
                                             contentDescription =null,
                                             contentScale = ContentScale.Crop,
                                             modifier = Modifier
                                                 .size(40.dp)
                                                 .clip(CircleShape)
-                                                .clickable {
-                                                    navController.navigate("signupScreen2/${email}/${password}/true")
-                                                }
                                         )
-                                    } else {
-                                        Column(
-                                            horizontalAlignment = Alignment.End,
-                                            modifier = Modifier
-                                                .padding(end = 20.dp)
-                                        ){
-                                            Text("Create a profile",
-                                                fontSize = 10.sp
-                                            )
-                                            Text("",
-                                                fontSize = 10.sp
-                                            )
-                                        }
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                        ){
-                                            IconButton(onClick = {
-                                                navController.navigate("signupScreen2/${email}/${password}/true")
-
-                                            }) {
-                                                Icon(
-                                                    Icons.Default.PersonAdd,
-                                                    contentDescription = null,
-                                                    modifier = Modifier
-                                                        .fillMaxSize()
+                                    }else {
+                                        if (hasAlternateProfile){
+                                            Column(
+                                                horizontalAlignment = Alignment.End,
+                                                modifier = Modifier
+                                                    .padding(end = 20.dp)
+                                            ){
+                                                Text(alternateProfile.fname,
+                                                    fontSize = 10.sp
+                                                )
+                                                Text(alternateProfile.age,
+                                                    fontSize = 10.sp
                                                 )
                                             }
-                                        }
-                                    }
+                                            Image(
+                                                painter = rememberAsyncImagePainter(alternateProfile.imageUrl),
+                                                contentDescription =null,
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(CircleShape)
+                                                    .clickable {
+                                                        navController.navigate("signupScreen2/${email}/${password}/true")
+                                                    }
+                                            )
+                                        } else {
+                                            Column(
+                                                horizontalAlignment = Alignment.End,
+                                                modifier = Modifier
+                                                    .padding(end = 20.dp)
+                                            ){
+                                                Text("Create a profile",
+                                                    fontSize = 10.sp
+                                                )
+                                                Text("",
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                            ){
+                                                IconButton(onClick = {
+                                                    navController.navigate("signupScreen2/${email}/${password}/true")
 
+                                                }) {
+                                                    Icon(
+                                                        Icons.Default.PersonAdd,
+                                                        contentDescription = null,
+                                                        modifier = Modifier
+                                                            .fillMaxSize()
+                                                    )
+                                                }
+                                            }
+                                        }
+
+                                    }
+                                }
+
+                            }
+                            Row(
+                                verticalAlignment = Alignment.Bottom,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                            ){
+                                Image(
+                                    painter = painterResource(id = R.drawable.account_select_person2),
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f)
+                                        .size(130.dp)
+
+                                )
+                                Button(onClick = {
+                                    val updatedProfile = when {
+                                        selfSelect -> { personalProfile.copy(selectedProfile = "self")}
+                                        altSelect -> { personalProfile.copy(selectedProfile = "alt")}
+                                        else -> { personalProfile}
+                                    }
+                                    val altUpdatedProfile = when {
+                                        selfSelect -> {alternateProfile.copy(selectedProfile = "self")}
+                                        altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
+                                        else -> { alternateProfile}
+                                    }
+                                    viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = updatedProfile, game = false)
+                                    viewModel.saveUserProfile(context = context, userId = currentUser?.uid ?: "", userProfile = altUpdatedProfile, game = true)
+                                    roomCreate.setToPending()
+                                },
+                                    modifier = Modifier
+                                        .padding(5.dp)
+                                ) {
+                                    Text("Play")
                                 }
                             }
 
                         }
-                        Row(
-                            verticalAlignment = Alignment.Bottom,
+                    }
+                    userStatus == "Pending" -> {
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
+                                .fillMaxSize()
                         ){
                             Image(
-                                painter = painterResource(id = R.drawable.account_select_person2),
+                                painter = painterResource(id = R.drawable.waiting),
                                 contentDescription = null,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -382,174 +520,146 @@ fun ChatRiseThumbnail(viewModel: ChatViewModel = viewModel(), roomCreate: RoomCr
                                     .size(130.dp)
 
                             )
-                            Button(onClick = {
-                                val updatedProfile = when {
-                                    selfSelect -> { personalProfile.copy(selectedProfile = "self")}
-                                    altSelect -> { personalProfile.copy(selectedProfile = "alt")}
-                                    else -> { personalProfile}
-                                }
-                                val altUpdatedProfile = when {
-                                    selfSelect -> {alternateProfile.copy(selectedProfile = "self")}
-                                    altSelect -> {alternateProfile.copy(selectedProfile = "alt")}
-                                    else -> { alternateProfile}
-                                }
-                                viewModel.saveUserProfile(userId = currentUserId, userProfile = updatedProfile, game = false)
-                                viewModel.saveUserProfile(userId = currentUserId, userProfile = altUpdatedProfile, game = true)
-                                roomCreate.setToPending()
-                            },
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
                                 modifier = Modifier
-                                    .padding(5.dp)
-                            ) {
-                                Text("Play")
-                            }
-                        }
-
-                    }
-                }
-                userState == "Pending" -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                    ){
-                        Image(
-                            painter = painterResource(id = R.drawable.waiting),
-                            contentDescription = null,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .size(130.dp)
-
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                        ){
-
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
+                                    .fillMaxWidth()
                             ){
+
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ){
+                                    Image(
+                                        painter = when {
+                                            selfSelect -> { rememberAsyncImagePainter(personalProfile.imageUrl)}
+                                            altSelect -> { rememberAsyncImagePainter(alternateProfile.imageUrl)}
+                                            else -> { painterResource(R.drawable.anonymous)}
+                                        },
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                    )
+                                    Text(
+                                        text = when {
+                                            selfSelect -> {personalProfile.fname}
+                                            altSelect -> {alternateProfile.fname}
+                                            else -> { "No Name"}
+
+                                        },
+                                        fontSize = 10.sp
+                                    )
+
+                                }
+
+                                Text(
+                                    "Waiting for\nOthers",
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .padding(start = 5.dp, end = 5.dp)
+                                )
+                                AnimatedDots()
                                 Image(
-                                    painter = when {
-                                        selfSelect -> { rememberAsyncImagePainter(personalProfile.imageUrl)}
-                                        altSelect -> { rememberAsyncImagePainter(alternateProfile.imageUrl)}
-                                        else -> { painterResource(R.drawable.anonymous)}
-                                                   },
+                                    painter = painterResource(id = R.drawable.person_sillouette),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(RoundedCornerShape(10.dp))
+                                        .size(45.dp)
                                 )
-                                Text(
-                                    text = when {
-                                        selfSelect -> {personalProfile.fname}
-                                        altSelect -> {alternateProfile.fname}
-                                        else -> { "No Name"}
-
-                                                },
-                                    fontSize = 10.sp
-                                )
-
                             }
-
-                            Text(
-                                "Waiting for\nOthers",
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier
-                                    .padding(start = 5.dp, end = 5.dp)
-                            )
-                            AnimatedDots()
-                            Image(
-                                painter = painterResource(id = R.drawable.person_sillouette),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier
-                                    .size(45.dp)
-                            )
                         }
                     }
-                }
-                roomReady -> {
-                    val CRRoomId by roomCreate.CRRoomId.collectAsState()
-                    Column(
-                        verticalArrangement = Arrangement.Bottom,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable {
-                                navController.navigate("mainScreen/$CRRoomId")
+                    roomReady -> {
+                        if (crRoomId != "0"){
+                            crRoomId?.let { crRoomId ->
+                                Column(
+                                    verticalArrangement = Arrangement.Bottom,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable {
+                                            navController.navigate("mainScreen/$crRoomId")
+                                        }
+                                ) {
+
+                                    when{
+                                        alertChange -> {
+                                            Column(
+                                                verticalArrangement = Arrangement.Center,
+                                                horizontalAlignment = Alignment.CenterHorizontally,
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                            ){
+                                                Text("Alert!",
+                                                    style = CRAppTheme.typography.H6,
+                                                    color = Color.Red
+                                                    )
+                                            }
+                                        }
+                                        gameInfo != null && userDoneAnswering == false -> {
+                                            gameInfo?.let { game ->
+                                                Row(
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                ){
+                                                    Text(
+                                                        "You Must Complete\n\n${game.title}",
+                                                        style = CRAppTheme.typography.H3,
+                                                        color = Color.Black,
+                                                        textAlign = TextAlign.Center
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        usersAlertType == AlertType.top_discuss.string && isTopPlayer -> {
+                                            TopPlayersPreviewLazyColumn(crRoomId)
+                                        }
+                                        else -> {
+                                            ChatMainPreviewLazyColumn(
+                                                crRoomId = crRoomId,
+                                                roomId = crRoomId
+                                            )
+                                        }
+                                    }
+                                }
                             }
-                    ) {
-                        Text("RoomId is: $CRRoomId")
-                        Row (
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                        ){
-                            Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Hey all! Besides the gym, I'm big into hiking and mountain biking. Anyone else here into outdoor stuff?",
-                                style = CRAppTheme.typography.bodySmall
-                            )
-                        }
-                        Row (
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                        ){
-                            Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = "Nice. I love hikiing too! I'm also really into cooking, especially trying to make healthy versions of comfort foods. Any foodies here?",
-                                style = CRAppTheme.typography.bodySmall
-                            )
-                        }
-                        Row (
-                            verticalAlignment = Alignment.Top,
-                            horizontalArrangement = Arrangement.Start,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(5.dp)
-                        ){
-                            Image(
-                                painter = painterResource(id = R.drawable.cool_neon),
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(text = "For sure! I'm more of a runner and a swimmer, but I love trying new recipes. Trying to get into yogo lately, too. What got you guys into your hobbies?",
-                                style = CRAppTheme.typography.bodySmall
-                            )
                         }
                     }
+                    else -> {
+                        Text("Nothing Selected")
+                    }
                 }
-                else -> {
-                    Text("Nothing Selected")
-                }
-
-
             }
         }
+    }
+}
+@Composable
+fun ThumbnailChatList(image: String, message: ChatMessage, isFromMe: Boolean){
+    Row (
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(5.dp)
+    ){
+        if (!isFromMe){
+            Image(
+                painter = rememberAsyncImagePainter(image),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(text = message.message,
+            style = CRAppTheme.typography.bodyLarge
+        )
     }
 }
 @Composable
@@ -577,9 +687,7 @@ fun DynamicCircleBox(number: Int) {
     }
 }
 @Composable
-fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, imageUrls: List<String>) {
-
-
+fun PrivateGroupPicThumbnail(game: Boolean, memberCount: Int, imageUrls: List<String>) {
 
     val displayPics = when {
         memberCount == 2 -> 1
@@ -598,27 +706,6 @@ fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, im
             .padding(6.dp)
             .size(boxWidth)
     ) {
-
-        /*for (i in 0 until displayPics){
-            if (i < imageUrls.size){
-                Image(
-                    rememberAsyncImagePainter(imageUrls[i]),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(imageSize)
-                        .offset(
-                            x = (i * overlapOffset.value).dp, y = if (memberCount >= 3) {
-                                0.dp
-                            } else {
-                                0.dp
-                            }
-                        )
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }*/
-
         imageUrls.take(5).forEachIndexed { index, url ->
             Image(
                 painter = rememberAsyncImagePainter(url),
@@ -655,141 +742,6 @@ fun PrivateGroupPicThumbnail(game: Boolean, room: ChatRoom, memberCount: Int, im
     }
 }
 @Composable
-fun RoomRow(members: Int, title: String, who: String, message: String, time: String, unread: Int, game: Boolean, navController: NavController) {
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 5.dp, bottom = 5.dp)
-            .clickable {
-                if (game) {
-                    navController.navigate("chatScreen/true")
-                } else {
-                    navController.navigate("chatScreen/false")
-                }
-            }
-    ){
-        Row (
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start,
-            modifier = Modifier
-                .fillMaxWidth()
-        ){
-            //PrivateGroupPicThumbnail(game, memberCount = members)
-            Spacer(modifier = Modifier.width(3.dp))
-            Column (
-                verticalArrangement = Arrangement.Top,
-                modifier = Modifier
-                    .fillMaxWidth()
-            ){
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp)
-                ){
-                    if (members <= 2){
-                        Text(
-                            who,
-                            style = CRAppTheme.typography.titleMedium,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                        )
-                    } else {
-                        Text(
-                            title,
-                            style = CRAppTheme.typography.titleMedium,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                        )
-                    }
-                    if (!game){
-                        Text(
-                            "10/12",
-                            style = CRAppTheme.typography.infoMedium,
-                            color = if (game) Color.White else Color.Black,
-                        )
-                        if (members >= 2){
-                            Text(
-                                time,
-                                style = CRAppTheme.typography.infoMedium,
-                                color = if (game) Color.White else Color.Black,
-                                modifier = Modifier
-                                    .padding(start = 10.dp, end = 5.dp)
-                            )
-                        }
-                    }
-                }
-                if (members >= 2){
-
-                } else {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Start,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 5.dp)
-                    ){
-                        Image(
-                            painter = painterResource(id = R.drawable.cool_neon),
-                            contentDescription =null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .size(25.dp)
-                                .clip(CircleShape)
-                        )
-
-                        Text(
-                            who,
-                            style = CRAppTheme.typography.bodyLarge,
-                            color = if (game) Color.White else Color.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 5.dp)
-                        )
-                        if (!game){
-                            Text(
-                                "$time",
-                                style = CRAppTheme.typography.infoMedium,
-                                color = if (game) Color.White else Color.Black,
-                                modifier = Modifier
-                                    .padding(end = 5.dp)
-                            )
-                        }
-                    }
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 5.dp)
-                ){
-                    Text(
-                        "$message",
-                        style = CRAppTheme.typography.bodySmall,
-                        color = if (game) Color.White else Color.Black,
-                        maxLines = 3,
-                        modifier = Modifier
-                            .weight(1f)
-                    )
-                    DynamicCircleBox(number = unread)
-                }
-            }
-        }
-        Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
-    }
-}
-@Composable
 fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCount: Int, onClick: () -> Unit) {
 
     val lastReplyImage = room.lastProfile
@@ -798,12 +750,17 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
     /*val otherUserProfile by produceState<UserProfile?>(initialValue = null, key1 = otherUserIds){
         value = otherUserIds.let { fetchUserProfile(it) }
     }*/
-    val otherUserProfiles by produceState<List<UserProfile>>(initialValue = emptyList(), key1 = otherUserIds) {
+    val otherUserProfiles by produceState(initialValue = emptyList(), key1 = otherUserIds) {
         value = otherUserIds.mapNotNull { fetchUserProfile(it) }
     }
-    val imageUrls = otherUserProfiles.mapNotNull { it.imageUrl }
+    val imageUrls = otherUserProfiles.map { it.imageUrl }
     //val theirImage = otherUserProfile?.imageUrl
-    val theirName = otherUserProfiles.joinToString(", ") { "${it.fname} ${it.lname}" }
+    val theirName = if (game) {
+        otherUserProfiles.firstOrNull()?.fname ?: ""
+    }else {
+        otherUserProfiles.joinToString (", ") { "${it.fname} ${it.lname}"}
+    }
+    //val theirName = otherUserProfiles.joinToString(", ") { if(game) "$it.fname" else "${it.fname} ${it.lname}" }
 
 
 
@@ -821,7 +778,6 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
         ){
             PrivateGroupPicThumbnail(
                 game = game,
-                room = room,
                 memberCount = membersCount,
                 imageUrls = imageUrls
                 )
@@ -907,7 +863,7 @@ fun RoomSelectionView(game: Boolean, room: ChatRoom, membersCount: Int, replyCou
                 }
             }
         }
-        Divider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
+        HorizontalDivider(modifier = Modifier.padding(top = 10.dp, start = 15.dp, end = 15.dp))
     }
 }
 @Composable
@@ -921,7 +877,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
         "null" to Icons.Default.Menu,
         "null" to Icons.Default.ImageAspectRatio
     )
-    var selectedTabindex by remember { mutableStateOf(1)}
+    var selectedTabindex by remember { mutableIntStateOf(1) }
 
     Column(
         verticalArrangement = Arrangement.Top,
@@ -947,7 +903,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
                 navController.popBackStack()
             }) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Default.ArrowBack,
                     contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier
@@ -1076,7 +1032,7 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
             }) {
                 Icon(
-                    imageVector = Icons.Default.List,
+                    imageVector = Icons.AutoMirrored.Default.List,
                     contentDescription = null,
                     tint = Color.White
                 )
@@ -1096,8 +1052,11 @@ fun MainTopAppBar(title: String, action: Boolean, actionIcon: ImageVector, onAct
 
 @Composable
 fun ChatRiseTopBar(
+    crRoomId: String,
     profile: UserProfile,
     onClick: () -> Unit,
+    backEnabled: Boolean = true,
+    drawerEnabled: Boolean = true,
     onAction: () -> Unit,
     showTopBarInfo: Boolean,
     navController: NavController
@@ -1109,21 +1068,19 @@ fun ChatRiseTopBar(
     ) {
         TopBar(
             onClick = {onClick()},
+            backEnabled = backEnabled,
+            drawerEnabled = drawerEnabled,
             onAction = {onAction()},
             navController = navController)
 
         if (showTopBarInfo){
-            TopBarInformation(profile = profile)
+            TopBarInformation(crRoomId = crRoomId, profile = profile)
         }
     }
 }
 
 @Composable
-fun TopBar(
-    onClick: () -> Unit,
-    onAction: () -> Unit,
-    navController: NavController
-){
+fun TopBar(onClick: () -> Unit, onAction: () -> Unit, backEnabled: Boolean = true, drawerEnabled: Boolean = true, navController: NavController){
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1132,12 +1089,16 @@ fun TopBar(
             .fillMaxWidth()
     ){
         IconButton(onClick = {
-            navController.popBackStack()
+            if (backEnabled){
+                navController.navigate("roomSelect"){
+                    popUpTo(0){inclusive = true}
+                }
+            }
         }) {
             Icon(
-                imageVector = Icons.Default.ArrowBack,
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = null,
-                tint = Color.White,
+                tint = if(backEnabled) Color.White else Color.Gray,
                 modifier = Modifier
                     .size(35.dp)
             )
@@ -1150,23 +1111,45 @@ fun TopBar(
             modifier = Modifier
                 .clickable { onClick() }
         )
-
-        IconButton(onClick = {onAction()}){
-            Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .size(35.dp)
+        if (drawerEnabled){
+            IconButton(onClick = {onAction()}){
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier
+                        .size(35.dp)
+                )
+            }
+        }else {
+            Text(
+                ""
             )
         }
     }
 }
 @Composable
-fun TopBarInformation(
-    profile: UserProfile
-){
+fun TopBarInformation(crRoomId: String, profile: UserProfile, viewModel: ChatViewModel = viewModel()){
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     val pad = 15
+
+    val currentRank by crViewModel.currentRank.collectAsState()
+    val mainRoomInfo by crViewModel.mainRoomInfo.collectAsState()
+    val timeElapsed = calculateRoomElapsedTime(mainRoomInfo.createdAt)
+
+
+    LaunchedEffect(profile, crRoomId){
+        crViewModel.getUserRank(crRoomId)
+        crViewModel.getMainRoomInfo(crRoomId)
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1200,37 +1183,41 @@ fun TopBarInformation(
                 .fillMaxWidth()
         ) {
             Text(
-                "Rating: 1",
+                "Rating: $currentRank",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
             )
             Text(
-                "Chat Info: ",
+                "Week: ${timeElapsed["week"]}",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
             )
             Text(
-                "Chat Info: ",
+                "Day: ${timeElapsed["day"]}",
                 style = CRAppTheme.typography.infoMedium,
                 color = Color.White,
                 modifier = Modifier
                     .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
             )
+            Text(
+                "Total Days: ${timeElapsed["total"]}",
+                style = CRAppTheme.typography.infoMedium,
+                color = Color.White,
+                modifier = Modifier
+                    .padding(start = pad.dp, end = pad.dp, bottom = pad.dp)
+            )
+
 
         }
     }
 
 }
 @Composable
-fun NavigationRow(
-    tabs: List<Pair<String, ImageVector>>,
-    selectedTabIndex: Int,
-    onTabSelected: (Int) -> Unit
-) {
+fun NavigationRow(tabs: List<Pair<String, ImageVector>>, selectedTabIndex: Int, onTabSelected: (Int) -> Unit, disabledTabIndices: List<Int> = emptyList()) {
     val selectedColor = Color.White
     val unselectedColor = Color.Gray
 
@@ -1239,7 +1226,7 @@ fun NavigationRow(
         containerColor = CRAppTheme.colorScheme.gameBackground,
         contentColor = selectedColor,
         indicator = { tabPositions ->
-            TabRowDefaults.Indicator(
+            SecondaryIndicator(
                 Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                 color = selectedColor
             )
@@ -1247,40 +1234,58 @@ fun NavigationRow(
     ) {
         tabs.forEachIndexed { index, tab ->
             val (title, icon) = tab
+            val isDisabled = index in disabledTabIndices
+
             Tab(
                 selected = selectedTabIndex == index,
-                onClick = { onTabSelected(index) },
-                icon = {
+                onClick = {
+                    if (!isDisabled){
+                        onTabSelected(index)
+                    }
+                          },
+                enabled = !isDisabled,
+                /*icon = {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
                         tint = if (selectedTabIndex == index) selectedColor else unselectedColor
                     )
+                }*/
+            ){
+                Box{
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = if (selectedTabIndex == index) selectedColor else unselectedColor,
+                        modifier = Modifier
+                            .size(28.dp)
+                    )
+                    if (isDisabled){
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .size(28.dp)
+                        )
+                    }
                 }
-            )
+            }
         }
     }
 }
-
-
-
-
-
-
-
-
 @Composable
-fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
+fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, reset: () -> Unit, modifier: Modifier = Modifier, drawerState: DrawerState = rememberDrawerState(
         DrawerValue.Closed
     ), content: @Composable () -> Unit) {
     val scope = rememberCoroutineScope()
-    val drawerWidth = 285.dp // Adjust the width as needed
+    val drawerWidth = 350.dp // Adjust the width as needed
     val drawerWidthPx = with(LocalDensity.current) { drawerWidth.toPx() }
-    val closedOffsetX = drawerWidthPx
     val openOffsetX = 0f
 
     val offsetX by animateFloatAsState(
-        targetValue = if (drawerState.isOpen) openOffsetX else closedOffsetX
+        targetValue = if (drawerState.isOpen) openOffsetX else drawerWidthPx, label = ""
     )
 
     Box(
@@ -1296,6 +1301,7 @@ fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifi
                     .clickable {
                         scope.launch {
                             drawerState.close()
+                            reset()
                         }
                     }
             )
@@ -1306,21 +1312,43 @@ fun RightSideModalDrawer(drawerContent: @Composable () -> Unit, modifier: Modifi
                 .offset { IntOffset(offsetX.toInt(), 0) }
                 .fillMaxHeight()
                 .width(drawerWidth)
-                .background(darkPurple.copy(alpha = .8f))
+                .background(CRAppTheme.colorScheme.onGameBackground.copy(alpha = .9f))
                 .border(
                     2.dp,
                     if (drawerState.isOpen) CRAppTheme.colorScheme.highlight else Color.Transparent
                 )
-                .padding(8.dp)
+                //.padding(8.dp)
         ) {
             drawerContent()
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navController: NavController, modifier: Modifier = Modifier) {
+fun PrivateDrawerRoomList(crRoomId: String, onInvite: () -> Unit, viewModel: ChatViewModel = viewModel(), navController: NavController) {
+
+    // Create SharedPreferences
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("MyPreferences", Context.MODE_PRIVATE)
+
+    // Initialize ChatRiseViewModel with the factory
+    val crViewModel: ChatRiseViewModel = viewModel(
+        factory = ChatRiseViewModelFactory(sharedPreferences, viewModel)
+    )
+
     var searchChats by remember{ mutableStateOf("") }
+
+    LaunchedEffect(crRoomId){
+        viewModel.fetchAllRiserRooms(crRoomId = crRoomId)
+    }
+
+
+    val chatRooms by viewModel.allRiserRooms.collectAsState()
+    val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp}
+    val unreadMessageCount by viewModel.unreadCRMessageCount.collectAsState()
+
+    LaunchedEffect(Unit){
+        viewModel.fetchCRUnreadMessageCount(crRoomId)
+    }
 
 
 
@@ -1333,18 +1361,18 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
             modifier = Modifier
                 .fillMaxWidth()
         ){
-            IconButton(onClick = { navController.navigate("inviteScreen/true")}) {
+            IconButton(onClick = { onInvite()}) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = null,
                     tint = Color.White,
-                    modifier = modifier
+                    modifier = Modifier
                         .size(35.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(200.dp))
+        Spacer(modifier = Modifier.height(50.dp))
 
         Text(
             "Conversations",
@@ -1368,8 +1396,9 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
 
             )
             },
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = CRAppTheme.colorScheme.onGameBackground,
+            colors = TextFieldDefaults.colors(
+                unfocusedContainerColor = CRAppTheme.colorScheme.onGameBackground,
+                focusedContainerColor = CRAppTheme.colorScheme.onGameBackground,
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent
             ),
@@ -1399,56 +1428,34 @@ fun PrivateDrawerRoomList(onTap: () -> Unit, onLongPress: () -> Unit, navControl
 
 
         }
-        Divider(modifier = Modifier.padding(bottom = 20.dp))
-        RoomRow(
-            members = 13,
-            title = "Coffee and Conversations",
-            who = "Hunter D",
-            message = "Perfect for early birds and night owls looking for warm vibes and meaningful exchanges.",
-            time = " 6:20pm",
-            unread = 7,
-            game = true,
-            navController = navController
-        )
-        RoomRow(
-            members = 3,
-            title = "Fitness Frenzy",
-            who = "Kayla D",
-            message = "Motivation central for gym-goers, runners, and yoga enthusiasts alike. Get your daily dose of workout tips, recipes, and accountability buddies!",
-            time = " 6:20pm",
-            unread = 2,
-            game = true,
-            navController = navController
-        )
-        RoomRow(
-            members = 2,
-            title = "Movie Buffs",
-            who = "John L",
-            message = "Just saw the latest thriller - the plot twist was insane!",
-            time = " 6:20pm",
-            unread = 1,
-            game = true,
-            navController = navController
-        )
-        RoomRow(
-            members = 4,
-            title = "Tech Talkers",
-            who = "Bill K",
-            message = "A geek's paradise for discussions on the latest gadgets, coding hacks, and tech trends.",
-            time = " 6:20pm",
-            unread = 701,
-            game = true,
-            navController = navController
-        )
+        HorizontalDivider(modifier = Modifier.padding(bottom = 20.dp))
+
+        LazyColumn (
+            modifier = Modifier
+                .fillMaxSize()
+        ){
+            items(allRooms){ room ->
+                RoomSelectionView(
+                    game = true,
+                    room = room,
+                    membersCount = room.members.size,
+                    replyCount = unreadMessageCount[room.roomId] ?: 0,
+                    onClick = {
+                        viewModel.updateLastCRSeenTimestamp(crRoomId, room.roomId)
+                        navController.navigate("chatScreen/${crRoomId}/${room.roomId}/true/false")
+                    }
+                )
+            }
+        }
 
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
+
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, game: Boolean, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
+    val context = LocalContext.current
     val userId = userProfile.userId
-    val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
     var editFname by remember { mutableStateOf(userProfile.fname)}
     var editLname by remember { mutableStateOf(userProfile.lname)}
     var editAbout by remember{ mutableStateOf(userProfile.about)}
@@ -1462,14 +1469,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
     val randomDay = rndDay.random()
     var editAge by remember { mutableStateOf(userProfile.age)}
     var editLocation by remember { mutableStateOf(userProfile.location)}
-    val context = LocalContext.current
-    var ImageUri by remember { mutableStateOf<Uri?>(null) }
-    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        ImageUri = uri
-        byteArray = uri?.uriToByteArray(context)
-    }
     var editInfo by remember { mutableStateOf(userData)}
 
     var currentPassword by remember{ mutableStateOf("")}
@@ -1501,10 +1501,10 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
         }
     }
     if (edit == "Gender"){
-        if (userProfile.gender != "Man" && userProfile.gender != "Woman"){
-            editInfo = userProfile.gender
+        editInfo = if (userProfile.gender != "Man" && userProfile.gender != "Woman"){
+            userProfile.gender
         }else{
-            editInfo = ""
+            ""
         }
     }
 
@@ -1605,22 +1605,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = currentPassword,
                           onValueChange = {currentPassword = it},
                           placeholder = {Text("Current Password")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1631,22 +1630,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = newPassword,
                           onValueChange = {newPassword = it},
                           placeholder = {Text("New password")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1657,22 +1655,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = editInfo,
                           onValueChange = {editInfo = it},
                           placeholder = {Text("Re-type new password")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1691,8 +1688,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                           value = editFname,
                           onValueChange = {editFname = it},
                           placeholder = {Text("First Name")},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
@@ -1720,8 +1718,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                               value = editLname,
                               onValueChange = {editLname = it},
                               placeholder = {Text("Last Name")},
-                              colors = TextFieldDefaults.textFieldColors(
-                                  containerColor = Color.White,
+                              colors = TextFieldDefaults.colors(
+                                  unfocusedContainerColor = Color.White,
+                                  focusedContainerColor = Color.White,
                                   focusedIndicatorColor = Color.Transparent,
                                   unfocusedIndicatorColor = Color.Transparent
                               ),
@@ -1756,22 +1755,21 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                   }
 
                               )},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
                           trailingIcon = {
-                              if (edit == "Password") {
-                                  IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                      Icon(
-                                          imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
-                                          contentDescription = if (passwordVisible) "Hide password" else "Show password"
-                                      )
-                                  }
+                              IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                  Icon(
+                                      imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Default.VisibilityOff,
+                                      contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                                  )
                               }
                           },
-                          visualTransformation = if (edit == "Password" && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+                          visualTransformation = if (!passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
                           modifier = Modifier
                               .fillMaxWidth()
                               .border(2.dp, Color.LightGray, RoundedCornerShape(8.dp))
@@ -1788,8 +1786,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                       TextField(
                           value = editAbout,
                           onValueChange = {editAbout = it},
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
@@ -1817,8 +1816,9 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                           }
                           },
                           maxLines = 1,
-                          colors = TextFieldDefaults.textFieldColors(
-                              containerColor = Color.White,
+                          colors = TextFieldDefaults.colors(
+                              unfocusedContainerColor = Color.White,
+                              focusedContainerColor = Color.White,
                               focusedIndicatorColor = Color.Transparent,
                               unfocusedIndicatorColor = Color.Transparent
                           ),
@@ -1856,14 +1856,14 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                   }
                   Button(
                       onClick = {
-                          if (editInfo.isNotEmpty()){
-                              editInfo = when {
+                          editInfo = if (editInfo.isNotEmpty()){
+                              when {
                                   manSelect -> "Man"
                                   womanSelect -> "Woman"
                                   otherSelect -> editInfo
                                   else -> "Non Binary"
                               }
-                          } else editInfo = "Not Specified"
+                          } else "Not Specified"
                           val saveChangedProfile = when (edit) {
                               "Name" -> {
                                   userProfile.copy(fname = editFname, lname = editLname)
@@ -1872,7 +1872,7 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                   userProfile.copy(about = editAbout)
                               }
                               "Gender" -> {
-                                  if (otherSelect == true){
+                                  if (otherSelect){
                                       if (editInfo == ""){
                                           editInfo = "Non Binary"
                                           userProfile.copy(gender = editInfo)
@@ -1902,15 +1902,15 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
                                       editAge = "18"
                                   }
                                   val pickedYear = calculateAgeToDate(editAge.toInt())
-                                  val Dob = DateOfBirth(month = randomMonth, day = randomDay, year = pickedYear)
+                                  val dob = DateOfBirth(month = randomMonth, day = randomDay, year = pickedYear)
                                   userProfile.copy(
                                       age = editAge,
-                                      dob = Dob
+                                      dob = dob
                                   )
                               }
                               else -> { userProfile }
                           }
-                          viewModel.saveUserProfile(userId = userId, userProfile = saveChangedProfile, game = game)
+                          viewModel.saveUserProfile(context = context, userId = userId, userProfile = saveChangedProfile, game = game)
                           onDismiss()
 
                       },
@@ -1924,56 +1924,10 @@ fun EditInfoDialog(edit: String, userData: String, userProfile: UserProfile, gam
         }
     }
 }
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditFirstNameDialog(userProfile: UserProfile, onDismiss: () -> Unit, viewModel: ChatViewModel = viewModel()) {
-    val userId = userProfile.userId
-    var editfName by remember { mutableStateOf(userProfile.fname) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    val updatedProfile = userProfile.copy(fname = editfName)
-                    viewModel.saveUserProfile(userId, updatedProfile, false)
-                    onDismiss()
-                }
-            ) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        },
-        title = { Text("Edit First Name") },
-        text = {
-            Column {
-                Text("Enter your new first name:")
-                Spacer(modifier = Modifier.height(8.dp))
-                TextField(
-                    value = editfName,
-                    onValueChange = { editfName = it },
-                    placeholder = { Text("First Name") }
-                )
-            }
-        }
-    )
-}
-@Composable
-fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, imagePic: Int? = null, extraChoice: Boolean = false, onClick: () -> Unit, Select: Boolean = false, Bio: Boolean = false, Edit: Boolean = false, editClick: Boolean = true, Image: Boolean = false, viewModel: ChatViewModel = viewModel()) {
-    val context = LocalContext.current
-    var ImageUri by remember { mutableStateOf<Uri?>(null) }
-    var byteArray by remember { mutableStateOf<ByteArray?>(null)}
-
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        ImageUri = uri
-        byteArray = uri?.uriToByteArray(context)
-    }
+fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? = null, contentDescription: String? = null, title: String, body: String = "", secondBody: String = "", arrow: Boolean = false, extraChoice: Boolean = false, onClick: () -> Unit, select: Boolean = false, bio: Boolean = false, edit: Boolean = false, editClick: Boolean = true, image: Boolean = false) {
     when {
-        Select -> {
+        select -> {
             Column (
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2002,7 +1956,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
                     )
                     if (arrow){
                         Icon(
-                            Icons.Default.ArrowForward,
+                            Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null
                         )
                     }
@@ -2018,8 +1972,8 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
                 }
             }
         }
-        Bio -> {
-            Divider()
+        bio -> {
+            HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 10.dp))
             Column(
                 modifier = Modifier
@@ -2055,8 +2009,8 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
                 )
             }
         }
-        Edit -> {
-            Divider()
+        edit -> {
+            HorizontalDivider()
             Spacer(modifier = Modifier.padding(top = 10.dp))
             Column(
                 modifier = Modifier
@@ -2127,7 +2081,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
 
 
 
-        Image -> {
+        image -> {
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
@@ -2185,6 +2139,7 @@ fun SettingsInfoRow(game: Boolean = false, amount: Int = 1, icon: ImageVector? =
 
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = false, age: Boolean = false, game: Boolean, viewModel: ChatViewModel = viewModel(), onOptionSelected: (String) -> Unit) {
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -2199,7 +2154,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
         else -> "Select"
     }
     val default =
-        if (personalProfile.fname.isNullOrBlank()){
+        if (personalProfile.fname.isBlank()){
             ""
         } else {
             when {
@@ -2210,7 +2165,7 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
             }
         }
     val ageTitle =
-        if (alternateProfile.fname.isNullOrBlank()){
+        if (alternateProfile.fname.isBlank()){
             "18"
         } else {
             alternateProfile.age
@@ -2288,27 +2243,6 @@ fun DateDropDown(month: Boolean = false, day: Boolean = false, year: Boolean = f
     }
 }
 @Composable
-fun ExtraChoice(title1: String, onClick: () -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.End,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(10.dp)
-            .clickable { onClick() }
-    ){
-        Text(
-            title1,
-            fontSize = 18.sp,
-            modifier = Modifier
-                .padding(end = 50.dp)
-        )
-        Icon(
-            Icons.Default.ArrowForwardIos,
-            contentDescription = null
-        )
-    }
-}
-@Composable
 fun AnimatedDots(dotCount: Int = 4) {
     var currentDots by remember { mutableStateOf("") }
 
@@ -2329,7 +2263,7 @@ fun AnimatedDots(dotCount: Int = 4) {
     )
 }
 @Composable
-fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, descriptionText: String = "Jocely Jackson", state: String = RowState.none.string, game: Boolean) {
+fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, descriptionText: String = "Jocely Jackson", state: String = RowState.None.string, game: Boolean) {
 
     var isSelected by remember { mutableStateOf(false)}
 
@@ -2339,7 +2273,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
             .fillMaxWidth()
             .padding(10.dp)
             .clickable {
-                if (state == RowState.check.string) {
+                if (state == RowState.Check.string) {
                     onUserSelected(user)
                     isSelected = !isSelected
                 }
@@ -2365,7 +2299,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
                 modifier = Modifier
                     .padding(start = 10.dp)
             )
-            if (state == RowState.follow.string){
+            if (state == RowState.Follow.string){
                 Text(
                     descriptionText,
                     modifier = Modifier
@@ -2374,7 +2308,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
             }
         }
         when (state){
-            RowState.follow.string -> {
+            RowState.Follow.string -> {
                 Text(
                     "Follow back",
                     modifier = Modifier
@@ -2389,7 +2323,7 @@ fun FriendInfoRow(user: UserProfile, onUserSelected: (UserProfile) -> Unit, desc
                         .padding(start = 10.dp)
                 )
             }
-            RowState.check.string -> {
+            RowState.Check.string -> {
                 Checkbox(
                     checked = isSelected,
                     onCheckedChange = { isSelected = it},

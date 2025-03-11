@@ -113,6 +113,16 @@ private val CRtypography = AppTypography(
         fontWeight = FontWeight.Bold,
         letterSpacing = 2.sp
     ),
+    H6 = TextStyle(
+        fontSize = 65.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 2.sp
+    ),
+    H7 = TextStyle(
+        fontSize = 127.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 2.sp
+    ),
     T1 = TextStyle(
         fontSize = 11.sp,
         fontWeight = FontWeight.SemiBold

@@ -1,6 +1,6 @@
 package com.example.chatterplay.screens
 
-import android.content.res.Configuration
+import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,15 +17,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoStories
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Divider
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalDrawerSheet
@@ -33,13 +33,14 @@ import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,13 +50,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.R
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.seperate_composables.ChatRiseThumbnail
 import com.example.chatterplay.seperate_composables.RoomSelectionView
 import com.example.chatterplay.ui.theme.CRAppTheme
@@ -65,18 +68,41 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = viewModel()) {
+fun MainRoomSelect(
+    navController: NavController,
+    viewModel: ChatViewModel = viewModel()
+) {
 
 
     val chatRooms by viewModel.allChatRooms.collectAsState()
-    val allRooms = chatRooms.sortedByDescending { it.lastMessageTimestamp }
-    val userProfile by viewModel.userProfile.collectAsState()
+    val allRooms = chatRooms.sortedBy { it.lastMessageTimestamp }
+    //val userProfile by viewModel.userProfile.collectAsState()
     val unreadMessageCount by viewModel.unreadMessageCount.collectAsState()
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
 
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     var search by remember { mutableStateOf("")}
+
+    val filteredRooms by remember(search, chatRooms) {
+        derivedStateOf {
+            chatRooms.filter { it.roomName.contains(search, ignoreCase = true) }
+        }
+    }
+
+
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "RoomSelectScreen")
+            putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "RoomSelectScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("RoomSelectionScreen"))
 
 
     ModalNavigationDrawer(
@@ -95,14 +121,14 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                             drawerState.close()
                         }
                     }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                        Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = null)
                     }
                     IconButton(onClick = {navController.navigate("settingsScreen")}) {
                         Icon(Icons.Default.Settings, contentDescription = null)
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
                 Spacer(modifier = Modifier.height(20.dp))
                 NavigationDrawerItem(
                     label = {
@@ -129,6 +155,16 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                            Icons.Default.AutoStories
                     },
                     onClick = {
+
+                        coroutineScope.launch {
+                            // Log the logout event
+                            val params = Bundle().apply {
+                                putString("user_id", userId)
+                                putString("login_method", "email") // Change as needed for other methods
+                            }
+                            AnalyticsManager.getInstance(context).logEvent("user_logout", params)
+                        }
+
                         FirebaseAuth.getInstance().signOut()
                         navController.navigate("loginScreen") {
                             popUpTo(0)
@@ -163,8 +199,8 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                     },
                     actions = {
                         IconButton(onClick = {
-                            val CRRoomId = "0"
-                            navController.navigate("inviteScreen/$CRRoomId/false")
+                            val crRoomId = "0"
+                            navController.navigate("inviteScreen/$crRoomId/false")
                         }) {
                             Icon(
                                 Icons.Default.Add,
@@ -175,17 +211,16 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                     }
                 )
             },
-            content = {PaddingValues ->
+            content = {paddingValues ->
                 Column (
                     modifier = Modifier
                         .fillMaxSize()
                         .background(CRAppTheme.colorScheme.background)
-                        .padding(PaddingValues)
+                        .padding(paddingValues)
                 ){
                     Spacer(modifier = Modifier.height(10.dp))
-                    //ChatRiseThumbnail(navController = navController)
                     ChatRiseThumbnail(navController = navController)
-                    Divider()
+                    HorizontalDivider()
                     Text(
                         "Conversations",
                         style = CRAppTheme.typography.headingMedium,
@@ -202,6 +237,9 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                             .padding(start = 10.dp, end = 10.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
+
+                    // possible sort by and filter
+                    /*
                     Row (
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -213,6 +251,8 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         Text("Filter")
 
                     }
+
+                     */
                     Spacer(modifier = Modifier.height(20.dp))
 
 
@@ -220,19 +260,18 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
                         modifier = Modifier
                             .fillMaxSize()
                     ){
-                        items(allRooms){ room ->
-                            userProfile?.let { profile ->
-                                val CRRoomId = "0"
-                                RoomSelectionView(
-                                    game = false,
-                                    room = room,
-                                    membersCount = room.members.size,
-                                    replyCount = /*unreadMessageCount[room.roomId] ?: 0,*/ 50,
-                                    onClick = {
-                                        navController.navigate("chatScreen/${CRRoomId}/${room.roomId}/false")
-                                    }
-                                )
-                            }
+                        items(filteredRooms){ room ->
+                            val crRoomId = "0"
+                            RoomSelectionView(
+                                game = false,
+                                room = room,
+                                membersCount = room.members.size,
+                                replyCount = unreadMessageCount[room.roomId] ?: 0,
+                                onClick = {
+                                    viewModel.updateLastSeenTimestamp(room.roomId)
+                                    navController.navigate("chatScreen/${crRoomId}/${room.roomId}/false/false")
+                                }
+                            )
                         }
                     }
 
@@ -242,14 +281,4 @@ fun MainRoomSelect(navController: NavController, viewModel: ChatViewModel = view
         )
     }
 
-}
-
-@Preview(uiMode = Configuration.UI_MODE_NIGHT_NO, name = "Light Mode", showBackground = true)
-@Composable
-fun ThemeRoomSelect() {
-    CRAppTheme () {
-        Surface {
-            MainRoomSelect(navController = rememberNavController())
-        }
-    }
 }

@@ -1,6 +1,6 @@
 package com.example.chatterplay.screens
 
-import android.content.res.Configuration
+import android.os.Bundle
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,18 +17,17 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -38,30 +37,31 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
 import com.example.chatterplay.R
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.seperate_composables.MainTopAppBar
 import com.example.chatterplay.seperate_composables.rememberProfileState
 import com.example.chatterplay.ui.theme.CRAppTheme
-import com.example.chatterplay.ui.theme.customPurple
 import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -74,15 +74,9 @@ fun ProfileScreen(
     navController: NavController
 ) {
 
-    val context = LocalContext.current
-
     val (personalProfile, alternateProfile) = rememberProfileState(userId = userId, viewModel)
-
-
-
-    var selectedGame = game
     val tabs = listOf("Personal", "Alternate")
-    var selectedTabIndex by remember { mutableStateOf(0)}
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
     var expand by remember { mutableStateOf(true)}
     val Clicked = if (expand) 550.dp else 250.dp
     var notes by remember { mutableStateOf("")}
@@ -90,8 +84,23 @@ fun ProfileScreen(
 
     
     LaunchedEffect(Unit) {
-        viewModel.getUserProfile(userId = userId)
+        viewModel.fetchUserProfile(userId = userId)
     }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "ProfileScreen")
+            putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "ProfileScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ProfileScreen"))
+
 
     Scaffold(
         topBar = {
@@ -105,7 +114,7 @@ fun ProfileScreen(
                     navigationIcon = {
                         IconButton(onClick = {navController.popBackStack()}) {
                             Icon(
-                                Icons.Default.ArrowBack,
+                                Icons.AutoMirrored.Default.ArrowBack,
                                 contentDescription = null,
                                 Modifier
                                     .size(35.dp)
@@ -121,9 +130,6 @@ fun ProfileScreen(
                                     modifier = Modifier.size(35.dp)
                                 )
                             }
-                        }
-                        else {
-
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -186,7 +192,7 @@ fun ProfileScreen(
                         )
                     }
                     1 -> {
-                        if (alternateProfile.fname.isNullOrBlank()){
+                        if (alternateProfile.fname.isBlank()){
                             Column(
                                 verticalArrangement = Arrangement.Center,
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -261,10 +267,10 @@ fun ProfileScreen(
                             .padding(20.dp)
                             .clickable { expand = !expand }
                     ){
-                        Divider(
-                            color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
+                        HorizontalDivider(
                             modifier = Modifier
-                                .width(100.dp)
+                                .width(100.dp),
+                            color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground
                         )
                     }
 
@@ -390,33 +396,10 @@ fun ProfileScreen(
                         }
                     }
 
-                    Divider(
-                        color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
+                    HorizontalDivider(
                         modifier = Modifier
-                            .padding(top = 15.dp, bottom = 15.dp))
-
-                    /*Row (
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 5.dp, bottom = 5.dp)
-                    ){
-                        Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                            .size(75.dp)
-                            .clip(RoundedCornerShape(15.dp)))
-                        Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                            .size(75.dp)
-                            .clip(RoundedCornerShape(15.dp)))
-                        Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                            .size(75.dp)
-                            .clip(RoundedCornerShape(15.dp)))
-                        Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                            .size(75.dp)
-                            .clip(RoundedCornerShape(15.dp)))
-
-
-                    }*/
+                            .padding(top = 15.dp, bottom = 15.dp), color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground
+                    )
 
                     Text(
                         text = "LOCATION",
@@ -498,8 +481,9 @@ fun ProfileScreen(
                             value = notes,
                             onValueChange = {notes = it},
                             textStyle = CRAppTheme.typography.bodyLarge,
-                            colors = TextFieldDefaults.textFieldColors(
-                                containerColor = Color.White,
+                            colors = TextFieldDefaults.colors(
+                                unfocusedContainerColor = Color.White,
+                                focusedContainerColor = Color.White,
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
@@ -517,167 +501,5 @@ fun ProfileScreen(
             }
         }
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ProfileInfo(game: Boolean, expand: Boolean) {
-
-    val Clicked = if (expand) 550.dp else 250.dp
-    var notes by remember { mutableStateOf("")}
-
-    Column (
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Start,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(Clicked)
-                    .background(
-                        if (!game) SolidColor(CRAppTheme.colorScheme.background) else customPurple
-                    )
-                    .padding(15.dp)
-                        then(
-                        if (expand) {
-                            Modifier.verticalScroll(rememberScrollState())
-                        } else {
-                            Modifier
-                        }
-                        )
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp)
-                .clickable { }
-        ){
-            Divider(
-                color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
-                modifier = Modifier
-                    .width(100.dp)
-            )
-        }
-
-
-        Text(
-            text = "Phillip Douglass, 40",
-            style = CRAppTheme.typography.headingLarge,
-            color = if (game) Color.White else Color.Black,
-            modifier = Modifier
-                .then (
-                    if (expand) {
-                        Modifier.padding(top = 10.dp, bottom = 10.dp)
-                    } else { Modifier
-                    }
-                )
-        )
-
-        Text(
-            text = "Male",
-            style = CRAppTheme.typography.infoLarge,
-            color = if (game) Color.White else Color.Black,
-            modifier = Modifier
-                .then (
-                    if (expand) {
-                        Modifier.padding(top = 10.dp, bottom = 10.dp)
-                    } else { Modifier
-                    }
-                )
-
-        )
-
-        Divider(
-            color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
-            modifier = Modifier
-                .padding(top = 15.dp, bottom = 15.dp))
-
-        /*Row (
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 5.dp, bottom = 5.dp)
-        ){
-            Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                .size(75.dp)
-                .clip(RoundedCornerShape(15.dp)))
-            Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                .size(75.dp)
-                .clip(RoundedCornerShape(15.dp)))
-            Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                .size(75.dp)
-                .clip(RoundedCornerShape(15.dp)))
-            Image(painter = painterResource(id = R.drawable.cool_neon), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier
-                .size(75.dp)
-                .clip(RoundedCornerShape(15.dp)))
-
-
-        }*/
-
-        Text(
-            text = "LOCATION",
-            style = CRAppTheme.typography.infoLarge,
-            color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
-            modifier = Modifier
-                .padding(top = 25.dp, bottom = 15.dp)
-        )
-
-        Text(
-            "Pennslyvania",
-            style = CRAppTheme.typography.bodyLarge,
-            color = if (game) Color.White else Color.Black,
-            modifier = Modifier
-                .padding(start = 25.dp, bottom = 30.dp)
-        )
-
-        Text(
-            text = "ABOUT",
-            style = CRAppTheme.typography.infoLarge,
-            color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
-            modifier = Modifier
-                .padding(top = 15.dp, bottom = 15.dp)
-        )
-
-        Text(
-            "Hi, I'm Alex! I'm a 32-year-old software developer with a passion for creating innovative solutions and exploring new technologies. When I'm not coding, you can find me hiking in the mountains, experimenting with new recipes in the kitchen, or curled up with a good book. I love meeting new people, learning about different cultures, and challenging myself with exciting projects. Always up for a great conversation or collaboration, so feel free to reach out!",
-            style = CRAppTheme.typography.bodyLarge,
-            color = if (game) Color.White else Color.Black,
-            modifier = Modifier
-                .padding(start = 15.dp, bottom = 30.dp)
-        )
-        Text(
-            text = "NOTES",
-            style = CRAppTheme.typography.infoLarge,
-            color = if (game) CRAppTheme.colorScheme.textOnGameBackground else CRAppTheme.colorScheme.textOnBackground,
-            modifier = Modifier
-                .padding(top = 15.dp, bottom = 15.dp)
-        )
-
-        TextField(
-            value = notes,
-            onValueChange = {notes = it},
-            textStyle = CRAppTheme.typography.bodyLarge,
-            colors = TextFieldDefaults.textFieldColors(
-                containerColor = Color.White,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 15.dp, bottom = 30.dp)
-                .border(1.dp, Color.Black)
-
-        )
-        Text(
-            "Hi, I'm Alex! I'm a 32-year-old software developer with a passion for creating innovative solutions and exploring new technologies. When I'm not coding, you can find me hiking in the mountains, experimenting with new recipes in the kitchen, or curled up with a good book. I love meeting new people, learning about different cultures, and challenging myself with exciting projects. Always up for a great conversation or collaboration, so feel free to reach out!",
-            style = CRAppTheme.typography.bodyLarge,
-            color = if (game) Color.White else Color.Black,
-            modifier = Modifier
-                .padding(start = 15.dp, bottom = 30.dp)
-        )
-
-
-    }
 }
 

@@ -1,0 +1,9 @@
+# Ignore Android-related files
+/app/
+.gradle/
+.idea/
+build/
+local.properties
+*.iml
+*.log
+*.tmp

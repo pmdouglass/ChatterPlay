@@ -1,32 +1,44 @@
 package com.example.chatterplay.view_model
 
+import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.RoomCreateRepository
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class RoomCreationViewModel: ViewModel(){
+class EntryViewModelFactory(
+    private val sharedPreferences: SharedPreferences
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(RoomCreationViewModel::class.java)) {
+            return RoomCreationViewModel(sharedPreferences) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+class RoomCreationViewModel(private val sharedPreferences: SharedPreferences): ViewModel(){
 
 
     val viewModel = ChatViewModel()
 
-    private val userRepository = RoomCreateRepository()
+    private val userRepository = RoomCreateRepository(sharedPreferences)
     // User state flow ("NotPending", "Pending", "InGame")
-    private val _userState = MutableStateFlow<String?>("NotPending")
-    val userState: StateFlow<String?> = _userState
+    private val _userState = MutableStateFlow<String?>(null)
+    val userStatus: StateFlow<String?> = _userState
 
     // Room readiness flow
     private val _roomReady = MutableStateFlow(false)
     val roomReady: StateFlow<Boolean> = _roomReady
 
-    // Get CRRoomId
-    private val _CRRoomId = MutableStateFlow<String?>(null)
-    val CRRoomId: StateFlow<String?> = _CRRoomId
+    // Get crRoomId
+    private val _crRoomId = MutableStateFlow<String?>(null)
+    val crRoomId: StateFlow<String?> = _crRoomId
 
     // selected Profile
     private val _selectedProfile = MutableStateFlow<String?>("self")
@@ -38,11 +50,11 @@ class RoomCreationViewModel: ViewModel(){
     init {
         checkUserState()
         checkSelectedProfile()
-        checkCRRoomId()
+        checkcrRoomId()
     }
 
     // Check the user's current state from the backend
-    private fun checkUserState() {
+    fun checkUserState() {
         viewModelScope.launch {
             val status = userRepository.fetchUserProfile(userId)
             _userState.value = status ?: "NotPending"
@@ -58,10 +70,15 @@ class RoomCreationViewModel: ViewModel(){
             _selectedProfile.value = status ?: "self"
         }
     }
-    private fun checkCRRoomId(){
+    private fun checkcrRoomId(){
         viewModelScope.launch {
-            val status = userRepository.fetchCRroomId(userId)
-            _CRRoomId.value = status ?: "0"
+            val usercrRoomId = userRepository.loadUserLocalcrRoomId(userId)
+            if (usercrRoomId != null && usercrRoomId != "0"){
+                _crRoomId.value = usercrRoomId
+            }else {
+                val status = userRepository.fetchcrRoomId(userId)
+                _crRoomId.value = status ?: "0"
+            }
         }
     }
 
@@ -78,11 +95,13 @@ class RoomCreationViewModel: ViewModel(){
         }
     }
 
+
+
     // Monitor the backend for room readiness
     private fun monitorPendingUsers() {
         viewModelScope.launch {
             while (_userState.value == "Pending"){
-                val roomSize = 3
+                val roomSize = 4
                 val pendingUsers = userRepository.fetchUsersPendingState()
                 if (pendingUsers.size >= roomSize){
                     val usersToUpdate = pendingUsers.take(roomSize)
@@ -95,12 +114,14 @@ class RoomCreationViewModel: ViewModel(){
                         // Update users
                         if (roomSuccess){
                             // get roomID
-                            val roomId = userRepository.getCRRoomId(userId)
+                            val roomId = userRepository.getcrRoomId(userId)
                             if (roomId != null){
-                                val addRoomId = userRepository.updateUserGameRoomId(userIds = usersToUpdate, roomId = roomId)
+                                userRepository.saveUserLocalcrRoomId(userId, roomId)
+                                val addRoomId = userRepository.updateUsersGameRoomId(userIds = usersToUpdate, roomId = roomId)
                                 // add users document
-                                userRepository.createCRSelectedProfileUsers(CRRoomId = roomId, userIds = usersToUpdate)
+                                userRepository.createCRSelectedProfileUsers(crRoomId = roomId, userIds = usersToUpdate)
                                 if (addRoomId){
+                                    checkcrRoomId()
                                     _userState.value = "InGame"
                                     _roomReady.value = true
                                 }
@@ -113,6 +134,7 @@ class RoomCreationViewModel: ViewModel(){
             }
         }
     }
+
 
 
 

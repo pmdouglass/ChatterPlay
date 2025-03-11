@@ -4,12 +4,13 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.jetbrainsKotlinAndroid)
     id("com.google.gms.google-services")
+    id("org.jetbrains.kotlin.kapt")
     kotlin("plugin.serialization") version "1.9.10"
 }
 
 android {
     namespace = "com.example.chatterplay"
-    compileSdk = 35
+    compileSdk = 34
 
     val properties = gradleLocalProperties(rootDir, project.providers)
     val supabaseUrl: String = properties.getProperty("supabaseUrl") ?: ""
@@ -33,7 +34,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -80,6 +81,31 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.datastore:datastore-preferences-android:1.1.2")
+    implementation("androidx.datastore:datastore:1.1.2")
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+
+
+    implementation("ch.qos.logback:logback-classic:1.2.11")
+    /*
+    {
+        exclude("javax.servlet")
+        exclude("javax.management")
+    }
+
+     */
+
+
+
+    implementation("com.jakewharton.timber:timber:5.0.1")
+    // implementation("org.slf4j:slf4j-simple:2.0.7")
+
+
 
     // more Icons
     implementation("androidx.compose.material:material-icons-extended-android:1.7.5")
@@ -88,6 +114,12 @@ dependencies {
     implementation("io.github.vanpra.compose-material-dialogs:datetime:0.8.1-rc")
 
 
+    // Call to ktor API
+    implementation("io.ktor:ktor-client-core:2.3.4")
+    implementation("io.ktor:ktor-client-cio:2.3.4")
+    implementation("io.ktor:ktor-client-content-negotiation:2.3.4")
+    implementation("io.ktor:ktor-client-json:2.3.4")
+    implementation("io.ktor:ktor-client-serialization:2.3.4")
 
 
     // datastore
@@ -111,6 +143,7 @@ dependencies {
 
     // Supabase libraries
     implementation("io.github.jan-tennert.supabase:gotrue-kt:1.3.2")
+    implementation("io.github.jan-tennert.supabase:postgrest-kt:1.3.2")
     implementation("io.github.jan-tennert.supabase:compose-auth:1.3.2")
     implementation("io.github.jan-tennert.supabase:compose-auth-ui:1.3.2")
     implementation("io.github.jan-tennert.supabase:storage-kt:1.3.2")
@@ -124,8 +157,8 @@ dependencies {
     implementation("org.burnoutcrew.composereorderable:reorderable:0.9.6")
 
     //Glide for image Loading
-    implementation("com.github.bumptech.glide:glide:4.12.0")
-    implementation("com.github.bumptech.glide:compiler:4.12.0")
+    // implementation("com.github.bumptech.glide:glide:4.12.0")
+    // implementation("com.github.bumptech.glide:compiler:4.12.0")
 
     // Compose Material 3
     implementation("androidx.compose.material3:material3:1.2.1")

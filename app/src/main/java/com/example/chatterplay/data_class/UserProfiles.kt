@@ -1,7 +1,5 @@
 package com.example.chatterplay.data_class
 
-import kotlinx.serialization.json.Json
-
 data class UserProfile(
     val userId: String = "",
     val fname: String = "",
@@ -14,7 +12,11 @@ data class UserProfile(
     val about: String = "",
     val pending: String = "NotPending",
     val selectedProfile: String = "self",
-    val gameRoomId: String = "0"
+    val gameRoomId: String = "0",
+    val rankingStatus: String = "",
+    val currentRank: Int = 0,
+    val hadAlert: Boolean = true,
+    val hasAnswered: Boolean = true,
 )
 
 data class DateOfBirth(

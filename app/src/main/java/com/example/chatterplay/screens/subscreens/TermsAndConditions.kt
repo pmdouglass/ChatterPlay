@@ -1,26 +1,43 @@
 package com.example.chatterplay.screens.subscreens
 
+import android.os.Bundle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.ui.theme.CRAppTheme
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun TermsAndConditionsScreen(navController: NavController) {
-    
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "TermsAndConditionsScreen")
+            putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    (context as? MainActivity)?.setCurrentScreen(("TermsAndConditionsScreen"))
+
+
     Column (
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -41,15 +58,5 @@ fun TermsAndConditionsScreen(navController: NavController) {
                 .clickable { navController.popBackStack()}
         )
         
-    }
-}
-
-@Preview
-@Composable
-fun TestTerms() {
-    CRAppTheme {
-        Surface {
-            TermsAndConditionsScreen(navController = rememberNavController())
-        }
     }
 }

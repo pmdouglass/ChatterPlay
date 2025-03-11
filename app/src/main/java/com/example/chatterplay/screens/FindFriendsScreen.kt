@@ -1,48 +1,67 @@
 package com.example.chatterplay.screens
 
+import android.os.Bundle
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.DateOfBirth
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.FriendInfoRow
 import com.example.chatterplay.seperate_composables.RowState
 import com.example.chatterplay.ui.theme.CRAppTheme
+import com.google.firebase.auth.FirebaseAuth
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FindFriends(navController: NavController) {
 
     val tabs = listOf("Following", "Followers", "Friends")
-    var selectedTabIndex by remember { mutableStateOf(0)}
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "FindFriends")
+            putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "FindFriends", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("ScreenPresenceLogger"))
+
 
     Scaffold (
         topBar = {
@@ -55,7 +74,7 @@ fun FindFriends(navController: NavController) {
                 navigationIcon = {
                     IconButton(onClick = {navController.popBackStack()}) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            Icons.AutoMirrored.Default.ArrowBack,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(35.dp)
@@ -111,19 +130,19 @@ fun FindFriends(navController: NavController) {
                     // Following
                     0 -> {
                         friends.forEach { friend ->
-                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.none.string)
+                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.None.string)
                         }
                     }
                     // Followers
                     1 -> {
                         friends.forEach { friend ->
-                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.follow.string)
+                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.Follow.string)
                         }
                     }
                     // Friends
                     2 -> {
                         friends.forEach { friend ->
-                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.check.string)
+                            FriendInfoRow(game = false, user = fakeData, onUserSelected = {}, state = RowState.Check.string)
                         }
                     }
                     else -> {
@@ -133,14 +152,4 @@ fun FindFriends(navController: NavController) {
             }
         }
     )
-}
-
-@Preview
-@Composable
-fun testfriendfind() {
-    CRAppTheme {
-        Surface {
-            FindFriends(rememberNavController())
-        }
-    }
 }

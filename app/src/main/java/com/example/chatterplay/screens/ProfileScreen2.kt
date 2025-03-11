@@ -1,13 +1,13 @@
 package com.example.chatterplay.screens
 
 import android.os.Build
+import android.os.Bundle
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +27,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
@@ -36,12 +35,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -51,17 +49,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.R
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
 import com.example.chatterplay.data_class.UserProfile
 import com.example.chatterplay.seperate_composables.DateDropDown
 import com.example.chatterplay.ui.theme.CRAppTheme
-import com.google.android.play.integrity.internal.i
-import com.google.android.play.integrity.internal.k
+import com.example.chatterplay.view_model.ChatViewModel
+import com.google.firebase.auth.FirebaseAuth
 
 enum class profileInfo (val string: String){
     pname("Name"),
@@ -71,18 +71,47 @@ enum class profileInfo (val string: String){
     gender("Identify As")
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun ProfileScreen2(
+    crRoomId: String,
     profile: UserProfile,
     game: Boolean,
     self: Boolean,
-    isEditable: Boolean
+    isEditable: Boolean,
+    viewModel: ChatViewModel = viewModel(),
+    navController: NavController
 ){
-
-    var noteInput by remember { mutableStateOf("")}
+    var roomId by remember { mutableStateOf<String?>(null)}
+    //var noteInput by remember { mutableStateOf("")}
     var editProfile by remember { mutableStateOf(false)}
     var bigPicture by remember { mutableStateOf(false)}
     val picSize = if (bigPicture) 800 else 200
+    val roomList by remember { mutableStateOf<List<UserProfile>>(emptyList())}
+
+
+    Log.d("riser", "other userId is ${profile.userId}")
+
+    LaunchedEffect(crRoomId){
+        Log.d("riser", "inside profileScreen2 launched Effect")
+        viewModel.fetchSingleRoom(crRoomId, profile.userId) { fetchedRoomId ->
+            roomId = fetchedRoomId
+        }
+    }
+
+    val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "GameProfileScreen")
+            putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "GameProfileScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("GameProfileScreen"))
 
 
     Column (
@@ -90,7 +119,11 @@ fun ProfileScreen2(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier
             .fillMaxSize()
-            .background(if (game) CRAppTheme.colorScheme.onGameBackground else CRAppTheme.colorScheme.onBackground)
+            .background(
+                if (game)
+                    CRAppTheme.colorScheme.onGameBackground
+                else CRAppTheme
+                    .colorScheme.onBackground)
             .padding(10.dp)
             .verticalScroll(rememberScrollState())
     ){
@@ -206,9 +239,7 @@ fun ProfileScreen2(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
                 ){
-                    if (game){
-
-                    } else {
+                    if (!game){
                         IconButton(
                             onClick = {  },
                             modifier = Modifier
@@ -223,7 +254,28 @@ fun ProfileScreen2(
                         }
                     }
                     IconButton(
-                        onClick = {  },
+                        onClick = {
+                            if (roomId != null){
+                                navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
+                            } else {
+                                // create chat room and navigate
+
+                                viewModel.createAndInviteToChatRoom(
+                                    crRoomId = crRoomId,
+                                    memberIds = roomList.map { it.userId }.toMutableList().apply { add(profile.userId) },
+                                    roomName = profile.fname,
+                                    onRoomCreated = { roomId ->
+                                        navController.navigate("chatScreen/${crRoomId}/${roomId}/true/false")
+                                    }
+                                )
+                                Log.d("riser", "RoomId is null")
+                            }
+
+
+
+
+
+                        },
                         modifier = Modifier
                             .size(35.dp)
                             .clip(CircleShape)
@@ -263,6 +315,7 @@ fun ProfileScreen2(
                 }
             }
             Spacer(modifier = Modifier.padding(10.dp))
+            /*
             if (!self){
                 Card(
                     modifier = Modifier
@@ -287,18 +340,17 @@ fun ProfileScreen2(
                     )
                 }
             }
+
+             */
         }
 
     }
 }
 
-@Composable
-fun ProfileSelection(
 
-){
 
-}
 
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun EditInfo(
     title: profileInfo,
@@ -325,10 +377,7 @@ fun EditInfo(
                             else -> newValue
                         }
                     },
-                    keyboardOptions = when (title) {
-                        profileInfo.age -> KeyboardOptions(keyboardType = KeyboardType.Number)
-                        else -> KeyboardOptions.Default
-                    },
+                    keyboardOptions = KeyboardOptions.Default,
                     colors = TextFieldDefaults.colors(
                         focusedContainerColor = Color.Transparent,
                         unfocusedContainerColor = Color.Transparent,
@@ -363,7 +412,7 @@ fun EditInfo(
                             .fillMaxWidth()
                             .border(
                                 2.dp,
-                                if (game) Color.LightGray else Color.Black,
+                                Color.Black,
                                 RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp)
                             )
                             .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
@@ -373,7 +422,6 @@ fun EditInfo(
             profileInfo.age -> {
                 DateDropDown(age = true, game = game){selected -> editInput = selected}
             }
-            else -> {}
         }
 
     }

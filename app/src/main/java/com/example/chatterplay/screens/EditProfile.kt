@@ -2,14 +2,13 @@ package com.example.chatterplay.screens
 
 import android.net.Uri
 import android.os.Build
-import android.widget.HorizontalScrollView
+import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,10 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ImageAspectRatio
-import androidx.compose.material.icons.filled.KeyboardBackspace
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -40,7 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -50,24 +49,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
-import com.example.chatterplay.R
+import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.MainActivity
+import com.example.chatterplay.analytics.AnalyticsManager
+import com.example.chatterplay.analytics.ScreenPresenceLogger
+import com.example.chatterplay.data_class.UserProfile
+import com.example.chatterplay.data_class.uriToByteArray
 import com.example.chatterplay.seperate_composables.EditInfoDialog
 import com.example.chatterplay.seperate_composables.SettingsInfoRow
 import com.example.chatterplay.seperate_composables.rememberProfileState
-import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.rememberAsyncImagePainter
-import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.data_class.uriToByteArray
-import com.example.chatterplay.seperate_composables.EditFirstNameDialog
 import com.example.chatterplay.ui.theme.CRAppTheme
 import com.example.chatterplay.view_model.ChatViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -81,25 +78,32 @@ fun EditProfileScreen(
     navController: NavController
 ) {
 
-    //val usersInfo by viewModel.userProfile.collectAsState()
-    //val auth = FirebaseAuth.getInstance()
-    //val currentUser = auth.currentUser
-
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     val tabs = listOf("Personal", "Alternate")
-    var selectedTabIndex by remember { mutableStateOf(0)}
+    var selectedTabIndex by remember { mutableIntStateOf(0)}
     val scrollState = rememberScrollState()
     var showEditInfo by remember { mutableStateOf(false)}
     var showGameEditInfo by remember { mutableStateOf(false)}
     var showImageEdit by remember { mutableStateOf(false)}
     var showGameImageEdit by remember { mutableStateOf(false)}
 
-    var showEdit by remember { mutableStateOf(false)}
 
     var titleEdit by remember{ mutableStateOf("")}
     val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
 
 
+    val context = LocalContext.current
+    LaunchedEffect(Unit){
+        // Log the event in Firebase Analytics
+        val params = Bundle().apply {
+            putString("screen_name", "EditProfileScreen")
+            putString("user_id", userId)
+            putString("timestamp", System.currentTimeMillis().toString())
+        }
+        AnalyticsManager.getInstance(context).logEvent("screen_view", params)
+    }
+    ScreenPresenceLogger(screenName = "EditProfileScreen", userId = userId)
+    (context as? MainActivity)?.setCurrentScreen(("EditProfileScreen"))
 
 
     Scaffold (
@@ -111,7 +115,7 @@ fun EditProfileScreen(
                 navigationIcon = {
                     IconButton(onClick = {navController.popBackStack()}) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            Icons.AutoMirrored.Default.ArrowBack,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(35.dp)
@@ -160,16 +164,16 @@ fun EditProfileScreen(
                 }
                 when (selectedTabIndex) {
                     0 -> {
-                        SettingsInfoRow(Image = true, title = "Profile Picture", body = personalProfile.imageUrl, onClick = { showImageEdit = true; titleEdit = "Picture" })
-                        SettingsInfoRow(Bio = true, title = "About", body = personalProfile.about, onClick = { showEditInfo = true; titleEdit = "About" })
-                        SettingsInfoRow(Edit = true, title = "Gender", body = personalProfile.gender, onClick = { showEditInfo = true; titleEdit = "Gender" })
-                        SettingsInfoRow(Edit = true, title = "Location", body = personalProfile.location , onClick = { showEditInfo = true; titleEdit = "Location" })
-                        SettingsInfoRow(Edit = true, editClick = false, amount = 2, title = "Name", body = personalProfile.fname, secondBody = personalProfile.lname, onClick = { showEditInfo = true; titleEdit = "Name" })
-                        SettingsInfoRow(Edit = true, editClick = false, title = "Date of Birth", body = "${personalProfile.dob.month}-${personalProfile.dob.day}-${personalProfile.dob.year}" , onClick = { showEditInfo = true; titleEdit = "Date of Birth" })
-                        SettingsInfoRow(Edit = true, editClick = false, title = "Age", body = personalProfile.age , onClick = { showEditInfo = true; titleEdit = "Age" })
+                        SettingsInfoRow(image = true, title = "Profile Picture", body = personalProfile.imageUrl, onClick = { showImageEdit = true; titleEdit = "Picture" })
+                        SettingsInfoRow(bio = true, title = "About", body = personalProfile.about, onClick = { showEditInfo = true; titleEdit = "About" })
+                        SettingsInfoRow(edit = true, title = "Gender", body = personalProfile.gender, onClick = { showEditInfo = true; titleEdit = "Gender" })
+                        SettingsInfoRow(edit = true, title = "Location", body = personalProfile.location , onClick = { showEditInfo = true; titleEdit = "Location" })
+                        SettingsInfoRow(edit = true, editClick = false, amount = 2, title = "Name", body = personalProfile.fname, secondBody = personalProfile.lname, onClick = { showEditInfo = true; titleEdit = "Name" })
+                        SettingsInfoRow(edit = true, editClick = false, title = "Date of Birth", body = "${personalProfile.dob.month}-${personalProfile.dob.day}-${personalProfile.dob.year}" , onClick = { showEditInfo = true; titleEdit = "Date of Birth" })
+                        SettingsInfoRow(edit = true, editClick = false, title = "Age", body = personalProfile.age , onClick = { showEditInfo = true; titleEdit = "Age" })
                     }
                     1 -> {
-                        if (alternateProfile.fname.isNullOrBlank()){
+                        if (alternateProfile.fname.isBlank()){
                             Column (
                                 verticalArrangement = Arrangement.Top,
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -204,13 +208,13 @@ fun EditProfileScreen(
 
                             }
                         } else {
-                            SettingsInfoRow(game = true, Image = true, title = "Profile Picture", body = alternateProfile.imageUrl, onClick = { showGameImageEdit = true; titleEdit = "Picture" })
-                            SettingsInfoRow(game = true, Bio = true, title = "About", body = alternateProfile.about, onClick = { showGameEditInfo = true; titleEdit = "About" })
-                            SettingsInfoRow(game = true, Edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showGameEditInfo = true; titleEdit = "Name" })
-                            SettingsInfoRow(game = true, Edit = true, title = "Gender", body = alternateProfile.gender, onClick = { showGameEditInfo = true; titleEdit = "Gender" })
-                            SettingsInfoRow(game = true, Edit = true, editClick = false, title = "Date of Birth", body = "${alternateProfile.dob.month}-${alternateProfile.dob.day}-${alternateProfile.dob.year}", onClick = { showGameEditInfo = true; titleEdit = "Date of Birth" })
-                            SettingsInfoRow(game = true, Edit = true, title = "Age", body = alternateProfile.age , onClick = { showGameEditInfo = true; titleEdit = "Age" })
-                            SettingsInfoRow(game = true, Edit = true, title = "Location", body = alternateProfile.location , onClick = { showGameEditInfo = true; titleEdit = "Location" })
+                            SettingsInfoRow(game = true, image = true, title = "Profile Picture", body = alternateProfile.imageUrl, onClick = { showGameImageEdit = true; titleEdit = "Picture" })
+                            SettingsInfoRow(game = true, bio = true, title = "About", body = alternateProfile.about, onClick = { showGameEditInfo = true; titleEdit = "About" })
+                            SettingsInfoRow(game = true, edit = true, amount = 1, title = "Name", body = alternateProfile.fname, onClick = { showGameEditInfo = true; titleEdit = "Name" })
+                            SettingsInfoRow(game = true, edit = true, title = "Gender", body = alternateProfile.gender, onClick = { showGameEditInfo = true; titleEdit = "Gender" })
+                            SettingsInfoRow(game = true, edit = true, editClick = false, title = "Date of Birth", body = "${alternateProfile.dob.month}-${alternateProfile.dob.day}-${alternateProfile.dob.year}", onClick = { showGameEditInfo = true; titleEdit = "Date of Birth" })
+                            SettingsInfoRow(game = true, edit = true, title = "Age", body = alternateProfile.age , onClick = { showGameEditInfo = true; titleEdit = "Age" })
+                            SettingsInfoRow(game = true, edit = true, title = "Location", body = alternateProfile.location , onClick = { showGameEditInfo = true; titleEdit = "Location" })
                         }
                     }
                     else -> {
@@ -268,23 +272,12 @@ fun EditPersonalInfo(
     navController: NavController
 ) {
 
-    //val usersInfo by viewModel.userProfile.collectAsState()
-    //val auth = FirebaseAuth.getInstance()
-    //val currentUser = auth.currentUser
-
-    var examp by remember { mutableStateOf("")}
     val scrollState = rememberScrollState()
     var showEditInfo by remember { mutableStateOf(false)}
-
-    var email by remember { mutableStateOf("")}
-    var password by remember { mutableStateOf("")}
-    var confirmPassword by remember { mutableStateOf("")}
     var titleEdit by remember{ mutableStateOf("")}
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+    val userEmail = FirebaseAuth.getInstance().currentUser?.email ?: ""
     val (personalProfile, alternateProfile) = rememberProfileState(viewModel = viewModel, userId = userId)
-
-
-
 
 
     Scaffold (
@@ -296,7 +289,7 @@ fun EditPersonalInfo(
                 navigationIcon = {
                     IconButton(onClick = {navController.popBackStack()}) {
                         Icon(
-                            Icons.Default.ArrowBack,
+                            Icons.AutoMirrored.Default.ArrowBack,
                             contentDescription = null,
                             modifier = Modifier
                                 .size(35.dp)
@@ -318,8 +311,8 @@ fun EditPersonalInfo(
                     .background(CRAppTheme.colorScheme.background)
                     .padding(paddingValues)
             ) {
-                SettingsInfoRow(Edit = true, title = "Email", body = "doug@gmail.com", onClick = { showEditInfo = true; titleEdit = "Email" })
-                SettingsInfoRow(Edit = true, title = "Update Password", body = "*********", onClick = { showEditInfo = true; titleEdit = "Password" })
+                SettingsInfoRow(edit = true, title = "Email", body = userEmail, onClick = { showEditInfo = true; titleEdit = "Email" })
+                SettingsInfoRow(edit = true, title = "Update Password", body = "*********", onClick = { showEditInfo = true; titleEdit = "Password" })
 
             }
             if (showEditInfo){
@@ -445,10 +438,13 @@ fun EditImageDialog(
                     Button(
                         onClick = {
                                   if (byteArray != null){
-                                      viewModel.selectUploadAndGetImage(false, "${userProfile.userId}", byteArray!!){ url, error ->
+                                      viewModel.selectUploadAndGetImage(
+                                          game = false,
+                                          userId = userProfile.userId,
+                                          byteArray = byteArray!!){ url, error ->
                                           if (url != null){
                                               val savedCopy = userProfile.copy(imageUrl = url)
-                                              viewModel.saveUserProfile(userId = userProfile.userId, userProfile = savedCopy, game = game)
+                                              viewModel.saveUserProfile(context = context, userId = userProfile.userId, userProfile = savedCopy, game = game)
                                               onDismiss()
                                           }
                                       }
@@ -463,18 +459,6 @@ fun EditImageDialog(
                 }
 
             }
-        }
-    }
-}
-
-
-@RequiresApi(Build.VERSION_CODES.O)
-@Preview
-@Composable
-fun testeditscreen() {
-    CRAppTheme {
-        Surface {
-            EditProfileScreen(navController = rememberNavController())
         }
     }
 }
