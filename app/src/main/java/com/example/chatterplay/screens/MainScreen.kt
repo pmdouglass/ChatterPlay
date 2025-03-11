@@ -563,11 +563,6 @@ fun MainScreen(
                                 }){
                                     Text("Delete Rooms")
                                 }
-                                Button(onClick = {
-                                    crViewModel.fetchApiStatus()
-                                }){
-                                    Text("Call to Api")
-                                }
                             }
                         }
 

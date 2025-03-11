@@ -19,7 +19,6 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.network.RetrofitClient
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.example.chatterplay.repository.RoomCreateRepository
@@ -695,20 +694,6 @@ class ChatRiseViewModel(
                 Log.d("ViewModel", "Updated hasAnswered to true")
             }catch (e: Exception){
                 Log.d("ViewModel", "failed to update game status to true: ${e.message}")
-            }
-        }
-    }
-
-    fun fetchApiStatus() {
-        viewModelScope.launch {
-            try {
-                val response = RetrofitClient.api.getStatus()
-                if (response.isSuccessful){
-                    val message = response.body()?.get("message") ?: "Unknown"
-                    Log.d("ChatRiseViewModel", "API Response: $message")
-                }
-            }catch (e: Exception){
-                Log.e("ChatRiseViewModel", "API Error: ${e.message}", e)
             }
         }
     }
