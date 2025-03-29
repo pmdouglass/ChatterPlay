@@ -477,7 +477,6 @@ fun AlertingScreen(
         when (systemAlertType){
             AlertType.none.string -> {"false alert"}
             AlertType.new_player.string -> {"The game just got more interesting!"}
-            AlertType.fresh_player.string -> {"You've officially joined the group!"}
             AlertType.game.string ->
                 gameInfo?.let { game ->
                     "You will now Play\n\n\n${game.title}"
@@ -500,7 +499,6 @@ fun AlertingScreen(
         when (systemAlertType) {
             AlertType.none.string -> {"I got you"}
             AlertType.new_player.string -> {"A new member has arrived"}
-            AlertType.fresh_player.string -> {"Alliances have been formed and rivalries exist."}
             AlertType.game.string ->
                 gameInfo?.let { game ->
                     when (game.mode){
@@ -526,7 +524,6 @@ fun AlertingScreen(
         when (systemAlertType) {
             AlertType.none.string -> {"something to keep you on your toes."}
             AlertType.new_player.string -> {"Will they be a friend, an ally, or your next biggest threat?"}
-            AlertType.fresh_player.string -> {"but there's still plenty of room to make your mark."}
             AlertType.game.string -> gameInfo?.let { game ->
                 when(game.type){
                     "agree/disagree" -> "Respond with\n\n\nAgree or Disagree"

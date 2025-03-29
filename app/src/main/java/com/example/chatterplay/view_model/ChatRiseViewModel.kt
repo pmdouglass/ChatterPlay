@@ -3,14 +3,12 @@ package com.example.chatterplay.view_model
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Bundle
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.ChatMessage
@@ -727,28 +725,6 @@ class ChatRiseViewModel(
                                         context = context
                                     )
                                     Log.d("ChatriseViewModel", "game saved successfully.")
-
-                                    /*
-                                    chatRepository.updateAlertStatus(
-                                        crRoomId = crRoomId,
-                                        userId = userId,
-                                        alertStatus = false
-                                    )
-
-                                     */
-
-                                    try {
-                                        // Log the event in Firebase Analytics
-                                        val params = Bundle().apply {
-                                            putString("cr_room_id", crRoomId)
-                                            putString("game_name", game.title)
-                                            putString("game_mode", game.mode)
-                                        }
-                                        AnalyticsManager.getInstance(context).logEvent("game_started", params)
-                                        Log.d("ChatriseViewModel", "Game started event logged in Firebase Analytics.")
-                                    }catch (e: Exception){
-                                        Log.e("ChatriseViewModel", "Error logging game started event: ${e.message}")
-                                    }
                                 }
                             } else {
                                 Log.d("ChatRiseViewModel", "No game was returned for generateRandomGameInfo, skipping addGame")

@@ -65,6 +65,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
+import com.example.chatterplay.ApiService.RailwayViewModel
 import com.example.chatterplay.MainActivity
 import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.analytics.ScreenPresenceLogger
@@ -98,6 +99,7 @@ fun MainScreen(
     crRoomId: String,
     navController: NavController,
     viewModel: ChatViewModel = viewModel(),
+    railwayViewModel: RailwayViewModel = viewModel()
 ) {
 
 
@@ -562,6 +564,11 @@ fun MainScreen(
                                     crViewModel.removePlayerFromPrivateRooms(crRoomId, "iRybj66UY1PyYeR5QTIsxLT4i6t1")
                                 }){
                                     Text("Delete Rooms")
+                                }
+                                Button(onClick = {
+                                    railwayViewModel.createRoom(crRoomId)
+                                }){
+                                    Text("createRoom")
                                 }
                             }
                         }
