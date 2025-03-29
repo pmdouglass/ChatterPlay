@@ -3,14 +3,12 @@ package com.example.chatterplay.view_model
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Bundle
 import android.util.Log
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.chatterplay.analytics.AnalyticsManager
 import com.example.chatterplay.data_class.AlertType
 import com.example.chatterplay.data_class.Answers
 import com.example.chatterplay.data_class.ChatMessage
@@ -19,7 +17,6 @@ import com.example.chatterplay.data_class.Questions
 import com.example.chatterplay.data_class.SupabaseClient.client
 import com.example.chatterplay.data_class.Title
 import com.example.chatterplay.data_class.UserProfile
-import com.example.chatterplay.network.RetrofitClient
 import com.example.chatterplay.repository.ChatRepository
 import com.example.chatterplay.repository.ChatRiseRepository
 import com.example.chatterplay.repository.RoomCreateRepository
@@ -699,20 +696,6 @@ class ChatRiseViewModel(
         }
     }
 
-    fun fetchApiStatus() {
-        viewModelScope.launch {
-            try {
-                val response = RetrofitClient.api.getStatus()
-                if (response.isSuccessful){
-                    val message = response.body()?.get("message") ?: "Unknown"
-                    Log.d("ChatRiseViewModel", "API Response: $message")
-                }
-            }catch (e: Exception){
-                Log.e("ChatRiseViewModel", "API Error: ${e.message}", e)
-            }
-        }
-    }
-
     fun updateSystemAlertType(crRoomId: String, alertType: AlertType, allMembers: List<UserProfile>, userId: String, context: Context){
         viewModelScope.launch {
             Log.d("ChatRiseViewModel", "Attempting to update AlertType to $alertType")
@@ -742,28 +725,6 @@ class ChatRiseViewModel(
                                         context = context
                                     )
                                     Log.d("ChatriseViewModel", "game saved successfully.")
-
-                                    /*
-                                    chatRepository.updateAlertStatus(
-                                        crRoomId = crRoomId,
-                                        userId = userId,
-                                        alertStatus = false
-                                    )
-
-                                     */
-
-                                    try {
-                                        // Log the event in Firebase Analytics
-                                        val params = Bundle().apply {
-                                            putString("cr_room_id", crRoomId)
-                                            putString("game_name", game.title)
-                                            putString("game_mode", game.mode)
-                                        }
-                                        AnalyticsManager.getInstance(context).logEvent("game_started", params)
-                                        Log.d("ChatriseViewModel", "Game started event logged in Firebase Analytics.")
-                                    }catch (e: Exception){
-                                        Log.e("ChatriseViewModel", "Error logging game started event: ${e.message}")
-                                    }
                                 }
                             } else {
                                 Log.d("ChatRiseViewModel", "No game was returned for generateRandomGameInfo, skipping addGame")

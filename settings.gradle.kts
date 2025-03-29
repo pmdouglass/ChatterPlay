@@ -20,5 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "ChatterPlay"
-// include(":app")
-include(":backend")
+include(":app")
